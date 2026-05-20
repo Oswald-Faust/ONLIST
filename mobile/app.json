@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "ONLIST",
+    "slug": "onlist",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#080810"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.onlist.app"
+    },
+    "android": {
+      "package": "com.onlist.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#080810"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ONLIST a besoin d'accéder à vos photos pour votre profil."
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+.DS_Store
+
+# Dependencies
+**/node_modules/
+
+# Frontend / Next.js
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel/
+frontend/next-env.d.ts
+
+# Mobile / Expo
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/ios/
+mobile/android/
+
+# Environment files
+**/.env*.local
+
+# Logs and debug
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
+
+# TypeScript
+**/*.tsbuildinfo

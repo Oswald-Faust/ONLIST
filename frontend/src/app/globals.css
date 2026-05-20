@@ -1,0 +1,233 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0a0f;
+  --bg-elevated: #0f0f12;
+  --bg-card: #111110;
+  --bg-card-2: #1a1a18;
+  --bg-card-3: #201f1c;
+  --border: rgba(201, 169, 97, 0.14);
+  --border-strong: rgba(201, 169, 97, 0.22);
+  --primary: #c9a961;
+  --primary-light: #d4af77;
+  --secondary: #a89060;
+  --accent: #f0ebe0;
+  --text-primary: #f0ebe0;
+  --text-secondary: #c8beaE;
+  --text-muted: #9a8e7e;
+  --success: #52b788;
+  --warning: #d7a74c;
+  --danger: #d46a6a;
+  --shadow-gold: 0 20px 60px rgba(201, 169, 97, 0.08);
+  --gradient-primary: linear-gradient(135deg, #c0a981 0%, #d4af77 55%, #b79252 100%);
+  --gradient-surface: linear-gradient(180deg, rgba(255, 248, 235, 0.02) 0%, rgba(255, 248, 235, 0) 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(201, 169, 97, 0.1), transparent 24%),
+    radial-gradient(circle at 85% 12%, rgba(212, 175, 119, 0.08), transparent 22%),
+    linear-gradient(180deg, #09090d 0%, #0b0b10 48%, #09090d 100%);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(201, 169, 97, 0.22);
+  color: var(--text-primary);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 169, 97, 0.18);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 169, 97, 0.28);
+}
+
+@utility app-shell {
+  background:
+    radial-gradient(circle at top right, rgba(201, 169, 97, 0.08), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(201, 169, 97, 0.05), transparent 18%),
+    var(--bg);
+}
+
+@utility glass {
+  background: linear-gradient(180deg, rgba(29, 28, 25, 0.94) 0%, rgba(17, 17, 16, 0.94) 100%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-gold);
+}
+
+@utility surface {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+@utility surface-2 {
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+}
+
+@utility subtle-divider {
+  border-color: rgba(201, 169, 97, 0.1);
+}
+
+@utility panel-title {
+  font-family: 'Cormorant Garamond', serif;
+  letter-spacing: 0.01em;
+}
+
+@utility gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@utility input-shell {
+  background: linear-gradient(180deg, rgba(28, 28, 26, 0.98) 0%, rgba(21, 21, 19, 0.98) 100%);
+  border: 1px solid rgba(201, 169, 97, 0.14);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 248, 235, 0.02);
+}
+
+@utility btn-primary {
+  background: var(--gradient-primary);
+  color: #16130d;
+  box-shadow: 0 16px 36px rgba(201, 169, 97, 0.2);
+}
+
+@utility btn-secondary {
+  background: rgba(201, 169, 97, 0.08);
+  color: var(--primary-light);
+  border: 1px solid rgba(201, 169, 97, 0.18);
+}
+
+@utility btn-danger-soft {
+  background: rgba(212, 106, 106, 0.08);
+  color: #e3a0a0;
+  border: 1px solid rgba(212, 106, 106, 0.18);
+}
+
+@utility segmented {
+  background: rgba(255, 248, 235, 0.02);
+  border: 1px solid rgba(201, 169, 97, 0.14);
+}
+
+@utility segmented-active {
+  background: linear-gradient(180deg, rgba(201, 169, 97, 0.22) 0%, rgba(168, 144, 96, 0.18) 100%);
+  color: var(--text-primary);
+  border-color: rgba(212, 175, 119, 0.28);
+}
+
+@utility badge-pending {
+  background: rgba(215, 167, 76, 0.14);
+  color: #e7bc6c;
+  border: 1px solid rgba(215, 167, 76, 0.26);
+}
+
+@utility badge-validated {
+  background: rgba(82, 183, 136, 0.14);
+  color: #7fd4a8;
+  border: 1px solid rgba(82, 183, 136, 0.24);
+}
+
+@utility badge-rejected {
+  background: rgba(212, 106, 106, 0.12);
+  color: #eba0a0;
+  border: 1px solid rgba(212, 106, 106, 0.22);
+}
+
+@utility badge-influencer {
+  background: rgba(201, 169, 97, 0.12);
+  color: var(--primary-light);
+  border: 1px solid rgba(201, 169, 97, 0.22);
+}
+
+@utility badge-business {
+  background: rgba(168, 144, 96, 0.14);
+  color: #d5c190;
+  border: 1px solid rgba(168, 144, 96, 0.24);
+}
+
+@utility badge-admin {
+  background: rgba(240, 235, 224, 0.08);
+  color: var(--accent);
+  border: 1px solid rgba(240, 235, 224, 0.16);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-fade-in {
+  animation: fadeIn 0.45s ease forwards;
+}
+
+.focus-ring {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.focus-ring:focus {
+  outline: none;
+  border-color: rgba(212, 175, 119, 0.45);
+  box-shadow: 0 0 0 4px rgba(201, 169, 97, 0.08);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px #171714 inset;
+  box-shadow: 0 0 0 1000px #171714 inset;
+  transition: background-color 9999s ease-in-out 0s;
+  caret-color: var(--text-primary);
+}
+
+.muted-label {
+  color: var(--text-muted);
+}
