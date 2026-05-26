@@ -54,6 +54,10 @@ export const usersAPI = {
   list: (params) => api.get('/users', { params }),
   get: (id) => api.get(`/users/${id}`),
   updateMe: (data) => api.put('/users/me', data),
+  updatePushToken: (data) => api.put('/users/me/push-token', data),
+  myScore: () => api.get('/users/me/score'),
+  changePassword: (data) => api.put('/users/me/password', data),
+  deleteAccount: () => api.delete('/users/me'),
   review: (id, data) => api.post(`/users/${id}/review`, data),
 };
 
@@ -70,6 +74,14 @@ export const adminAPI = {
 export const metaAPI = {
   countries: () => api.get('/meta/countries'),
   cities: (params) => api.get('/meta/cities', { params }),
+  eventCities: () => api.get('/meta/event-cities'),
+};
+
+export const notificationsAPI = {
+  list: (params) => api.get('/notifications', { params }),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllRead: (category) => api.patch('/notifications/read-all', category ? { category } : {}),
 };
 
 export default api;

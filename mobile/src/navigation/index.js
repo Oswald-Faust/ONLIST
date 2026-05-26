@@ -20,6 +20,10 @@ import ExploreScreen from '../screens/influencer/ExploreScreen';
 import EventDetailScreen from '../screens/influencer/EventDetailScreen';
 import MyEventsScreen from '../screens/influencer/MyEventsScreen';
 import ProfileScreen from '../screens/influencer/ProfileScreen';
+import EditProfileScreen from '../screens/influencer/EditProfileScreen';
+import SettingsScreen from '../screens/influencer/SettingsScreen';
+import SearchScreen from '../screens/influencer/SearchScreen';
+import NotificationsScreen from '../screens/influencer/NotificationsScreen';
 
 // Business screens
 import BusinessHomeScreen from '../screens/business/BusinessHomeScreen';
@@ -78,7 +82,10 @@ function InfluencerStack() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="InfluencerTabs" component={InfluencerTabs} />
       <Stack.Screen name="EventDetail" component={EventDetailScreen} />
-      <Stack.Screen name="EditProfile" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
     </Stack.Navigator>
   );
 }

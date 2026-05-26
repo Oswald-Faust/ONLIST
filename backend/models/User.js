@@ -34,8 +34,19 @@ const userSchema = new mongoose.Schema({
   followersCount: { type: Number, default: 0 },
   city: { type: String },
   country: { type: String, default: 'France' },
+  nationality: { type: String },
+  gender: { type: String, enum: ['female', 'male', 'non-binary', ''] },
+  dateOfBirth: { type: String }, // format DD/MM/YYYY
+  selectedCity: { type: String, default: '' },
+  expoPushToken: { type: String, default: '' },
   score: { type: Number, default: 0 },
   reviewsCount: { type: Number, default: 0 },
+  scoreDetails: {
+    punctuality: { type: Number, default: 0 },
+    style:       { type: Number, default: 0 },
+    attitude:    { type: Number, default: 0 },
+    content:     { type: Number, default: 0 },
+  },
 
   // Business fields
   businessName: { type: String },

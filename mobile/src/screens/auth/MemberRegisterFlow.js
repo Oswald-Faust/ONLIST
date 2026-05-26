@@ -14,6 +14,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, Easing,
 } from 'react-native-reanimated';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { PHONE_CODES } from '../../constants/phoneCodes';
 import { useAuth } from '../../context/AuthContext';
 import { metaAPI } from '../../services/api';
 
@@ -51,6 +52,12 @@ const STEPS = [
     placeholder: 'ton@email.com',
     autoCapitalize: 'none',
     keyboardType: 'email-address',
+  },
+  {
+    id: 'phone',
+    context: 'Pour être contacté facilement',
+    question: 'Ton numéro de\ntéléphone ?',
+    type: 'phone',
   },
   {
     id: 'dateOfBirth',
@@ -161,6 +168,22 @@ const fetchCitiesFallback = async ({ query, countryCode, count = 20 }) => {
     countryCode: item.country_code,
   }));
 };
+
+const POPULAR_CITY_OPTIONS = [
+  { id: 'paris-fr', label: 'Paris, Île-de-France, France', name: 'Paris', country: 'France', countryCode: 'FR' },
+  { id: 'lyon-fr', label: 'Lyon, Auvergne-Rhône-Alpes, France', name: 'Lyon', country: 'France', countryCode: 'FR' },
+  { id: 'marseille-fr', label: 'Marseille, Provence-Alpes-Côte d’Azur, France', name: 'Marseille', country: 'France', countryCode: 'FR' },
+  { id: 'nice-fr', label: 'Nice, Provence-Alpes-Côte d’Azur, France', name: 'Nice', country: 'France', countryCode: 'FR' },
+  { id: 'bordeaux-fr', label: 'Bordeaux, Nouvelle-Aquitaine, France', name: 'Bordeaux', country: 'France', countryCode: 'FR' },
+  { id: 'bruxelles-be', label: 'Bruxelles, Belgique', name: 'Bruxelles', country: 'Belgique', countryCode: 'BE' },
+  { id: 'geneve-ch', label: 'Genève, Suisse', name: 'Genève', country: 'Suisse', countryCode: 'CH' },
+  { id: 'montreal-ca', label: 'Montréal, Québec, Canada', name: 'Montréal', country: 'Canada', countryCode: 'CA' },
+  { id: 'casablanca-ma', label: 'Casablanca, Maroc', name: 'Casablanca', country: 'Maroc', countryCode: 'MA' },
+  { id: 'marrakech-ma', label: 'Marrakech, Maroc', name: 'Marrakech', country: 'Maroc', countryCode: 'MA' },
+  { id: 'dakar-sn', label: 'Dakar, Sénégal', name: 'Dakar', country: 'Sénégal', countryCode: 'SN' },
+  { id: 'abidjan-ci', label: 'Abidjan, Côte d’Ivoire', name: 'Abidjan', country: "Côte d’Ivoire", countryCode: 'CI' },
+  { id: 'lome-tg', label: 'Lomé, Togo', name: 'Lomé', country: 'Togo', countryCode: 'TG' },
+];
 
 function debounce(fn, delay) {
   let timeout;
@@ -368,6 +391,113 @@ function StepGender({ value, onChange }) {
   );
 }
 
+// ─── Étape Téléphone ───────────────────────────────────────────────────────────
+
+function StepPhone({ form, update }) {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [search, setSearch] = useState('');
+  const phoneCodes = PHONE_CODES.filter(Boolean);
+
+  const selected = phoneCodes.find(p => p.code === form.phoneCode && p.country === (
+    phoneCodes.find(x => x.code === form.phoneCode)?.country
+  )) || phoneCodes.find(p => p.code === form.phoneCode) || phoneCodes.find(p => p.country === 'France');
+
+  const filtered = search.trim()
+    ? phoneCodes.filter(p =>
+        p.country.toLowerCase().includes(search.toLowerCase()) ||
+        p.code.includes(search.replace(/\s/g, ''))
+      )
+    : phoneCodes;
+
+  return (
+    <View style={step.phoneWrap}>
+      <View style={step.phoneRow}>
+        {/* Sélecteur indicatif */}
+        <TouchableOpacity
+          style={step.phoneCodeBtn}
+          onPress={() => { setSearch(''); setModalVisible(true); }}
+          activeOpacity={0.8}
+        >
+          <Text style={step.phoneFlag}>{selected?.flag}</Text>
+          <Text style={step.phoneCodeTxt}>{selected?.code}</Text>
+          <Ionicons name="chevron-down" size={14} color={COLORS.textMuted} style={{ marginBottom: SPACING.sm }} />
+        </TouchableOpacity>
+
+        <View style={step.phoneSep} />
+
+        {/* Saisie numéro */}
+        <TextInput
+          style={[step.bigInput, { flex: 1 }]}
+          value={form.phone}
+          onChangeText={v => update('phone', v.replace(/[^0-9 \-]/g, ''))}
+          placeholder="6 12 34 56 78"
+          placeholderTextColor={COLORS.textMuted}
+          keyboardType="phone-pad"
+          autoFocus
+          selectionColor={COLORS.primary}
+        />
+      </View>
+      <View style={step.inputLine} />
+
+      {/* Modal sélection indicatif */}
+      <Modal visible={modalVisible} animationType="slide" transparent presentationStyle="overFullScreen">
+        <View style={modal.overlay}>
+          <View style={[modal.sheet, { maxHeight: '85%' }]}>
+            <View style={modal.handle} />
+            <View style={modal.header}>
+              <Text style={modal.title}>Indicatif téléphonique</Text>
+              <TouchableOpacity onPress={() => { setModalVisible(false); setSearch(''); }}>
+                <Ionicons name="close" size={22} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+            <View style={modal.searchRow}>
+              <Ionicons name="search" size={16} color={COLORS.textMuted} />
+              <TextInput
+                style={modal.searchInput}
+                placeholder="Pays ou +indicatif..."
+                placeholderTextColor={COLORS.textMuted}
+                value={search}
+                onChangeText={setSearch}
+                autoFocus
+              />
+            </View>
+            <FlatList
+              data={filtered}
+              keyExtractor={item => `${item.code}-${item.country}`}
+              renderItem={({ item }) => {
+                const isActive = form.phoneCode === item.code && selected?.country === item.country;
+                return (
+                  <TouchableOpacity
+                    style={[modal.item, isActive && modal.itemSelected]}
+                    onPress={() => {
+                      update('phoneCode', item.code);
+                      setModalVisible(false);
+                      setSearch('');
+                    }}
+                  >
+                    <Text style={{ fontSize: 20, marginRight: 10 }}>{item.flag}</Text>
+                    <Text style={[modal.itemText, { flex: 1 }, isActive && modal.itemTextActive]}>
+                      {item.country}
+                    </Text>
+                    <Text style={{ color: COLORS.textMuted, fontFamily: FONTS.medium, fontSize: FONTS.sizes.sm }}>
+                      {item.code}
+                    </Text>
+                    {isActive && <Ionicons name="checkmark-circle" size={18} color={COLORS.primary} style={{ marginLeft: 6 }} />}
+                  </TouchableOpacity>
+                );
+              }}
+              style={{ maxHeight: 400 }}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={30}
+              keyboardShouldPersistTaps="handled"
+            />
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 // ─── Étape Localisation ────────────────────────────────────────────────────────
 
 function StepLocation({ form, update }) {
@@ -382,6 +512,33 @@ function StepLocation({ form, update }) {
   const [countryError, setCountryError] = useState('');
   const [cityError, setCityError] = useState('');
   const [citySearch, setCitySearch] = useState('');
+
+  const getSelectedCountry = useCallback(
+    () => countryOptions.find((item) => item.label === form.country),
+    [countryOptions, form.country]
+  );
+
+  const getStarterCities = useCallback((searchValue = '') => {
+    const selectedCountry = getSelectedCountry();
+    const normalizedSearch = searchValue.trim().toLowerCase();
+
+    let starters = selectedCountry?.code
+      ? POPULAR_CITY_OPTIONS.filter((item) => item.countryCode === selectedCountry.code)
+      : POPULAR_CITY_OPTIONS;
+
+    if (starters.length === 0) {
+      starters = POPULAR_CITY_OPTIONS;
+    }
+
+    if (normalizedSearch) {
+      starters = starters.filter((item) =>
+        item.name.toLowerCase().includes(normalizedSearch) ||
+        item.country.toLowerCase().includes(normalizedSearch)
+      );
+    }
+
+    return starters;
+  }, [getSelectedCountry]);
 
   useEffect(() => {
     let active = true;
@@ -426,7 +583,7 @@ function StepLocation({ form, update }) {
 
   const searchCities = useRef(debounce(async (query, countryCode) => {
     if (query.trim().length < 2) {
-      setCityOptions([]);
+      setCityOptions(getStarterCities(query));
       setCityLoading(false);
       setCityError('');
       return;
@@ -449,7 +606,7 @@ function StepLocation({ form, update }) {
         countryCode: item.countryCode,
       })));
     } catch {
-      setCityOptions([]);
+      setCityOptions(getStarterCities(query));
       setCityError('Impossible de charger les villes pour le moment');
     } finally {
       setCityLoading(false);
@@ -458,8 +615,16 @@ function StepLocation({ form, update }) {
 
   const handleCitySearch = (value) => {
     setCitySearch(value);
+    const selectedCountry = getSelectedCountry();
+
+    if (value.trim().length < 2) {
+      setCityLoading(false);
+      setCityError('');
+      setCityOptions(getStarterCities(value));
+      return;
+    }
+
     setCityLoading(true);
-    const selectedCountry = countryOptions.find((item) => item.label === form.country);
     searchCities(value, selectedCountry?.code || '');
   };
 
@@ -514,7 +679,13 @@ function StepLocation({ form, update }) {
 
       <TouchableOpacity
         style={[step.selectRow, form.city && step.selectRowFilled]}
-        onPress={() => setCityModal(true)}
+        onPress={() => {
+          setCitySearch('');
+          setCityError('');
+          setCityLoading(false);
+          setCityOptions(getStarterCities());
+          setCityModal(true);
+        }}
       >
         <View style={step.selectLeft}>
           <View style={[step.selectIconWrap, form.city && step.selectIconWrapFilled]}>
@@ -545,7 +716,7 @@ function StepLocation({ form, update }) {
         }}
         title="Ta nationalité"
         search=""
-        onSearch={() => {}}
+        onSearch={() => { }}
         loading={countryLoading}
         emptyMessage={countryError || 'Aucune nationalité disponible'}
       />
@@ -563,7 +734,7 @@ function StepLocation({ form, update }) {
         }}
         title="Pays de résidence"
         search=""
-        onSearch={() => {}}
+        onSearch={() => { }}
         loading={countryLoading}
         emptyMessage={countryError || 'Aucun pays disponible'}
       />
@@ -583,7 +754,7 @@ function StepLocation({ form, update }) {
         onSearch={handleCitySearch}
         loading={cityLoading}
         emptyMessage={cityError || (citySearch.trim().length < 2
-          ? 'Tape au moins 2 lettres pour rechercher une ville'
+          ? 'Choisis une suggestion ou tape au moins 2 lettres'
           : 'Aucune ville trouvée')}
       />
     </View>
@@ -767,7 +938,9 @@ export default function MemberRegisterFlow({ navigation }) {
   const [draftBirthDate, setDraftBirthDate] = useState(getMaximumBirthDate());
 
   const [form, setForm] = useState({
-    firstName: '', lastName: '', email: '', dateOfBirth: '',
+    firstName: '', lastName: '', email: '',
+    phoneCode: '+33', phone: '',
+    dateOfBirth: '',
     gender: '', nationality: '', country: 'France', city: '',
     instagram: '', tiktok: '', followersCount: '',
     photos: [], password: '', confirmPassword: '', acceptTerms: false,
@@ -797,14 +970,15 @@ export default function MemberRegisterFlow({ navigation }) {
   const canContinue = useCallback(() => {
     const s = STEPS[currentStep];
     switch (s.id) {
-      case 'firstName':   return form.firstName.trim().length >= 2;
-      case 'lastName':    return form.lastName.trim().length >= 2;
-      case 'email':       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+      case 'firstName': return form.firstName.trim().length >= 2;
+      case 'lastName': return form.lastName.trim().length >= 2;
+      case 'email': return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+      case 'phone': return form.phone.replace(/[\s\-]/g, '').length >= 6;
       case 'dateOfBirth': return form.dateOfBirth.length === 10;
-      case 'gender':      return !!form.gender;
-      case 'location':    return !!form.city;
-      case 'socials':     return (!!form.instagram || !!form.tiktok) && !!form.followersCount;
-      case 'photos':      return form.photos.length > 0;
+      case 'gender': return !!form.gender;
+      case 'location': return !!form.city;
+      case 'socials': return (!!form.instagram || !!form.tiktok) && !!form.followersCount;
+      case 'photos': return form.photos.length > 0;
       case 'password':
         return form.password.length >= 8
           && form.password === form.confirmPassword
@@ -868,6 +1042,7 @@ export default function MemberRegisterFlow({ navigation }) {
         email: form.email.trim(),
         password: form.password,
         type: 'influencer',
+        phone: form.phone.trim() ? `${form.phoneCode}${form.phone.replace(/\s/g, '')}` : undefined,
         instagram: form.instagram,
         tiktok: form.tiktok,
         followersCount: parseInt(form.followersCount) || 0,
@@ -911,7 +1086,7 @@ export default function MemberRegisterFlow({ navigation }) {
           <StepText
             config={s}
             value={form[s.field]}
-            onChange={() => {}}
+            onChange={() => { }}
             onPress={() => {
               setDraftBirthDate(selectedBirthDate);
               setShowDatePicker(true);
@@ -919,6 +1094,8 @@ export default function MemberRegisterFlow({ navigation }) {
             editable={false}
           />
         );
+      case 'phone':
+        return <StepPhone form={form} update={update} />;
       case 'gender':
         return <StepGender value={form.gender} onChange={v => update('gender', v)} />;
       case 'location':
@@ -1246,6 +1423,33 @@ const step = StyleSheet.create({
   },
   datePlaceholder: {
     color: COLORS.textMuted,
+  },
+
+  // ── Téléphone ──
+  phoneWrap: { marginTop: SPACING.sm },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: SPACING.sm,
+  },
+  phoneCodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    paddingBottom: SPACING.sm,
+  },
+  phoneFlag: { fontSize: 26, lineHeight: 34 },
+  phoneCodeTxt: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xl + 2,
+    fontFamily: FONTS.bold,
+    letterSpacing: 0.2,
+  },
+  phoneSep: {
+    width: 1,
+    height: 32,
+    backgroundColor: COLORS.border,
+    marginBottom: SPACING.sm + 2,
   },
 
   // ── Genre ──

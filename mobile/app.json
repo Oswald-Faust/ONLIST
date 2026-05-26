@@ -34,6 +34,14 @@
           "photosPermission": "ONLIST a besoin d'accéder à vos photos pour votre profil."
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#C9A961",
+          "sounds": []
+        }
+      ],
       "expo-font",
       "expo-web-browser"
     ]

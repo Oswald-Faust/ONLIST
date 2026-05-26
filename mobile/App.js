@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts,
   Poppins_300Light,
@@ -14,6 +15,16 @@ import { useFonts,
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation';
 import { COLORS } from './src/constants/theme';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function App() {
   const [fontsLoaded] = useFonts({

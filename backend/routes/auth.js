@@ -12,7 +12,8 @@ const signToken = (id) =>
 router.post('/register', async (req, res) => {
   try {
     const { name, email, phone, password, type, instagram, tiktok, followersCount,
-      city, country, businessName, businessType, businessAddress, businessCity, businessDescription } = req.body;
+      city, country, nationality, gender, dateOfBirth,
+      businessName, businessType, businessAddress, businessCity, businessDescription } = req.body;
 
     const orConditions = [];
     if (email) orConditions.push({ email });
@@ -25,13 +26,21 @@ router.post('/register', async (req, res) => {
     const user = await User.create({
       name, email, phone, password, type: type || 'influencer',
       instagram, tiktok, followersCount, city, country,
+      nationality, gender, dateOfBirth,
       businessName, businessType, businessAddress, businessCity, businessDescription,
       status: 'pending',
     });
 
     res.status(201).json({
       token: signToken(user._id),
-      user: { _id: user._id, name: user.name, email: user.email, type: user.type, status: user.status },
+      user: {
+        _id: user._id, name: user.name, email: user.email,
+        phone: user.phone, type: user.type, status: user.status,
+        city: user.city, country: user.country,
+        nationality: user.nationality, gender: user.gender, dateOfBirth: user.dateOfBirth,
+        instagram: user.instagram, tiktok: user.tiktok, followersCount: user.followersCount,
+        photos: user.photos,
+      },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -60,14 +69,21 @@ router.post('/login', async (req, res) => {
         type: user.type,
         status: user.status,
         photos: user.photos,
+        bio: user.bio,
         instagram: user.instagram,
         tiktok: user.tiktok,
         followersCount: user.followersCount,
         score: user.score,
+        reviewsCount: user.reviewsCount,
         city: user.city,
+        country: user.country,
+        nationality: user.nationality,
+        gender: user.gender,
+        dateOfBirth: user.dateOfBirth,
         businessName: user.businessName,
         businessType: user.businessType,
         plasma: user.plasma,
+        expoPushToken: user.expoPushToken,
       },
     });
   } catch (err) {

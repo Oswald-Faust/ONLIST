@@ -2,6 +2,7 @@ const express = require('express');
 const Application = require('../models/Application');
 const Event = require('../models/Event');
 const { protect, requireValidated } = require('../middleware/auth');
+const { createNotification } = require('../utils/notifications');
 
 const router = express.Router();
 
@@ -22,6 +23,22 @@ router.post('/', protect, requireValidated, async (req, res) => {
       user: req.user._id,
       event: eventId,
       message,
+    });
+
+    await createNotification({
+      userId: event.creator,
+      actorId: req.user._id,
+      type: 'application_received',
+      category: 'events',
+      title: 'Nouvelle candidature',
+      body: `${req.user.name || 'Un influenceur'} a postulé à ${event.title}.`,
+      entityType: 'application',
+      entityId: application._id,
+      data: {
+        eventId: `${event._id}`,
+        eventTitle: event.title,
+        city: event.city,
+      },
     });
 
     res.status(201).json({ application });
@@ -88,6 +105,25 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
       await Event.findByIdAndUpdate(event._id, { $inc: { acceptedCount: 1 } });
     }
 
+    await createNotification({
+      userId: application.user,
+      actorId: req.user._id,
+      type: status === 'accepted' ? 'application_accepted' : 'application_rejected',
+      category: 'events',
+      title: status === 'accepted' ? 'Candidature confirmée' : 'Candidature refusée',
+      body: status === 'accepted'
+        ? `Bonne nouvelle, ${event.title} a confirmé votre participation.`
+        : `${event.title} n’a pas retenu votre candidature.`,
+      entityType: 'event',
+      entityId: event._id,
+      data: {
+        eventId: `${event._id}`,
+        eventTitle: event.title,
+        city: event.city,
+        status,
+      },
+    });
+
     res.json({ application });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -114,6 +150,24 @@ router.post('/invite', protect, requireValidated, async (req, res) => {
       event: eventId,
       isInvitation: true,
       status: 'pending',
+    });
+
+    await createNotification({
+      userId,
+      actorId: req.user._id,
+      type: 'event_invite',
+      category: 'invites',
+      title: 'Nouvelle invitation',
+      body: `Vous avez reçu une invitation pour ${event.title}.`,
+      entityType: 'event',
+      entityId: event._id,
+      data: {
+        eventId: `${event._id}`,
+        applicationId: `${application._id}`,
+        eventTitle: event.title,
+        city: event.city,
+        venue: event.venue,
+      },
     });
 
     res.status(201).json({ application });

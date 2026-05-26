@@ -19,6 +19,9 @@
   --success: #52b788;
   --warning: #d7a74c;
   --danger: #d46a6a;
+  --error: #d46a6a;
+  --bg-input: #1e1e1c;
+  --bg-card2: #1a1a18;
   --shadow-gold: 0 20px 60px rgba(201, 169, 97, 0.08);
   --gradient-primary: linear-gradient(135deg, #c0a981 0%, #d4af77 55%, #b79252 100%);
   --gradient-surface: linear-gradient(180deg, rgba(255, 248, 235, 0.02) 0%, rgba(255, 248, 235, 0) 100%);

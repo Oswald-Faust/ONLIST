@@ -2,52 +2,51 @@
 import { useEffect, useState, Suspense } from 'react';
 import { api } from '@/lib/auth';
 import Header from '@/components/Header';
-import { FileText } from 'lucide-react';
+import { FileText, AlertCircle } from 'lucide-react';
 
 interface Application {
   _id: string;
-  influencerId?: { name?: string; city?: string };
-  eventId?: { title?: string };
+  user?: { name?: string; city?: string };
+  event?: { title?: string };
   status: string;
-  createdAt: string;
+  appliedAt: string;
   message?: string;
-}
-
-interface EventSummary {
-  _id: string;
 }
 
 function ApplicationsContent() {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch all applications via events list (admin sees all)
-    api('/admin/users?limit=1').then(() =>
-      api('/events').then(r => r.json()).then(async (eventsData: EventSummary[] | { events?: EventSummary[] }) => {
-        const events = Array.isArray(eventsData) ? eventsData : eventsData.events || [];
-        const allApps: Application[] = [];
-        await Promise.all(events.slice(0, 10).map(async (ev) => {
-          try {
-            const res = await api(`/applications/event/${ev._id}`);
-            const data = await res.json();
-            if (Array.isArray(data)) allApps.push(...data);
-          } catch {}
-        }));
-        setApps(allApps);
-        setLoading(false);
+    api('/admin/applications')
+      .then(async res => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : {};
+        if (!res.ok) throw new Error(data.message || `Erreur ${res.status}`);
+        setApps(data.applications || []);
       })
-    );
+      .catch((err: Error) => {
+        console.error('applications fetch error:', err);
+        setError(
+          err.message.includes('Unexpected token')
+            ? 'Le backend local ne renvoie pas encore la route des candidatures. Redémarre le serveur backend avec le code à jour.'
+            : err.message
+        );
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const STATUS_COLORS: Record<string, string> = {
     pending: 'badge-pending',
+    accepted: 'badge-validated',
     approved: 'badge-validated',
     rejected: 'badge-rejected',
     invited: 'badge-influencer',
   };
   const STATUS_LABELS: Record<string, string> = {
     pending: 'En attente',
+    accepted: 'Approuvée',
     approved: 'Approuvée',
     rejected: 'Refusée',
     invited: 'Invitée',
@@ -78,6 +77,11 @@ function ApplicationsContent() {
                     ))}
                   </tr>
                 ))
+              ) : error ? (
+                <tr><td colSpan={5} className="text-center py-16" style={{ color: '#e8594a' }}>
+                  <AlertCircle size={40} className="mx-auto mb-3" />
+                  {error}
+                </td></tr>
               ) : apps.length === 0 ? (
                 <tr><td colSpan={5} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
                   <FileText size={40} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
@@ -85,15 +89,15 @@ function ApplicationsContent() {
                 </td></tr>
               ) : apps.map(app => (
                 <tr key={app._id} className="border-b transition-colors" style={{ borderColor: 'rgba(201,169,97,0.08)' }}>
-                  <td className="px-5 py-4 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{app.influencerId?.name || '—'}</td>
-                  <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-secondary)' }}>{app.eventId?.title || '—'}</td>
+                  <td className="px-5 py-4 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{app.user?.name || '—'}</td>
+                  <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-secondary)' }}>{app.event?.title || '—'}</td>
                   <td className="px-5 py-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[app.status] || 'badge-pending'}`}>
                       {STATUS_LABELS[app.status] || app.status}
                     </span>
                   </td>
                   <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    {new Date(app.createdAt).toLocaleDateString('fr-FR')}
+                    {app.appliedAt ? new Date(app.appliedAt).toLocaleDateString('fr-FR') : '—'}
                   </td>
                   <td className="px-5 py-4 text-sm max-w-48 truncate" style={{ color: 'var(--text-muted)' }}>{app.message || '—'}</td>
                 </tr>

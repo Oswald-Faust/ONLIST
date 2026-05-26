@@ -5,11 +5,12 @@ import {
   ImageBackground, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
-import { eventsAPI } from '../../services/api';
+import { eventsAPI, notificationsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import CityPickerSheet from './CityPickerScreen';
 
@@ -19,13 +20,14 @@ const SLIDER_H = Math.min(H * 0.62, 520);
 // ─── Filtres ───────────────────────────────────────────────────────────────────
 
 const FILTERS = [
-  { key: 'all',        label: 'Tous',       icon: 'grid-outline' },
-  { key: 'Club',       label: 'Club',       icon: 'musical-notes-outline' },
-  { key: 'Restaurant', label: 'Restaurant', icon: 'restaurant-outline' },
-  { key: 'Bar',        label: 'Bar',        icon: 'wine-outline' },
-  { key: 'Spa',        label: 'Spa',        icon: 'leaf-outline' },
-  { key: 'VIP',        label: 'VIP',        icon: 'diamond-outline' },
-  { key: 'Sport',      label: 'Sport',      icon: 'fitness-outline' },
+  { key: 'all',       label: 'Tous',       icon: 'grid-outline' },
+  { key: 'club',      label: 'Club',       icon: 'musical-notes-outline' },
+  { key: 'restaurant',label: 'Restaurant', icon: 'restaurant-outline' },
+  { key: 'bar',       label: 'Bar',        icon: 'wine-outline' },
+  { key: 'spa',       label: 'Spa',        icon: 'leaf-outline' },
+  { key: 'premium',   label: 'VIP',        icon: 'diamond-outline' },
+  { key: 'sport',     label: 'Sport',      icon: 'fitness-outline' },
+  { key: 'wellness',  label: 'Bien-être',  icon: 'flower-outline' },
 ];
 
 // ─── EventCard pleine largeur ──────────────────────────────────────────────────
@@ -40,8 +42,8 @@ function EventCard({ event, onPress }) {
   return (
     <TouchableOpacity style={ec.card} onPress={onPress} activeOpacity={0.88}>
       <View style={ec.imageWrap}>
-        {event?.coverImage ? (
-          <Image source={{ uri: event.coverImage }} style={ec.image} />
+        {(event?.images?.[0] || event?.coverImage) ? (
+          <Image source={{ uri: event.images?.[0] || event.coverImage }} style={ec.image} />
         ) : (
           <LinearGradient
             colors={['rgba(201,169,97,0.1)', 'rgba(10,10,15,0.95)']}
@@ -100,9 +102,30 @@ export default function HomeScreen({ navigation }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [activeSlide, setActiveSlide]   = useState(0);
   const [showCityPicker, setShowCityPicker] = useState(false);
+  const [selectedCity, setSelectedCity] = useState(user?.selectedCity || '');
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
-  const city      = user?.selectedCity;
+  const city      = selectedCity;
   const firstName = user?.name?.split(' ')[0] || 'toi';
+
+  useEffect(() => {
+    setSelectedCity(user?.selectedCity || '');
+  }, [user?.selectedCity]);
+
+  const fetchUnreadNotifications = useCallback(async () => {
+    try {
+      const data = await notificationsAPI.unreadCount();
+      setUnreadNotifications(data?.unreadCount || 0);
+    } catch (error) {
+      console.log('Notifications badge error:', error.message);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadNotifications();
+    }, [fetchUnreadNotifications])
+  );
 
   // Ouvre le picker si pas de ville
   useEffect(() => { if (!city) setShowCityPicker(true); }, []);
@@ -112,7 +135,6 @@ export default function HomeScreen({ navigation }) {
     try {
       const params = { limit: 30 };
       if (city) params.city = city;
-      if (activeFilter !== 'all') params.type = activeFilter;
       const data = await eventsAPI.list(params);
       setEvents(data.events || []);
     } catch (err) {
@@ -121,7 +143,7 @@ export default function HomeScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [city, activeFilter]);
+  }, [city]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
   const onRefresh = () => { setRefreshing(true); fetchEvents(); };
@@ -129,6 +151,21 @@ export default function HomeScreen({ navigation }) {
   // ── Données slider ─────────────────────────────────────────────────────────
   const featured     = events.slice(0, 5);
   const currentEvent = featured[activeSlide] ?? featured[0];
+
+  const displayedEvents = activeFilter === 'all'
+    ? events
+    : events.filter(e => e.category === activeFilter);
+
+  // ── Auto-scroll du slider ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (featured.length <= 1) return;
+    const interval = setInterval(() => {
+      const nextSlide = (activeSlide + 1) % featured.length;
+      setActiveSlide(nextSlide);
+      sliderRef.current?.scrollTo({ x: nextSlide * W, animated: true });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [activeSlide, featured.length]);
 
   const onSlideScroll = (e) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / W);
@@ -189,10 +226,15 @@ export default function HomeScreen({ navigation }) {
               decelerationRate="fast"
             >
               {featured.map((ev, i) => (
-                <View key={ev._id || i} style={{ width: W, height: SLIDER_H }}>
-                  {ev.coverImage ? (
+                <TouchableOpacity
+                  key={ev._id || i}
+                  style={{ width: W, height: SLIDER_H }}
+                  activeOpacity={0.95}
+                  onPress={() => navigation.navigate('EventDetail', { event: ev })}
+                >
+                  {(ev.images?.[0] || ev.coverImage) ? (
                     <ImageBackground
-                      source={{ uri: ev.coverImage }}
+                      source={{ uri: ev.images?.[0] || ev.coverImage }}
                       style={StyleSheet.absoluteFill}
                       imageStyle={{ opacity: 0.7 }}
                     />
@@ -213,7 +255,7 @@ export default function HomeScreen({ navigation }) {
                     locations={[0, 0.3, 0.72, 1]}
                     style={StyleSheet.absoluteFill}
                   />
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           ) : (
@@ -256,12 +298,24 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.cityBtnTxt} numberOfLines={1}>{city || 'Ville'}</Text>
                 <Ionicons name="chevron-down" size={11} color={COLORS.textMuted} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconBtn}>
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={() => navigation.navigate('Search')}
+              >
                 <Ionicons name="search" size={16} color={COLORS.white} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconBtn}>
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={() => navigation.navigate('Notifications')}
+              >
                 <Ionicons name="notifications-outline" size={16} color={COLORS.white} />
-                <View style={styles.notifDot} />
+                {unreadNotifications > 0 && (
+                  <View style={styles.notifDot}>
+                    <Text style={styles.notifDotText}>
+                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -284,7 +338,11 @@ export default function HomeScreen({ navigation }) {
 
           {/* ── Card info événement (glassmorphisme) ── */}
           {currentEvent && (
-            <View style={styles.eventInfoWrap}>
+            <TouchableOpacity
+              style={styles.eventInfoWrap}
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('EventDetail', { event: currentEvent })}
+            >
               <BlurView intensity={60} tint="dark" style={styles.eventInfoBlur}>
                 {/* Shimmer top highlight */}
                 <LinearGradient
@@ -301,13 +359,9 @@ export default function HomeScreen({ navigation }) {
                       </View>
                     )}
                     {/* Arrow CTA */}
-                    <TouchableOpacity
-                      style={styles.arrowBtn}
-                      onPress={() => navigation.navigate('EventDetail', { event: currentEvent })}
-                      activeOpacity={0.8}
-                    >
+                    <View style={styles.arrowBtn}>
                       <Ionicons name="arrow-up-forward" size={15} color={COLORS.white} />
-                    </TouchableOpacity>
+                    </View>
                   </View>
 
                   <Text style={styles.eventInfoTitle} numberOfLines={1}>
@@ -331,7 +385,7 @@ export default function HomeScreen({ navigation }) {
                   )}
                 </View>
               </BlurView>
-            </View>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -382,12 +436,12 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.sectionTitle}>
               {city ? `Événements · ${city}` : 'Événements'}
             </Text>
-            {events.length > 0 && (
-              <Text style={styles.countTxt}>{events.length} résultats</Text>
+            {displayedEvents.length > 0 && (
+              <Text style={styles.countTxt}>{displayedEvents.length} résultats</Text>
             )}
           </View>
 
-          {events.length === 0 ? (
+          {displayedEvents.length === 0 ? (
             <View style={styles.empty}>
               <View style={styles.emptyIcon}>
                 <Ionicons name="calendar-outline" size={30} color={COLORS.textMuted} />
@@ -409,7 +463,7 @@ export default function HomeScreen({ navigation }) {
             </View>
           ) : (
             <View style={styles.listWrap}>
-              {events.map(e => (
+              {displayedEvents.map(e => (
                 <EventCard
                   key={e._id}
                   event={e}
@@ -425,6 +479,9 @@ export default function HomeScreen({ navigation }) {
       <CityPickerSheet
         visible={showCityPicker}
         onClose={() => setShowCityPicker(false)}
+        selectedCity={selectedCity}
+        onSelectCity={setSelectedCity}
+        onResetCity={() => setSelectedCity('')}
       />
     </View>
   );
@@ -481,25 +538,26 @@ const styles = StyleSheet.create({
   cityBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 5,
     backgroundColor: 'rgba(18,17,14,0.72)',
     borderRadius: RADIUS.full,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderWidth: 1,
     borderColor: 'rgba(201,169,97,0.22)',
-    maxWidth: 110,
+    minWidth: 96,
+    maxWidth: 132,
   },
   cityBtnTxt: {
     color: COLORS.white,
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: FONTS.medium,
     flex: 1,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(18,17,14,0.72)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -508,14 +566,23 @@ const styles = StyleSheet.create({
   },
   notifDot: {
     position: 'absolute',
-    top: 7,
-    right: 7,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: COLORS.primary,
     borderWidth: 1,
     borderColor: 'rgba(18,17,14,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  notifDotText: {
+    color: COLORS.bg,
+    fontSize: 10,
+    fontFamily: FONTS.bold,
+    lineHeight: 12,
   },
 
   // Barres de progression

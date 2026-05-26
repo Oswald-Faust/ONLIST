@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authAPI } from '../services/api';
+import { authAPI, usersAPI } from '../services/api';
+import { registerForPushNotificationsAsync } from '../services/pushNotifications';
 
 const AuthContext = createContext(null);
 
@@ -12,6 +13,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     restoreSession();
   }, []);
+
+  useEffect(() => {
+    if (!user || !token) return;
+    syncPushToken();
+  }, [user?._id, token]);
 
   const restoreSession = async () => {
     try {
@@ -74,6 +80,20 @@ export const AuthProvider = ({ children }) => {
     const merged = { ...user, ...updated };
     await AsyncStorage.setItem('user', JSON.stringify(merged));
     setUser(merged);
+  };
+
+  const syncPushToken = async () => {
+    try {
+      const expoPushToken = await registerForPushNotificationsAsync();
+      if (!expoPushToken || expoPushToken === user?.expoPushToken) return;
+
+      const data = await usersAPI.updatePushToken({ expoPushToken });
+      const nextUser = data?.user || { ...user, expoPushToken };
+      await AsyncStorage.setItem('user', JSON.stringify(nextUser));
+      setUser(nextUser);
+    } catch (error) {
+      console.log('Push token sync error:', error.message);
+    }
   };
 
   return (

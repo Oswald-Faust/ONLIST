@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, StatusBar, Alert,
-  Dimensions, ActivityIndicator,
+  Dimensions, ActivityIndicator, ScrollView, Modal, FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, Easing,
 } from 'react-native-reanimated';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { PHONE_CODES } from '../../constants/phoneCodes';
 import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -25,6 +26,10 @@ const BUSINESS_TYPES = [
   { id: 'spa',        label: 'Spa',        icon: 'flower' },
   { id: 'sport',      label: 'Sport',      icon: 'fitness' },
   { id: 'wellness',   label: 'Bien-être',  icon: 'heart' },
+  { id: 'hotel',      label: 'Hôtel',      icon: 'bed' },
+  { id: 'cafe',       label: 'Café',       icon: 'cafe' },
+  { id: 'beauty',     label: 'Beauté',     icon: 'color-palette' },
+  { id: 'shop',       label: 'Boutique',   icon: 'cart' },
   { id: 'premium',    label: 'Lieu Premium', icon: 'diamond' },
   { id: 'other',      label: 'Autre',      icon: 'ellipsis-horizontal' },
 ];
@@ -132,7 +137,7 @@ function StepBusinessType({ value, onChange }) {
             )}
             <Ionicons
               name={t.icon}
-              size={22}
+              size={28}
               color={active ? COLORS.primary : COLORS.textMuted}
             />
             <Text style={[step.typeLabel, active && step.typeLabelActive]}>
@@ -148,22 +153,67 @@ function StepBusinessType({ value, onChange }) {
 // ─── Composant Adresse ────────────────────────────────────────────────────────
 
 function StepAddress({ form, update }) {
+  const [cityResults, setCityResults] = useState([]);
+  const [addressResults, setAddressResults] = useState([]);
+  const [searchingCity, setSearchingCity] = useState(false);
+  const [searchingAddress, setSearchingAddress] = useState(false);
+
+  const ignoreNextCitySearch = React.useRef(false);
+  const ignoreNextAddressSearch = React.useRef(false);
+
+  // Recherche de ville
+  useEffect(() => {
+    if (ignoreNextCitySearch.current) {
+      ignoreNextCitySearch.current = false;
+      return;
+    }
+    if (form.businessCity.length < 3) {
+      setCityResults([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      setSearchingCity(true);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.businessCity)}&featuretype=city&limit=5`, {headers: {'User-Agent': 'OnListApp/1.0'}});
+        const data = await res.json();
+        setCityResults(data);
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setSearchingCity(false);
+      }
+    }, 600);
+    return () => clearTimeout(timeout);
+  }, [form.businessCity]);
+
+  // Recherche d'adresse
+  useEffect(() => {
+    if (ignoreNextAddressSearch.current) {
+      ignoreNextAddressSearch.current = false;
+      return;
+    }
+    if (form.businessAddress.length < 4) {
+      setAddressResults([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      setSearchingAddress(true);
+      try {
+        const cityContext = form.businessCity ? `, ${form.businessCity}` : '';
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(form.businessAddress + cityContext)}&addressdetails=1&limit=5`, {headers: {'User-Agent': 'OnListApp/1.0'}});
+        const data = await res.json();
+        setAddressResults(data);
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setSearchingAddress(false);
+      }
+    }, 600);
+    return () => clearTimeout(timeout);
+  }, [form.businessAddress, form.businessCity]);
+
   return (
     <View style={step.fieldGroup}>
-      <View style={step.fieldRow}>
-        <Ionicons name="location-outline" size={18} color={COLORS.textMuted} style={step.fieldIcon} />
-        <TextInput
-          style={step.fieldInput}
-          value={form.businessAddress}
-          onChangeText={v => update('businessAddress', v)}
-          placeholder="Adresse"
-          placeholderTextColor={COLORS.textMuted}
-          autoCapitalize="words"
-          selectionColor={COLORS.primary}
-          autoFocus
-        />
-      </View>
-      <View style={step.fieldDivider} />
       <View style={step.fieldRow}>
         <Ionicons name="map-outline" size={18} color={COLORS.textMuted} style={step.fieldIcon} />
         <TextInput
@@ -174,8 +224,74 @@ function StepAddress({ form, update }) {
           placeholderTextColor={COLORS.textMuted}
           autoCapitalize="words"
           selectionColor={COLORS.primary}
+          autoFocus
         />
+        {searchingCity && <ActivityIndicator size="small" color={COLORS.primary} />}
       </View>
+      {cityResults.length > 0 && (
+        <View style={step.suggestionsContainer}>
+          {cityResults.map((item, i) => (
+            <TouchableOpacity 
+              key={item.place_id || i} 
+              style={step.suggestionItem}
+              onPress={() => {
+                const name = item.name || item.display_name.split(',')[0];
+                ignoreNextCitySearch.current = true;
+                update('businessCity', name);
+                setCityResults([]);
+              }}
+            >
+              <Ionicons name="location" size={14} color={COLORS.textMuted} />
+              <Text style={step.suggestionText} numberOfLines={1}>{item.display_name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      <View style={step.fieldDivider} />
+
+      <View style={step.fieldRow}>
+        <Ionicons name="location-outline" size={18} color={COLORS.textMuted} style={step.fieldIcon} />
+        <TextInput
+          style={step.fieldInput}
+          value={form.businessAddress}
+          onChangeText={v => update('businessAddress', v)}
+          placeholder="Adresse"
+          placeholderTextColor={COLORS.textMuted}
+          autoCapitalize="words"
+          selectionColor={COLORS.primary}
+        />
+        {searchingAddress && <ActivityIndicator size="small" color={COLORS.primary} />}
+      </View>
+      {addressResults.length > 0 && (
+        <View style={step.suggestionsContainer}>
+          {addressResults.map((item, i) => (
+            <TouchableOpacity 
+              key={item.place_id || i} 
+              style={step.suggestionItem}
+              onPress={() => {
+                const address = item.address || {};
+                const road = address.road || address.pedestrian || address.street;
+                const houseNumber = address.house_number || '';
+                const baseName = road ? ((houseNumber ? `${houseNumber} ` : '') + road) : (item.name || item.display_name.split(',')[0]);
+                
+                ignoreNextAddressSearch.current = true;
+                update('businessAddress', baseName);
+                
+                if (!form.businessCity && (address.city || address.town || address.village)) {
+                   ignoreNextCitySearch.current = true;
+                   update('businessCity', address.city || address.town || address.village);
+                }
+
+                setAddressResults([]);
+              }}
+            >
+              <Ionicons name="location" size={14} color={COLORS.textMuted} />
+              <Text style={step.suggestionText} numberOfLines={2}>{item.display_name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -183,6 +299,18 @@ function StepAddress({ form, update }) {
 // ─── Composant Contact ────────────────────────────────────────────────────────
 
 function StepContact({ form, update }) {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [search, setSearch] = useState('');
+  const phoneCodes = PHONE_CODES.filter(Boolean);
+
+  const selected = phoneCodes.find((item) => item.code === form.phoneCode) || phoneCodes.find((item) => item.country === 'France');
+  const filtered = search.trim()
+    ? phoneCodes.filter((item) =>
+        item.country.toLowerCase().includes(search.toLowerCase()) ||
+        item.code.includes(search.replace(/\s/g, ''))
+      )
+    : phoneCodes;
+
   return (
     <View style={step.fieldGroup}>
       <View style={step.fieldRow}>
@@ -200,18 +328,82 @@ function StepContact({ form, update }) {
         />
       </View>
       <View style={step.fieldDivider} />
-      <View style={step.fieldRow}>
-        <Ionicons name="call-outline" size={18} color={COLORS.textMuted} style={step.fieldIcon} />
+      <View style={[step.fieldRow, { paddingHorizontal: 0 }]}>
+        <TouchableOpacity
+          style={step.phoneCodeBtn}
+          activeOpacity={0.82}
+          onPress={() => {
+            setSearch('');
+            setModalVisible(true);
+          }}
+        >
+          <Text style={step.phoneFlag}>{selected?.flag}</Text>
+          <Text style={step.phoneCodeTxt}>{selected?.code}</Text>
+          <Ionicons name="chevron-down" size={14} color={COLORS.textMuted} />
+        </TouchableOpacity>
+
+        <View style={step.phoneDivider} />
+
         <TextInput
           style={step.fieldInput}
           value={form.phone}
-          onChangeText={v => update('phone', v)}
-          placeholder="Téléphone (optionnel)"
+          onChangeText={v => update('phone', v.replace(/[^0-9 ]/g, ''))}
+          placeholder="Téléphone"
           placeholderTextColor={COLORS.textMuted}
           keyboardType="phone-pad"
           selectionColor={COLORS.primary}
         />
       </View>
+
+      <Modal visible={modalVisible} animationType="slide" transparent presentationStyle="overFullScreen">
+        <View style={step.modalOverlay}>
+          <View style={step.modalSheet}>
+            <View style={step.modalHandle} />
+            <View style={step.modalHeader}>
+              <Text style={step.modalTitle}>Choisir un pays</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={22} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={step.modalSearchRow}>
+              <Ionicons name="search" size={16} color={COLORS.textMuted} />
+              <TextInput
+                style={step.modalSearchInput}
+                placeholder="Pays ou indicatif..."
+                placeholderTextColor={COLORS.textMuted}
+                value={search}
+                onChangeText={setSearch}
+                autoFocus
+              />
+            </View>
+
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => `${item.code}-${item.country}`}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 420 }}
+              renderItem={({ item }) => {
+                const active = item.code === form.phoneCode;
+                return (
+                  <TouchableOpacity
+                    style={[step.modalItem, active && step.modalItemActive]}
+                    onPress={() => {
+                      update('phoneCode', item.code);
+                      setModalVisible(false);
+                    }}
+                  >
+                    <Text style={step.modalFlag}>{item.flag}</Text>
+                    <Text style={[step.modalItemText, active && step.modalItemTextActive]}>{item.country}</Text>
+                    <Text style={step.modalCodeText}>{item.code}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -280,7 +472,7 @@ export default function BusinessRegisterFlow({ navigation }) {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', password: '', confirmPassword: '',
     businessName: '', businessType: '', businessAddress: '',
-    businessCity: '', businessDescription: '',
+    businessCity: '', businessDescription: '', phoneCode: '+33',
   });
 
   const update = useCallback((key, val) => {
@@ -309,7 +501,7 @@ export default function BusinessRegisterFlow({ navigation }) {
       case 'businessType':        return !!form.businessType;
       case 'businessCity':        return !!form.businessCity.trim();
       case 'managerName':         return form.name.trim().length >= 2;
-      case 'contact':             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+      case 'contact':             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) && form.phone.trim().length >= 8;
       case 'businessDescription': return true; // optionnel
       case 'password':
         return form.password.length >= 8 && form.password === form.confirmPassword;
@@ -346,7 +538,7 @@ export default function BusinessRegisterFlow({ navigation }) {
       await register({
         name: form.name,
         email: form.email || undefined,
-        phone: form.phone || undefined,
+        phone: `${form.phoneCode}${form.phone.replace(/\s/g, '')}`,
         password: form.password,
         type: 'business',
         businessName: form.businessName,
@@ -439,11 +631,17 @@ export default function BusinessRegisterFlow({ navigation }) {
               ? SlideOutLeft.duration(300)
               : SlideOutRight.duration(300)
           }
-          style={styles.stepWrapper}
+          style={{ flex: 1 }}
         >
-          <Text style={styles.contextLabel}>{STEPS[currentStep].context}</Text>
-          <Text style={styles.question}>{STEPS[currentStep].question}</Text>
-          {renderContent()}
+          <ScrollView
+            contentContainerStyle={styles.stepWrapper}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.contextLabel}>{STEPS[currentStep].context}</Text>
+            <Text style={styles.question}>{STEPS[currentStep].question}</Text>
+            {renderContent()}
+          </ScrollView>
         </Animated.View>
 
         {/* Footer */}
@@ -536,9 +734,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   stepWrapper: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xl,
+    paddingBottom: 40,
   },
   contextLabel: {
     color: COLORS.primary,
@@ -637,25 +836,25 @@ const step = StyleSheet.create({
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
   typeCard: {
-    width: (width - SPACING.lg * 2 - SPACING.sm * 3) / 4,
-    aspectRatio: 1,
-    borderRadius: RADIUS.md,
+    width: (width - SPACING.lg * 2 - SPACING.md) / 2,
+    height: 96,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.bgCard,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     overflow: 'hidden',
   },
   typeCardActive: { borderColor: COLORS.primary },
   typeLabel: {
     color: COLORS.textMuted,
-    fontSize: 10,
-    fontFamily: FONTS.medium,
+    fontSize: 13,
+    fontFamily: FONTS.semiBold,
     textAlign: 'center',
   },
   typeLabelActive: { color: COLORS.primary },
@@ -687,6 +886,25 @@ const step = StyleSheet.create({
     backgroundColor: COLORS.border,
     marginLeft: SPACING.md + 20 + SPACING.sm,
   },
+  suggestionsContainer: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderTopWidth: 1,
+    borderColor: COLORS.border,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    gap: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  suggestionText: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.regular,
+    flex: 1,
+  },
   eyeBtn: { padding: SPACING.xs },
   pwdError: {
     color: COLORS.error,
@@ -700,4 +918,28 @@ const step = StyleSheet.create({
     fontFamily: FONTS.medium,
     padding: SPACING.sm,
   },
+  phoneCodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    paddingLeft: SPACING.md,
+    paddingRight: SPACING.sm,
+  },
+  phoneFlag: { fontSize: 18 },
+  phoneCodeTxt: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.medium },
+  phoneDivider: { width: 1, height: 20, backgroundColor: COLORS.border, marginRight: SPACING.sm },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: COLORS.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: SPACING.lg, paddingTop: 12, paddingBottom: 28 },
+  modalHandle: { width: 42, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center', marginBottom: SPACING.md },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md },
+  modalTitle: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold },
+  modalSearchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.bgCard, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
+  modalSearchInput: { flex: 1, color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.regular, paddingVertical: 14 },
+  modalItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(201,169,97,0.08)' },
+  modalItemActive: { backgroundColor: 'rgba(201,169,97,0.06)' },
+  modalFlag: { fontSize: 20, marginRight: 10 },
+  modalItemText: { flex: 1, color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.regular },
+  modalItemTextActive: { color: COLORS.primary, fontFamily: FONTS.semiBold },
+  modalCodeText: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium },
 });

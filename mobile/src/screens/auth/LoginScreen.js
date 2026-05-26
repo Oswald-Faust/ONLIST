@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image,
   ScrollView, StatusBar, Alert, Dimensions, Platform,
+  TextInput, Modal, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +11,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { PHONE_CODES } from '../../constants/phoneCodes';
 import GradientButton from '../../components/GradientButton';
 import InputField from '../../components/InputField';
 import { useAuth } from '../../context/AuthContext';
@@ -40,10 +42,105 @@ function Divider() {
   );
 }
 
+function PhoneField({ phoneCode, phone, onChangePhoneCode, onChangePhone }) {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [search, setSearch] = useState('');
+  const phoneCodes = PHONE_CODES.filter(Boolean);
+
+  const selected = phoneCodes.find((item) => item.code === phoneCode) || phoneCodes.find((item) => item.country === 'France');
+  const filtered = search.trim()
+    ? phoneCodes.filter((item) =>
+        item.country.toLowerCase().includes(search.toLowerCase()) ||
+        item.code.includes(search.replace(/\s/g, ''))
+      )
+    : phoneCodes;
+
+  return (
+    <View style={styles.phoneFieldWrap}>
+      <View style={styles.phoneField}>
+        <TouchableOpacity
+          style={styles.phoneCodeBtn}
+          activeOpacity={0.82}
+          onPress={() => {
+            setSearch('');
+            setModalVisible(true);
+          }}
+        >
+          <Text style={styles.phoneFlag}>{selected?.flag}</Text>
+          <Text style={styles.phoneCodeTxt}>{selected?.code}</Text>
+          <Ionicons name="chevron-down" size={14} color={COLORS.textMuted} />
+        </TouchableOpacity>
+
+        <View style={styles.phoneDivider} />
+
+        <TextInput
+          style={styles.phoneInput}
+          value={phone}
+          onChangeText={(value) => onChangePhone(value.replace(/[^0-9 ]/g, ''))}
+          placeholder="6 12 34 56 78"
+          placeholderTextColor={COLORS.textMuted}
+          keyboardType="phone-pad"
+        />
+      </View>
+
+      <Modal visible={modalVisible} animationType="slide" transparent presentationStyle="overFullScreen">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Choisir un pays</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={22} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalSearchRow}>
+              <Ionicons name="search" size={16} color={COLORS.textMuted} />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Pays ou indicatif..."
+                placeholderTextColor={COLORS.textMuted}
+                value={search}
+                onChangeText={setSearch}
+                autoFocus
+              />
+            </View>
+
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => `${item.code}-${item.country}`}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 420 }}
+              renderItem={({ item }) => {
+                const active = item.code === phoneCode;
+                return (
+                  <TouchableOpacity
+                    style={[styles.modalItem, active && styles.modalItemActive]}
+                    onPress={() => {
+                      onChangePhoneCode(item.code);
+                      setModalVisible(false);
+                    }}
+                  >
+                    <Text style={styles.modalFlag}>{item.flag}</Text>
+                    <Text style={[styles.modalItemText, active && styles.modalItemTextActive]}>{item.country}</Text>
+                    <Text style={styles.modalCodeText}>{item.code}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 export default function LoginScreen({ navigation }) {
   const { login, loginWithGoogle, loginWithApple } = useAuth();
   const [tab, setTab] = useState('email');
   const [email, setEmail] = useState('');
+  const [phoneCode, setPhoneCode] = useState('+33');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -106,7 +203,7 @@ export default function LoginScreen({ navigation }) {
     if (tab === 'mobile' && !phone) return Alert.alert('Erreur', 'Veuillez entrer votre numéro');
     setLoading(true);
     try {
-      const creds = tab === 'email' ? { email, password } : { phone, password };
+      const creds = tab === 'email' ? { email, password } : { phone: `${phoneCode}${phone.replace(/\s/g, '')}`, password };
       await login(creds);
     } catch (err) {
       Alert.alert('Erreur', err.message);
@@ -149,17 +246,14 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.oauthInner}>
               <View style={styles.oauthIconWrap}>
                 {googleLoading ? (
-                  <Ionicons name="reload-outline" size={18} color="#202124" />
+                  <Ionicons name="reload-outline" size={18} color={COLORS.white} />
                 ) : (
                   <Image source={{ uri: GOOGLE_LOGO_URI }} style={styles.googleLogo} />
                 )}
               </View>
 
               <Text style={styles.oauthText}>Continuer avec Google</Text>
-
-              <View style={styles.oauthArrow}>
-                <Ionicons name="arrow-forward" size={16} color="#5f6368" />
-              </View>
+              <View style={styles.oauthSpacer} />
             </View>
           </TouchableOpacity>
 
@@ -192,7 +286,7 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           {tab === 'mobile'
-            ? <InputField placeholder="00 000 0000" value={phone} onChangeText={setPhone} keyboardType="phone-pad" icon="call-outline" />
+            ? <PhoneField phoneCode={phoneCode} phone={phone} onChangePhoneCode={setPhoneCode} onChangePhone={setPhone} />
             : <InputField placeholder="email@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" icon="mail-outline" />}
 
           <InputField placeholder="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry icon="lock-closed-outline" />
@@ -230,38 +324,31 @@ const styles = StyleSheet.create({
 
   // OAuth buttons
   oauthBtn: {
-    borderRadius: 16,
+    height: 50,
+    borderRadius: 14,
     marginBottom: SPACING.sm,
-    borderWidth: 1.2,
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.18)',
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.14,
-    shadowRadius: 20,
-    elevation: 6,
+    backgroundColor: '#000000',
   },
   oauthBtnDisabled: {
     opacity: 0.65,
   },
   oauthInner: {
-    minHeight: 58,
+    height: '100%',
     paddingHorizontal: 14,
-    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   oauthIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(60,64,67,0.08)',
   },
   googleLogo: {
     width: 18,
@@ -269,21 +356,134 @@ const styles = StyleSheet.create({
   },
   oauthText: {
     flex: 1,
-    color: '#1F1F1F',
+    color: '#FFFFFF',
     fontSize: FONTS.sizes.base,
     fontFamily: 'Poppins_600SemiBold',
+    textAlign: 'center',
   },
-  oauthArrow: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: 'rgba(60,64,67,0.08)',
-  },
+  oauthSpacer: { width: 32 },
   appleBtn: { width: '100%', height: 50, marginBottom: SPACING.sm },
+
+  phoneFieldWrap: { marginBottom: SPACING.md },
+  phoneField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgInput,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    minHeight: 52,
+  },
+  phoneCodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+  },
+  phoneFlag: {
+    fontSize: 20,
+  },
+  phoneCodeTxt: {
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.base,
+    fontFamily: 'Poppins_500Medium',
+  },
+  phoneDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: COLORS.border,
+    marginHorizontal: 12,
+  },
+  phoneInput: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.base,
+    fontFamily: 'Poppins_400Regular',
+    paddingVertical: 14,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.bgCard,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: 12,
+    paddingBottom: 28,
+  },
+  modalHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.borderLight,
+    alignSelf: 'center',
+    marginBottom: SPACING.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  modalTitle: {
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.lg,
+    fontFamily: 'Poppins_700Bold',
+  },
+  modalSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.bgInput,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  modalSearchInput: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.base,
+    fontFamily: 'Poppins_400Regular',
+    paddingVertical: 14,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(201,169,97,0.08)',
+  },
+  modalItemActive: {
+    backgroundColor: 'rgba(201,169,97,0.06)',
+  },
+  modalFlag: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  modalItemText: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.base,
+    fontFamily: 'Poppins_400Regular',
+  },
+  modalItemTextActive: {
+    color: COLORS.primaryLight,
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  modalCodeText: {
+    color: COLORS.textMuted,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: 'Poppins_500Medium',
+  },
 
   // Divider
   divider: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginVertical: SPACING.lg },

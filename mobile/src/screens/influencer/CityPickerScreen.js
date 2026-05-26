@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   FlatList, Modal, ActivityIndicator, Dimensions,
@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { metaAPI } from '../../services/api';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -56,10 +57,17 @@ function CityItem({ item, selected, onSelect }) {
           style={StyleSheet.absoluteFill}
         />
       )}
-      <Text style={styles.cityFlag}>{item.flag}</Text>
+      <Text style={styles.cityFlag}>{item.flag || '📍'}</Text>
       <View style={styles.cityInfo}>
-        <Text style={[styles.cityName, active && styles.cityNameActive]}>{item.city}</Text>
-        <Text style={styles.cityCountry}>{item.country}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[styles.cityName, active && styles.cityNameActive]}>{item.city}</Text>
+          {item.hasEvent && (
+            <View style={styles.eventBadge}>
+              <Text style={styles.eventBadgeTxt}>events</Text>
+            </View>
+          )}
+        </View>
+        {item.country ? <Text style={styles.cityCountry}>{item.country}</Text> : null}
       </View>
       <View style={[styles.radio, active && styles.radioActive]}>
         {active && <View style={styles.radioDot} />}
@@ -70,25 +78,73 @@ function CityItem({ item, selected, onSelect }) {
 
 // ─── Bottom Sheet ──────────────────────────────────────────────────────────────
 
-export default function CityPickerSheet({ visible, onClose }) {
-  const { updateUser } = useAuth();
+export default function CityPickerSheet({
+  visible,
+  onClose,
+  selectedCity: selectedCityProp,
+  onSelectCity,
+  onResetCity,
+}) {
+  const { user, updateUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState('');
   const [saving, setSaving] = useState(false);
+  const [eventCities, setEventCities] = useState([]);
+
+  // Charger les villes qui ont des événements actifs
+  useEffect(() => {
+    if (visible) {
+      setSelected((selectedCityProp ?? user?.selectedCity) || '');
+      metaAPI.eventCities()
+        .then(data => {
+          if (data?.cities?.length) {
+            setEventCities(data.cities);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [visible, selectedCityProp, user?.selectedCity]);
+
+  // Construire la liste combinée : villes avec events en premier, puis POPULAR
+  const allCities = useMemo(() => {
+    const eventSet = new Set(eventCities.map(c => c.toLowerCase()));
+    // Villes avec events qui existent dans POPULAR
+    const withEvents = POPULAR.filter(c => eventSet.has(c.city.toLowerCase()));
+    // Villes avec events qui ne sont pas dans POPULAR
+    const onlyInEvents = eventCities
+      .filter(c => !POPULAR.some(p => p.city.toLowerCase() === c.toLowerCase()))
+      .map(c => ({ city: c, country: '', flag: '📍', hasEvent: true }));
+    // Reste de POPULAR
+    const others = POPULAR.filter(c => !eventSet.has(c.city.toLowerCase()));
+    return [
+      ...withEvents.map(c => ({ ...c, hasEvent: true })),
+      ...onlyInEvents,
+      ...others,
+    ];
+  }, [eventCities]);
 
   const filtered = useMemo(() =>
     query.trim()
-      ? POPULAR.filter(c =>
+      ? allCities.filter(c =>
           c.city.toLowerCase().includes(query.toLowerCase()) ||
           c.country.toLowerCase().includes(query.toLowerCase())
         )
-      : POPULAR,
-    [query]
+      : allCities,
+    [query, allCities]
   );
 
   const handleConfirm = async () => {
     if (!selected || saving) return;
+
+    if (onSelectCity) {
+      onSelectCity(selected);
+      setQuery('');
+      setSelected('');
+      onClose();
+      return;
+    }
+
     setSaving(true);
     try {
       await updateUser({ selectedCity: selected });
@@ -102,8 +158,29 @@ export default function CityPickerSheet({ visible, onClose }) {
 
   const handleClose = () => {
     setQuery('');
-    setSelected('');
+    setSelected((selectedCityProp ?? user?.selectedCity) || '');
     onClose();
+  };
+
+  const handleResetCity = async () => {
+    if (onResetCity) {
+      onResetCity();
+      setQuery('');
+      setSelected('');
+      onClose();
+      return;
+    }
+
+    if (saving) return;
+    setSaving(true);
+    try {
+      await updateUser({ selectedCity: '' });
+      setQuery('');
+      setSelected('');
+      onClose();
+    } catch {
+      setSaving(false);
+    }
   };
 
   return (
@@ -163,13 +240,16 @@ export default function CityPickerSheet({ visible, onClose }) {
 
           {/* Label liste */}
           {!query && (
-            <Text style={styles.listLabel}>Villes populaires</Text>
+            <Text style={styles.listLabel}>
+              {eventCities.length > 0 ? `${eventCities.length} ville${eventCities.length > 1 ? 's' : ''} avec events • Populaires` : 'Villes populaires'}
+            </Text>
           )}
 
           {/* Liste — hauteur contrainte */}
           <FlatList
             data={filtered}
             keyExtractor={item => item.city}
+            keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => (
               <CityItem item={item} selected={selected} onSelect={setSelected} />
             )}
@@ -185,6 +265,11 @@ export default function CityPickerSheet({ visible, onClose }) {
 
           {/* Bouton confirmer */}
           <View style={styles.footer}>
+            {!!(selectedCityProp ?? user?.selectedCity) && (
+              <TouchableOpacity onPress={handleResetCity} activeOpacity={0.8} style={styles.resetBtn}>
+                <Text style={styles.resetBtnTxt}>Voir toutes les villes</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={handleConfirm}
               activeOpacity={selected ? 0.85 : 1}
@@ -230,6 +315,7 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.72)',
+    zIndex: 0,
   },
 
   // Sheet
@@ -242,6 +328,8 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: COLORS.border,
     maxHeight: SCREEN_H * 0.88,
+    zIndex: 2,
+    elevation: 8,
   },
   handle: {
     width: 40,
@@ -368,8 +456,40 @@ const styles = StyleSheet.create({
   emptyWrap: { paddingVertical: SPACING.lg, alignItems: 'center' },
   emptyText: { color: COLORS.textMuted, fontSize: FONTS.sizes.base, fontFamily: FONTS.regular },
 
+  // Badge "events"
+  eventBadge: {
+    backgroundColor: 'rgba(16,217,160,0.12)',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(16,217,160,0.25)',
+  },
+  eventBadgeTxt: {
+    color: '#10D9A0',
+    fontSize: 9,
+    fontFamily: FONTS.semiBold,
+    letterSpacing: 0.3,
+  },
+
   // Footer
   footer: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
+  resetBtn: {
+    height: 46,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bgCard2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.sm,
+    zIndex: 3,
+  },
+  resetBtnTxt: {
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.semiBold,
+  },
   confirmBtn: {
     height: 54,
     borderRadius: RADIUS.full,
@@ -377,6 +497,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
+    zIndex: 3,
   },
   confirmBtnDisabled: {
     height: 54,
@@ -386,6 +507,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+    zIndex: 3,
   },
   confirmTxt: { color: COLORS.bg, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
   confirmTxtDisabled: { color: COLORS.textMuted, fontSize: FONTS.sizes.base, fontFamily: FONTS.medium },
