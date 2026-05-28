@@ -1,7 +1,9 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { sendResetCodeEmail, sendWelcomeInfluencerEmail, sendWelcomeBusinessEmail } = require('../utils/mailer');
 
 const router = express.Router();
 
@@ -12,7 +14,7 @@ const signToken = (id) =>
 router.post('/register', async (req, res) => {
   try {
     const { name, email, phone, password, type, instagram, tiktok, followersCount,
-      city, country, nationality, gender, dateOfBirth,
+      city, country, nationality, gender, dateOfBirth, photos,
       businessName, businessType, businessAddress, businessCity, businessDescription } = req.body;
 
     const orConditions = [];
@@ -27,9 +29,20 @@ router.post('/register', async (req, res) => {
       name, email, phone, password, type: type || 'influencer',
       instagram, tiktok, followersCount, city, country,
       nationality, gender, dateOfBirth,
+      photos: Array.isArray(photos) ? photos : [],
       businessName, businessType, businessAddress, businessCity, businessDescription,
       status: 'pending',
     });
+
+    // Email de bienvenue (sans bloquer la réponse)
+    if (user.email) {
+      const sendWelcome = user.type === 'business' ? sendWelcomeBusinessEmail : sendWelcomeInfluencerEmail;
+      sendWelcome({
+        to: user.email,
+        name: user.name,
+        businessName: user.businessName,
+      }).catch((err) => console.error('Welcome email failed:', err.message));
+    }
 
     res.status(201).json({
       token: signToken(user._id),
@@ -164,6 +177,113 @@ router.post('/apple', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /auth/forgot-password
+// Accepte email OU phone, envoie un code à 5 chiffres par email
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email, phone } = req.body;
+    if (!email && !phone) return res.status(400).json({ message: 'Email ou téléphone requis' });
+
+    const query = email ? { email } : { phone };
+    const user = await User.findOne(query).select('+resetCode +resetCodeExpiry');
+    if (!user) return res.status(404).json({ message: 'Aucun compte associé à cet identifiant' });
+
+    // L'utilisateur doit avoir un email pour recevoir le code
+    if (!user.email) {
+      return res.status(400).json({ message: 'Ce compte ne possède pas d\'adresse email pour recevoir le code' });
+    }
+
+    // Génère un code à 5 chiffres
+    const code = String(Math.floor(10000 + Math.random() * 90000));
+    const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    user.resetCode = code;
+    user.resetCodeExpiry = expiry;
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    await sendResetCodeEmail({ to: user.email, code, name: user.name });
+
+    // On retourne l'email masqué pour affichage côté client
+    const maskedEmail = user.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) =>
+      a + '*'.repeat(Math.max(1, b.length)) + c
+    );
+
+    res.json({ message: 'Code envoyé', maskedEmail });
+  } catch (err) {
+    console.error('forgot-password error:', err);
+    res.status(500).json({ message: 'Erreur lors de l\'envoi du code' });
+  }
+});
+
+// POST /auth/verify-reset-code
+// Vérifie le code et retourne un resetToken temporaire
+router.post('/verify-reset-code', async (req, res) => {
+  try {
+    const { email, phone, code } = req.body;
+    if (!code) return res.status(400).json({ message: 'Code requis' });
+    if (!email && !phone) return res.status(400).json({ message: 'Email ou téléphone requis' });
+
+    const query = email ? { email } : { phone };
+    const user = await User.findOne(query).select('+resetCode +resetCodeExpiry +resetToken +resetTokenExpiry');
+    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+
+    if (!user.resetCode || user.resetCode !== code) {
+      return res.status(400).json({ message: 'Code incorrect' });
+    }
+    if (!user.resetCodeExpiry || user.resetCodeExpiry < new Date()) {
+      return res.status(400).json({ message: 'Code expiré, veuillez en demander un nouveau' });
+    }
+
+    // Code valide : génère un resetToken court (10 min)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetCode = undefined;
+    user.resetCodeExpiry = undefined;
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
+
+    res.json({ message: 'Code vérifié', resetToken });
+  } catch (err) {
+    console.error('verify-reset-code error:', err);
+    res.status(500).json({ message: 'Erreur de vérification' });
+  }
+});
+
+// POST /auth/reset-password
+// Réinitialise le mot de passe avec le resetToken
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({ message: 'Token et nouveau mot de passe requis' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Le mot de passe doit contenir au moins 6 caractères' });
+    }
+
+    const user = await User.findOne({
+      resetToken,
+      resetTokenExpiry: { $gt: new Date() },
+    }).select('+resetToken +resetTokenExpiry');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Lien expiré ou invalide, recommencez la procédure' });
+    }
+
+    user.password = newPassword;
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save();
+
+    res.json({ message: 'Mot de passe réinitialisé avec succès' });
+  } catch (err) {
+    console.error('reset-password error:', err);
+    res.status(500).json({ message: 'Erreur lors de la réinitialisation' });
   }
 });
 

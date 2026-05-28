@@ -1,6 +1,8 @@
 const express = require('express');
 const Application = require('../models/Application');
 const Event = require('../models/Event');
+const Review = require('../models/Review');
+const User = require('../models/User');
 const { protect, requireValidated } = require('../middleware/auth');
 const { createNotification } = require('../utils/notifications');
 
@@ -42,6 +44,31 @@ router.post('/', protect, requireValidated, async (req, res) => {
     });
 
     res.status(201).json({ application });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /applications/business/pending — candidatures en attente pour le dashboard business
+router.get('/business/pending', protect, requireValidated, async (req, res) => {
+  try {
+    if (req.user.type !== 'business') {
+      return res.status(403).json({ message: 'Réservé aux établissements' });
+    }
+    const events = await Event.find({ creator: req.user._id }).select('_id title');
+    const eventIds = events.map(e => e._id);
+    const limit = Math.min(Number(req.query.limit) || 10, 20);
+
+    const [applications, totalPending] = await Promise.all([
+      Application.find({ event: { $in: eventIds }, status: 'pending' })
+        .populate('user', 'name photos instagram tiktok followersCount score city')
+        .populate('event', 'title city images date')
+        .sort({ appliedAt: -1 })
+        .limit(limit),
+      Application.countDocuments({ event: { $in: eventIds }, status: 'pending' }),
+    ]);
+
+    res.json({ applications, totalPending });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -125,6 +152,56 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
     });
 
     res.json({ application });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /applications/:id/review — noter un influenceur après l'événement (business ou admin)
+router.post('/:id/review', protect, requireValidated, async (req, res) => {
+  try {
+    const application = await Application.findById(req.params.id).populate('event');
+    if (!application) return res.status(404).json({ message: 'Candidature introuvable' });
+
+    const event = application.event;
+    if (event.creator.toString() !== req.user._id.toString() && req.user.type !== 'admin')
+      return res.status(403).json({ message: 'Non autorisé' });
+
+    if (application.status !== 'accepted')
+      return res.status(400).json({ message: 'L\'influenceur doit être accepté pour être évalué' });
+
+    const { scores, comment } = req.body;
+
+    let review = await Review.findOne({ influencer: application.user, business: req.user._id, event: event._id });
+    if (review) {
+      if (scores) review.scores = { ...review.scores.toObject(), ...scores };
+      if (comment !== undefined) review.comment = comment;
+    } else {
+      review = new Review({
+        influencer: application.user,
+        business: req.user._id,
+        event: event._id,
+        scores: scores || {},
+        comment,
+      });
+    }
+    await review.save();
+
+    // Recalculer les scores agrégés de l'influenceur
+    const allReviews = await Review.find({ influencer: application.user });
+    const count = allReviews.length;
+    const avg = (key) => allReviews.reduce((s, r) => s + (r.scores[key] || 0), 0) / count;
+    const scoreDetails = {
+      punctuality: parseFloat(avg('punctuality').toFixed(1)),
+      style: parseFloat(avg('style').toFixed(1)),
+      attitude: parseFloat(avg('attitude').toFixed(1)),
+      content: parseFloat(avg('content').toFixed(1)),
+    };
+    const globalScore = parseFloat(((scoreDetails.punctuality + scoreDetails.style + scoreDetails.attitude + scoreDetails.content) / 4).toFixed(1));
+
+    await User.findByIdAndUpdate(application.user, { score: globalScore, reviewsCount: count, scoreDetails });
+
+    res.json({ review });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -37,6 +37,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/meta', require('./routes/meta'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/lieux', require('./routes/lieux'));
 
 app.get('/health', (_req, res) => res.json({
   status: 'ok',

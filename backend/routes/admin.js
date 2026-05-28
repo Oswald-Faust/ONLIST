@@ -4,6 +4,12 @@ const Event = require('../models/Event');
 const Application = require('../models/Application');
 const { protect, requireAdmin } = require('../middleware/auth');
 const { createNotification } = require('../utils/notifications');
+const {
+  sendInfluencerValidatedEmail,
+  sendInfluencerRejectedEmail,
+  sendBusinessValidatedEmail,
+  sendBusinessRejectedEmail,
+} = require('../utils/mailer');
 
 const router = express.Router();
 
@@ -39,6 +45,7 @@ router.put('/users/:id/status', protect, requireAdmin, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
 
     if (status === 'validated' || status === 'rejected') {
+      // Notification in-app
       await createNotification({
         userId: user._id,
         actorId: req.user._id,
@@ -47,13 +54,29 @@ router.put('/users/:id/status', protect, requireAdmin, async (req, res) => {
         title: status === 'validated' ? 'Compte validé' : 'Compte refusé',
         body: status === 'validated'
           ? 'Votre compte ONLIST est désormais actif.'
-          : 'Votre compte ONLIST a été refusé. Contactez le support pour plus d’informations.',
+          : 'Votre compte ONLIST a été refusé. Contactez le support pour plus d\'informations.',
         entityType: 'profile',
         entityId: user._id,
-        data: {
-          status,
-        },
+        data: { status },
       });
+
+      // Email automatique selon le type et le statut
+      if (user.email) {
+        try {
+          if (user.type === 'influencer' && status === 'validated') {
+            await sendInfluencerValidatedEmail({ to: user.email, name: user.name });
+          } else if (user.type === 'influencer' && status === 'rejected') {
+            await sendInfluencerRejectedEmail({ to: user.email, name: user.name });
+          } else if (user.type === 'business' && status === 'validated') {
+            await sendBusinessValidatedEmail({ to: user.email, businessName: user.businessName || user.name });
+          } else if (user.type === 'business' && status === 'rejected') {
+            await sendBusinessRejectedEmail({ to: user.email, businessName: user.businessName || user.name });
+          }
+        } catch (mailErr) {
+          // On log l'erreur mail mais on ne bloque pas la réponse
+          console.error('Email de statut non envoyé:', mailErr.message);
+        }
+      }
     }
 
     res.json({ user });

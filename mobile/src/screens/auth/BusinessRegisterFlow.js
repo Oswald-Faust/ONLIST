@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, StatusBar, Alert,
-  Dimensions, ActivityIndicator, ScrollView, Modal, FlatList,
+  Dimensions, ActivityIndicator, Modal, FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { PHONE_CODES } from '../../constants/phoneCodes';
+import KeyboardDismissScrollView from '../../components/KeyboardDismissScrollView';
 import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -633,15 +634,14 @@ export default function BusinessRegisterFlow({ navigation }) {
           }
           style={{ flex: 1 }}
         >
-          <ScrollView
+          <KeyboardDismissScrollView
             contentContainerStyle={styles.stepWrapper}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.contextLabel}>{STEPS[currentStep].context}</Text>
             <Text style={styles.question}>{STEPS[currentStep].question}</Text>
             {renderContent()}
-          </ScrollView>
+          </KeyboardDismissScrollView>
         </Animated.View>
 
         {/* Footer */}

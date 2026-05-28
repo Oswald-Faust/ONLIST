@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/auth';
 import Header from '@/components/Header';
-import { FileText, AlertCircle } from 'lucide-react';
+import { FileText, AlertCircle, ChevronRight } from 'lucide-react';
 
 interface Application {
   _id: string;
@@ -14,6 +15,7 @@ interface Application {
 }
 
 function ApplicationsContent() {
+  const router = useRouter();
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +63,7 @@ function ApplicationsContent() {
           <table className="w-full">
             <thead>
               <tr className="border-b subtle-divider">
-                {['Influenceur', 'Événement', 'Statut', 'Date', 'Message'].map(h => (
+                {['Influenceur', 'Événement', 'Statut', 'Date', 'Message', ''].map(h => (
                   <th key={h} className="text-left px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -70,7 +72,7 @@ function ApplicationsContent() {
               {loading ? (
                 Array(8).fill(0).map((_, i) => (
                   <tr key={i} className="border-b subtle-divider">
-                    {Array(5).fill(0).map((_, j) => (
+                    {Array(6).fill(0).map((_, j) => (
                       <td key={j} className="px-5 py-4">
                         <div className="h-4 rounded-lg bg-white/5 animate-pulse w-24" />
                       </td>
@@ -78,17 +80,22 @@ function ApplicationsContent() {
                   </tr>
                 ))
               ) : error ? (
-                <tr><td colSpan={5} className="text-center py-16" style={{ color: '#e8594a' }}>
+                <tr><td colSpan={6} className="text-center py-16" style={{ color: '#e8594a' }}>
                   <AlertCircle size={40} className="mx-auto mb-3" />
                   {error}
                 </td></tr>
               ) : apps.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
+                <tr><td colSpan={6} className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
                   <FileText size={40} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
                   Aucune candidature
                 </td></tr>
               ) : apps.map(app => (
-                <tr key={app._id} className="border-b transition-colors" style={{ borderColor: 'rgba(201,169,97,0.08)' }}>
+                <tr
+                  key={app._id}
+                  className="border-b transition-colors cursor-pointer hover:bg-white/[0.02]"
+                  style={{ borderColor: 'rgba(201,169,97,0.08)' }}
+                  onClick={() => router.push(`/dashboard/applications/${app._id}`)}
+                >
                   <td className="px-5 py-4 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{app.user?.name || '—'}</td>
                   <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-secondary)' }}>{app.event?.title || '—'}</td>
                   <td className="px-5 py-4">
@@ -100,6 +107,9 @@ function ApplicationsContent() {
                     {app.appliedAt ? new Date(app.appliedAt).toLocaleDateString('fr-FR') : '—'}
                   </td>
                   <td className="px-5 py-4 text-sm max-w-48 truncate" style={{ color: 'var(--text-muted)' }}>{app.message || '—'}</td>
+                  <td className="px-5 py-4">
+                    <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+                  </td>
                 </tr>
               ))}
             </tbody>

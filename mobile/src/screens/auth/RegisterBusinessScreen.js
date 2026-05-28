@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import GradientButton from '../../components/GradientButton';
 import InputField from '../../components/InputField';
+import KeyboardDismissScrollView from '../../components/KeyboardDismissScrollView';
 import { useAuth } from '../../context/AuthContext';
 
 const BUSINESS_TYPES = [
@@ -64,7 +65,7 @@ export default function RegisterBusinessScreen({ navigation }) {
       <LinearGradient colors={['#0A0A0F', '#131210', '#0A0A0F']} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <KeyboardDismissScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color={COLORS.white} />
           </TouchableOpacity>
@@ -120,7 +121,7 @@ export default function RegisterBusinessScreen({ navigation }) {
             <Text style={styles.loginQ}>Déjà un compte ?  </Text>
             <Text style={styles.loginLink}>Se connecter</Text>
           </TouchableOpacity>
-        </ScrollView>
+        </KeyboardDismissScrollView>
       </SafeAreaView>
     </View>
   );

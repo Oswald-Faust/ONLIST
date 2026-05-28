@@ -72,7 +72,8 @@ router.put('/me', protect, async (req, res) => {
   try {
     const allowed = ['name', 'bio', 'city', 'country', 'nationality', 'gender', 'dateOfBirth',
       'instagram', 'tiktok', 'youtube', 'followersCount', 'photos',
-      'businessDescription', 'businessAddress', 'businessCity', 'selectedCity'];
+      'businessName', 'businessType', 'businessDescription', 'businessAddress',
+      'businessCity', 'businessPostalCode', 'businessLogo', 'selectedCity'];
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 

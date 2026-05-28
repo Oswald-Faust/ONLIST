@@ -236,7 +236,7 @@ const HS = StyleSheet.create({
     gap: 12,
   },
   dimCard: {
-    width: (W - SPACING.lg * 2 - SPACING.md * 2 - 10) / 2,
+    width: (W - SPACING.lg * 2 - SPACING.md * 2 - 12) / 2,
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderRadius: 18,
     borderWidth: 1,

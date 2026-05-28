@@ -3,8 +3,9 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { COLORS, FONTS } from '../constants/theme';
+import { COLORS } from '../constants/theme';
 import LiquidGlassTabBar from '../components/LiquidGlassTabBar';
+import BusinessTabBar from '../components/BusinessTabBar';
 
 // Auth screens
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
@@ -13,6 +14,9 @@ import MemberRegisterFlow from '../screens/auth/MemberRegisterFlow';
 import BusinessHowItWorks from '../screens/auth/BusinessHowItWorks';
 import BusinessRegisterFlow from '../screens/auth/BusinessRegisterFlow';
 import PendingScreen from '../screens/auth/PendingScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ResetCodeScreen from '../screens/auth/ResetCodeScreen';
+import NewPasswordScreen from '../screens/auth/NewPasswordScreen';
 
 // Influencer screens
 import HomeScreen from '../screens/influencer/HomeScreen';
@@ -26,10 +30,17 @@ import SearchScreen from '../screens/influencer/SearchScreen';
 import NotificationsScreen from '../screens/influencer/NotificationsScreen';
 
 // Business screens
-import BusinessHomeScreen from '../screens/business/BusinessHomeScreen';
+import BusinessDashboardScreen from '../screens/business/BusinessDashboardScreen';
+import BusinessNotificationsScreen from '../screens/business/BusinessNotificationsScreen';
+import BusinessInfluencerProfileScreen from '../screens/business/BusinessInfluencerProfileScreen';
+import LieuxScreen from '../screens/business/LieuxScreen';
+import EvenementsScreen from '../screens/business/EvenementsScreen';
+import BusinessProfileScreen from '../screens/business/BusinessProfileScreen';
+import BusinessEditProfileScreen from '../screens/business/BusinessEditProfileScreen';
+import BusinessSettingsScreen from '../screens/business/BusinessSettingsScreen';
+import CreateLieuScreen from '../screens/business/CreateLieuScreen';
 import CreateEventScreen from '../screens/business/CreateEventScreen';
-import ManageEventScreen from '../screens/business/ManageEventScreen';
-import InfluencerListScreen from '../screens/business/InfluencerListScreen';
+import BusinessEventDetailScreen from '../screens/business/BusinessEventDetailScreen';
 
 // Admin screens
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -53,6 +64,9 @@ function AuthStack() {
       <Stack.Screen name="RegisterInfluencer" component={MemberRegisterFlow} />
       <Stack.Screen name="BusinessHowItWorks" component={BusinessHowItWorks} />
       <Stack.Screen name="RegisterBusiness" component={BusinessRegisterFlow} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ResetCode" component={ResetCodeScreen} />
+      <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
     </Stack.Navigator>
   );
 }
@@ -62,11 +76,7 @@ function InfluencerTabs() {
   return (
     <Tab.Navigator
       tabBar={(props) => <LiquidGlassTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-        // Laisser de la place pour la tab bar flottante
-        tabBarStyle: { display: 'none' },
-      }}
+      screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Explore" component={ExploreScreen} />
@@ -90,14 +100,33 @@ function InfluencerStack() {
   );
 }
 
+// ─── Business Tabs ─────────────────────────────────────────────────────────────
+function BusinessTabs() {
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <BusinessTabBar {...props} />}
+      screenOptions={{ headerShown: false, tabBarStyle: { display: 'none' } }}
+    >
+      <Tab.Screen name="Dashboard" component={BusinessDashboardScreen} />
+      <Tab.Screen name="Lieux" component={LieuxScreen} />
+      <Tab.Screen name="Events" component={EvenementsScreen} />
+      <Tab.Screen name="BizProfile" component={BusinessProfileScreen} />
+    </Tab.Navigator>
+  );
+}
+
 // ─── Business Stack ────────────────────────────────────────────────────────────
 function BusinessStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="BusinessHome" component={BusinessHomeScreen} />
+      <Stack.Screen name="BusinessTabs" component={BusinessTabs} />
+      <Stack.Screen name="BusinessNotifications" component={BusinessNotificationsScreen} />
+      <Stack.Screen name="BusinessEditProfile" component={BusinessEditProfileScreen} />
+      <Stack.Screen name="BusinessSettings" component={BusinessSettingsScreen} />
+      <Stack.Screen name="CreateLieu" component={CreateLieuScreen} />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
-      <Stack.Screen name="ManageEvent" component={ManageEventScreen} />
-      <Stack.Screen name="InfluencerList" component={InfluencerListScreen} />
+      <Stack.Screen name="BusinessEventDetail" component={BusinessEventDetailScreen} />
+      <Stack.Screen name="BusinessInfluencerProfile" component={BusinessInfluencerProfileScreen} />
     </Stack.Navigator>
   );
 }

@@ -6,6 +6,7 @@ const eventSchema = new mongoose.Schema({
   images: [{ type: String }],
 
   creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  lieu: { type: mongoose.Schema.Types.ObjectId, ref: 'Lieu' },
 
   venue: { type: String },
   address: { type: String },

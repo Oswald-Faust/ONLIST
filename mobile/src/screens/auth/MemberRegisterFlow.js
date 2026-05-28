@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, StatusBar, Alert, Image,
+  Keyboard, TouchableWithoutFeedback,
   Dimensions, Modal, FlatList, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +17,7 @@ import Animated, {
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { PHONE_CODES } from '../../constants/phoneCodes';
 import { useAuth } from '../../context/AuthContext';
-import { metaAPI } from '../../services/api';
+import { metaAPI, uploadAPI, usersAPI } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -24,24 +25,10 @@ const { width } = Dimensions.get('window');
 
 const STEPS = [
   {
-    id: 'firstName',
+    id: 'name',
     context: 'Bienvenue sur ONLIST ✦',
     question: 'Comment tu\nt\'appelles ?',
-    type: 'text',
-    field: 'firstName',
-    placeholder: 'Ton prénom',
-    autoCapitalize: 'words',
-    keyboardType: 'default',
-  },
-  {
-    id: 'lastName',
-    context: null, // calculé dynamiquement
-    question: 'Et ton nom\nde famille ?',
-    type: 'text',
-    field: 'lastName',
-    placeholder: 'Nom de famille',
-    autoCapitalize: 'words',
-    keyboardType: 'default',
+    type: 'fullName',
   },
   {
     id: 'email',
@@ -73,12 +60,6 @@ const STEPS = [
     question: 'Tu t\'identifies\ncomme ?',
     type: 'gender',
     field: 'gender',
-  },
-  {
-    id: 'location',
-    context: 'Nos services sont disponibles partout',
-    question: 'Tu habites\noù ?',
-    type: 'location',
   },
   {
     id: 'socials',
@@ -343,6 +324,39 @@ function StepText({ config, value, onChange, onPress, editable = true }) {
           </View>
         </TouchableOpacity>
       )}
+      <View style={step.inputLine} />
+    </View>
+  );
+}
+
+// ─── Étape Prénom + Nom ────────────────────────────────────────────────────────
+
+function StepFullName({ form, update }) {
+  return (
+    <View style={step.inputWrap}>
+      <TextInput
+        style={step.bigInput}
+        value={form.firstName}
+        onChangeText={v => update('firstName', v)}
+        placeholder="Prénom"
+        placeholderTextColor={COLORS.textMuted}
+        autoCapitalize="words"
+        keyboardType="default"
+        autoFocus
+        selectionColor={COLORS.primary}
+      />
+      <View style={step.inputLine} />
+      <View style={{ height: 20 }} />
+      <TextInput
+        style={step.bigInput}
+        value={form.lastName}
+        onChangeText={v => update('lastName', v)}
+        placeholder="Nom de famille"
+        placeholderTextColor={COLORS.textMuted}
+        autoCapitalize="words"
+        keyboardType="default"
+        selectionColor={COLORS.primary}
+      />
       <View style={step.inputLine} />
     </View>
   );
@@ -929,7 +943,7 @@ function StepPassword({ form, update }) {
 // ─── Composant principal ───────────────────────────────────────────────────────
 
 export default function MemberRegisterFlow({ navigation }) {
-  const { register } = useAuth();
+  const { register, updateUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState('forward');
@@ -970,13 +984,11 @@ export default function MemberRegisterFlow({ navigation }) {
   const canContinue = useCallback(() => {
     const s = STEPS[currentStep];
     switch (s.id) {
-      case 'firstName': return form.firstName.trim().length >= 2;
-      case 'lastName': return form.lastName.trim().length >= 2;
+      case 'name': return form.firstName.trim().length >= 2 && form.lastName.trim().length >= 2;
       case 'email': return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
       case 'phone': return form.phone.replace(/[\s\-]/g, '').length >= 6;
       case 'dateOfBirth': return form.dateOfBirth.length === 10;
       case 'gender': return !!form.gender;
-      case 'location': return !!form.city;
       case 'socials': return (!!form.instagram || !!form.tiktok) && !!form.followersCount;
       case 'photos': return form.photos.length > 0;
       case 'password':
@@ -1037,6 +1049,7 @@ export default function MemberRegisterFlow({ navigation }) {
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      // 1. Créer le compte (le token est stocké dans AsyncStorage par register())
       await register({
         name: `${form.firstName.trim()} ${form.lastName.trim()}`,
         email: form.email.trim(),
@@ -1053,6 +1066,21 @@ export default function MemberRegisterFlow({ navigation }) {
         dateOfBirth: form.dateOfBirth,
         nationality: form.nationality,
       });
+
+      // 2. Uploader les photos avec le token maintenant disponible
+      if (form.photos.length > 0) {
+        const results = await Promise.allSettled(
+          form.photos.map(uri => uploadAPI.image(uri))
+        );
+        const photoUrls = results
+          .filter(r => r.status === 'fulfilled')
+          .map(r => r.value.url);
+
+        if (photoUrls.length > 0) {
+          const data = await usersAPI.updateMe({ photos: photoUrls });
+          await updateUser(data.user || { photos: photoUrls });
+        }
+      }
     } catch (err) {
       Alert.alert('Erreur', err.message);
     } finally {
@@ -1064,7 +1092,6 @@ export default function MemberRegisterFlow({ navigation }) {
 
   const getContext = () => {
     const s = STEPS[currentStep];
-    if (s.id === 'lastName') return `Ravi de te rencontrer, ${form.firstName} !`;
     return s.context;
   };
 
@@ -1073,6 +1100,8 @@ export default function MemberRegisterFlow({ navigation }) {
   const renderContent = () => {
     const s = STEPS[currentStep];
     switch (s.type) {
+      case 'fullName':
+        return <StepFullName form={form} update={update} />;
       case 'text':
         return (
           <StepText
@@ -1098,8 +1127,6 @@ export default function MemberRegisterFlow({ navigation }) {
         return <StepPhone form={form} update={update} />;
       case 'gender':
         return <StepGender value={form.gender} onChange={v => update('gender', v)} />;
-      case 'location':
-        return <StepLocation form={form} update={update} />;
       case 'socials':
         return <StepSocials form={form} update={update} />;
       case 'photos':
@@ -1140,102 +1167,104 @@ export default function MemberRegisterFlow({ navigation }) {
       </View>
 
       {/* ── Contenu animé ── */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        <Animated.View
-          key={currentStep}
-          entering={
-            direction === 'forward'
-              ? SlideInRight.duration(300)
-              : SlideInLeft.duration(300)
-          }
-          exiting={
-            direction === 'forward'
-              ? SlideOutLeft.duration(300)
-              : SlideOutRight.duration(300)
-          }
-          style={styles.stepWrapper}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
         >
-          <Text style={styles.contextLabel}>{getContext()}</Text>
-          <Text style={styles.question}>{STEPS[currentStep].question}</Text>
-          {renderContent()}
-        </Animated.View>
-
-        {showDatePicker && Platform.OS === 'ios' && (
-          <View style={styles.iosDateSheetWrap}>
-            <View style={styles.iosDateSheet}>
-              <View style={styles.iosDateHeader}>
-                <Text style={styles.iosDateTitle}>Date de naissance</Text>
-                <TouchableOpacity onPress={() => {
-                  update('dateOfBirth', formatDateValue(draftBirthDate));
-                  setShowDatePicker(false);
-                }}>
-                  <Text style={styles.iosDateDone}>Valider</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={draftBirthDate}
-                mode="date"
-                display="spinner"
-                themeVariant="dark"
-                maximumDate={getMaximumBirthDate()}
-                onChange={(_, date) => {
-                  if (date) setDraftBirthDate(date);
-                }}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* ── Bouton Continuer ── */}
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity
-            onPress={goNext}
-            activeOpacity={active ? 0.85 : 1}
-            style={styles.continueOuter}
+          <Animated.View
+            key={currentStep}
+            entering={
+              direction === 'forward'
+                ? SlideInRight.duration(300)
+                : SlideInLeft.duration(300)
+            }
+            exiting={
+              direction === 'forward'
+                ? SlideOutLeft.duration(300)
+                : SlideOutRight.duration(300)
+            }
+            style={styles.stepWrapper}
           >
-            {active ? (
-              <LinearGradient
-                colors={COLORS.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.continueBtn}
-              >
-                {loading ? (
-                  <ActivityIndicator color={COLORS.bg} size="small" />
-                ) : (
-                  <>
-                    <Text style={styles.continueTxt}>
-                      {isLast ? 'Créer mon compte' : 'Continuer'}
-                    </Text>
-                    {!loading && (
-                      <Ionicons
-                        name={isLast ? 'checkmark' : 'arrow-forward'}
-                        size={20}
-                        color={COLORS.bg}
-                      />
-                    )}
-                  </>
-                )}
-              </LinearGradient>
-            ) : (
-              <View style={styles.continueBtnDisabled}>
-                <Text style={styles.continueTxtDisabled}>
-                  {isLast ? 'Créer mon compte' : 'Continuer'}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+            <Text style={styles.contextLabel}>{getContext()}</Text>
+            <Text style={styles.question}>{STEPS[currentStep].question}</Text>
+            {renderContent()}
+          </Animated.View>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginRow}>
-            <Text style={styles.loginQ}>Déjà un compte ? </Text>
-            <Text style={styles.loginLink}>Se connecter</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+          {showDatePicker && Platform.OS === 'ios' && (
+            <View style={styles.iosDateSheetWrap}>
+              <View style={styles.iosDateSheet}>
+                <View style={styles.iosDateHeader}>
+                  <Text style={styles.iosDateTitle}>Date de naissance</Text>
+                  <TouchableOpacity onPress={() => {
+                    update('dateOfBirth', formatDateValue(draftBirthDate));
+                    setShowDatePicker(false);
+                  }}>
+                    <Text style={styles.iosDateDone}>Valider</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker
+                  value={draftBirthDate}
+                  mode="date"
+                  display="spinner"
+                  themeVariant="dark"
+                  maximumDate={getMaximumBirthDate()}
+                  onChange={(_, date) => {
+                    if (date) setDraftBirthDate(date);
+                  }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* ── Bouton Continuer ── */}
+          <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+            <TouchableOpacity
+              onPress={goNext}
+              activeOpacity={active ? 0.85 : 1}
+              style={styles.continueOuter}
+            >
+              {active ? (
+                <LinearGradient
+                  colors={COLORS.gradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.continueBtn}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={COLORS.bg} size="small" />
+                  ) : (
+                    <>
+                      <Text style={styles.continueTxt}>
+                        {isLast ? 'Créer mon compte' : 'Continuer'}
+                      </Text>
+                      {!loading && (
+                        <Ionicons
+                          name={isLast ? 'checkmark' : 'arrow-forward'}
+                          size={20}
+                          color={COLORS.bg}
+                        />
+                      )}
+                    </>
+                  )}
+                </LinearGradient>
+              ) : (
+                <View style={styles.continueBtnDisabled}>
+                  <Text style={styles.continueTxtDisabled}>
+                    {isLast ? 'Créer mon compte' : 'Continuer'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginRow}>
+              <Text style={styles.loginQ}>Déjà un compte ? </Text>
+              <Text style={styles.loginLink}>Se connecter</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
 
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker

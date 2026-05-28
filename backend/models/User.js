@@ -56,11 +56,18 @@ const userSchema = new mongoose.Schema({
   },
   businessAddress: { type: String },
   businessCity: { type: String },
+  businessPostalCode: { type: String },
   businessDescription: { type: String },
   businessLogo: { type: String },
 
   // Plasma = currency/points
   plasma: { type: Number, default: 0 },
+
+  // Réinitialisation de mot de passe
+  resetCode: { type: String, select: false },
+  resetCodeExpiry: { type: Date, select: false },
+  resetToken: { type: String, select: false },
+  resetTokenExpiry: { type: Date, select: false },
 
   createdAt: { type: Date, default: Date.now },
 });

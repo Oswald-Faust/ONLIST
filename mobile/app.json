@@ -4,28 +4,34 @@
     "slug": "onlist",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/onlist/ONLIST Logo_Favicon A.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/onlist/ONLIST Logo_Main Logo B.png",
       "resizeMode": "contain",
       "backgroundColor": "#080810"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.onlist.app"
+      "bundleIdentifier": "club.onlist.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.onlist.app",
+      "package": "club.onlist.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#080810"
+        "foregroundImage": "./assets/onlist/ONLIST Logo_Favicon A.png",
+        "backgroundColor": "#020202"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/onlist/ONLIST Logo_Favicon A.png"
     },
     "plugins": [
       [
@@ -37,13 +43,18 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/onlist/ONLIST Logo_Favicon A.png",
           "color": "#C9A961",
           "sounds": []
         }
       ],
       "expo-font",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d5f3cae3-defe-4df4-8d54-ed7d6c921e9a"
+      }
+    }
   }
 }

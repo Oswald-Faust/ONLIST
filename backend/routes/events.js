@@ -18,6 +18,7 @@ router.get('/', protect, requireValidated, async (req, res) => {
     const [events, total] = await Promise.all([
       Event.find(filter)
         .populate('creator', 'name businessName businessType businessLogo city')
+        .populate('lieu', 'name city photos score reviewsCount scoreDetails')
         .sort({ isSponsored: -1, date: 1 })
         .skip(skip)
         .limit(Number(limit)),
@@ -34,7 +35,8 @@ router.get('/', protect, requireValidated, async (req, res) => {
 router.get('/:id', protect, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
-      .populate('creator', 'name businessName businessType businessLogo city businessAddress');
+      .populate('creator', 'name businessName businessType businessLogo city businessAddress')
+      .populate('lieu', 'name city photos score reviewsCount scoreDetails description');
     if (!event) return res.status(404).json({ message: 'Événement introuvable' });
     res.json({ event });
   } catch (err) {

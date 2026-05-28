@@ -7,6 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { authAPI } from '../../services/api';
+
+const POLL_INTERVAL_MS = 15000; // vérification toutes les 15 secondes
 
 // ─── Animation de pulsation pour le nœud actif ────────────────────────────────
 function PulsingDot() {
@@ -38,9 +41,27 @@ function PulsingDot() {
 
 // ─── Écran principal ───────────────────────────────────────────────────────────
 export default function PendingScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const insets = useSafeAreaInsets();
   const firstName = user?.name?.split(' ')[0] ?? 'toi';
+
+  // Polling : vérifie le statut toutes les 15s et met à jour le contexte si changement
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const data = await authAPI.me();
+        if (data?.user?.status && data.user.status !== user?.status) {
+          await updateUser(data.user);
+        }
+      } catch {
+        // Ignore les erreurs réseau silencieusement
+      }
+    };
+
+    check(); // vérification immédiate au montage
+    const interval = setInterval(check, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -132,8 +153,8 @@ export default function PendingScreen() {
 
         {/* ── Bouton déconnexion ── */}
         <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}>
-          <TouchableOpacity style={styles.logoutBtn} onPress={logout} activeOpacity={0.7}>
-            <Ionicons name="log-out-outline" size={18} color={COLORS.textMuted} />
+          <TouchableOpacity style={styles.logoutBtn} onPress={logout} activeOpacity={0.75}>
+            <Ionicons name="log-out-outline" size={18} color="#F87171" />
             <Text style={styles.logoutTxt}>Se déconnecter</Text>
           </TouchableOpacity>
         </View>
@@ -241,11 +262,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.lg,
+    backgroundColor: 'rgba(248,113,113,0.1)',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.25)',
   },
   logoutTxt: {
-    color: COLORS.textMuted,
+    color: '#F87171',
     fontSize: FONTS.sizes.base,
     fontFamily: FONTS.medium,
   },

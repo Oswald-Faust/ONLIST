@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
   StatusBar, Alert, Share, ActivityIndicator, Dimensions, Animated,
-  Modal, Linking, Platform,
+  Modal, Linking, Platform, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
-import { eventsAPI, applicationsAPI } from '../../services/api';
+import { eventsAPI, applicationsAPI, lieuxAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -130,6 +130,9 @@ export default function EventDetailScreen({ route, navigation }) {
   const [applied, setApplied] = useState(false);
   const [liked, setLiked] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
+  const [showLieuRating, setShowLieuRating] = useState(false);
+  const [ratingSaving, setRatingSaving] = useState(false);
+  const [lieuRating, setLieuRating] = useState({ ambience: 8, service: 8, value: 8, comment: '' });
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -203,6 +206,7 @@ export default function EventDetailScreen({ route, navigation }) {
     : null;
 
   const organizer = event.creator;
+  const lieu = event.lieu;
   const organizerName = organizer?.businessName || organizer?.name || 'ONLIST';
   const fullAddress = [event.address || event.venue, event.city, event.country].filter(Boolean).join(', ');
 
@@ -211,6 +215,30 @@ export default function EventDetailScreen({ route, navigation }) {
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
+
+  const submitLieuRating = async () => {
+    if (!lieu?._id) return;
+    setRatingSaving(true);
+    try {
+      await lieuxAPI.review(lieu._id, {
+        eventId: event._id,
+        scores: {
+          ambience: Number(lieuRating.ambience),
+          service: Number(lieuRating.service),
+          value: Number(lieuRating.value),
+        },
+        comment: lieuRating.comment.trim(),
+      });
+      const data = await eventsAPI.get(event._id);
+      setEvent(data.event);
+      setShowLieuRating(false);
+      Alert.alert('Merci', 'Votre avis sur ce lieu a été enregistré.');
+    } catch (err) {
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setRatingSaving(false);
+    }
+  };
 
   return (
     <View style={S.container}>
@@ -351,6 +379,26 @@ export default function EventDetailScreen({ route, navigation }) {
                 <Text style={S.organizerBy}>Par</Text>
                 <Text style={S.organizerName}>{organizerName}</Text>
               </View>
+            </View>
+          )}
+
+          {lieu && (
+            <View style={S.lieuScoreCard}>
+              <View style={S.lieuScoreTop}>
+                <View style={{ flex: 1 }}>
+                  <Text style={S.lieuScoreLabel}>Lieu</Text>
+                  <Text style={S.lieuScoreName}>{lieu.name}</Text>
+                </View>
+                <View style={S.lieuScoreBadge}>
+                  <Ionicons name="star" size={14} color={COLORS.primary} />
+                  <Text style={S.lieuScoreValue}>{lieu.score > 0 ? lieu.score.toFixed(1) : 'Nouveau'}</Text>
+                </View>
+              </View>
+              <Text style={S.lieuScoreMeta}>{lieu.reviewsCount || 0} avis influenceurs</Text>
+              <TouchableOpacity style={S.rateLieuBtn} onPress={() => setShowLieuRating(true)}>
+                <Ionicons name="create-outline" size={16} color={COLORS.primary} />
+                <Text style={S.rateLieuBtnText}>Noter ce lieu</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -660,6 +708,53 @@ export default function EventDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      <Modal
+        visible={showLieuRating}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLieuRating(false)}
+      >
+        <TouchableOpacity style={S.modalOverlay} activeOpacity={1} onPress={() => setShowLieuRating(false)}>
+          <TouchableOpacity style={S.rateSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={S.modalHandle} />
+            <Text style={S.rateSheetTitle}>Noter ce lieu</Text>
+            {[
+              ['ambience', 'Ambiance'],
+              ['service', 'Service'],
+              ['value', 'Rapport qualité/prix'],
+            ].map(([key, label]) => (
+              <View key={key} style={S.ratingRow}>
+                <Text style={S.ratingLabel}>{label}</Text>
+                <View style={S.ratingStars}>
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const filled = star <= Math.round((lieuRating[key] || 0) / 2);
+                    return (
+                      <TouchableOpacity key={star} onPress={() => setLieuRating((prev) => ({ ...prev, [key]: star * 2 }))}>
+                        <Ionicons name={filled ? 'star' : 'star-outline'} size={22} color={COLORS.primary} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+            <TextInput
+              style={S.rateCommentInput}
+              value={lieuRating.comment}
+              onChangeText={(value) => setLieuRating((prev) => ({ ...prev, comment: value }))}
+              placeholder="Partagez votre expérience sur ce lieu..."
+              placeholderTextColor={COLORS.textMuted}
+              multiline
+            />
+            <TouchableOpacity style={S.rateSubmitBtn} onPress={submitLieuRating} disabled={ratingSaving}>
+              {ratingSaving ? <ActivityIndicator color={COLORS.bg} size="small" /> : <Text style={S.rateSubmitText}>Envoyer mon avis</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={S.rateCancelBtn} onPress={() => setShowLieuRating(false)}>
+              <Text style={S.rateCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -871,6 +966,26 @@ const S = StyleSheet.create({
     fontSize: FONTS.sizes.base,
     fontFamily: FONTS.semiBold,
   },
+  lieuScoreCard: {
+    backgroundColor: '#14121a',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 16,
+    gap: 10,
+  },
+  lieuScoreTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  lieuScoreLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, marginBottom: 3 },
+  lieuScoreName: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
+  lieuScoreBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(201,169,97,0.1)', borderWidth: 1, borderColor: 'rgba(201,169,97,0.22)',
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  lieuScoreValue: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold },
+  lieuScoreMeta: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  rateLieuBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
+  rateLieuBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
 
   // ── Info rows ─────────────────────────────────────
   infoBlock: {
@@ -1124,6 +1239,48 @@ const S = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'flex-end',
   },
+  rateSheet: {
+    backgroundColor: '#111018',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 28,
+  },
+  rateSheetTitle: {
+    color: '#fff',
+    fontSize: FONTS.sizes.lg,
+    fontFamily: FONTS.bold,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  ratingRow: { marginBottom: SPACING.md },
+  ratingLabel: { color: '#fff', fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold, marginBottom: 10 },
+  ratingStars: { flexDirection: 'row', gap: 10 },
+  rateCommentInput: {
+    minHeight: 110,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#18161f',
+    color: '#fff',
+    padding: 14,
+    textAlignVertical: 'top',
+    fontFamily: FONTS.regular,
+    marginTop: 4,
+    marginBottom: SPACING.lg,
+  },
+  rateSubmitBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  rateSubmitText: { color: COLORS.bg, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  rateCancelBtn: { alignItems: 'center', paddingVertical: 8 },
+  rateCancelText: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium },
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,

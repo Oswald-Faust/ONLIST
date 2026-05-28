@@ -2,7 +2,7 @@
 
 ## 1. Pré-requis DNS
 
-- Pointer `api.onlist.app` vers l'IP du VPS.
+- Le sous-domaine `api.onlist.club` doit pointer vers `72.60.212.208`.
 
 ## 2. Préparer le VPS
 
@@ -28,7 +28,7 @@ Compléter ensuite `.env` avec les vraies valeurs de production:
 
 - `MONGO_URI`
 - `JWT_SECRET`
-- `ALLOWED_ORIGINS`
+- `ALLOWED_ORIGINS=https://admin.onlist.club,https://api.onlist.club`
 - `PORT=4000`
 - `NODE_ENV=production`
 
@@ -36,7 +36,7 @@ Compléter ensuite `.env` avec les vraies valeurs de production:
 
 ```bash
 npm ci
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.js --env production
 pm2 save
 pm2 startup systemd -u $USER --hp /home/$USER
 ```
@@ -54,7 +54,7 @@ sudo systemctl reload nginx
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d api.onlist.app
+sudo certbot --nginx -d api.onlist.club
 ```
 
 ## 7. Ouvrir le firewall
@@ -69,7 +69,7 @@ sudo ufw enable
 
 ```bash
 curl http://127.0.0.1:4000/health
-curl https://api.onlist.app/health
+curl https://api.onlist.club/health
 pm2 logs onlist-backend
 ```
 
@@ -81,4 +81,21 @@ git pull
 cd backend
 npm ci
 pm2 restart onlist-backend
+```
+
+## 10. Séquence conseillée sur le VPS existant
+
+Si le projet est déjà cloné sur le VPS:
+
+```bash
+cd ~/apps/onlist
+git status
+git pull origin main
+cd backend
+cp .env.example .env # uniquement si .env n'existe pas encore
+npm ci
+pm2 restart onlist-backend
+sudo nginx -t
+sudo systemctl reload nginx
+curl https://api.onlist.club/health
 ```

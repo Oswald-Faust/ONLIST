@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
   Image, Alert, StatusBar, Platform, ActivityIndicator, Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import KeyboardDismissScrollView from '../../components/KeyboardDismissScrollView';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI, usersAPI } from '../../services/api';
 
@@ -358,11 +359,10 @@ export default function EditProfileScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
+      <KeyboardDismissScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={S.contentPad}
-        keyboardShouldPersistTaps="handled"
       >
         {/* ── Photos ── */}
         <View style={S.card}>
@@ -479,7 +479,7 @@ export default function EditProfileScreen({ navigation }) {
             keyboardType="numeric"
           />
         </View>
-      </ScrollView>
+      </KeyboardDismissScrollView>
     </View>
   );
 }
