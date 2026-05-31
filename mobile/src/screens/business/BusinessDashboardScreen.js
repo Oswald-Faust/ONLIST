@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, RefreshControl, Dimensions, StatusBar,
+  Image, ActivityIndicator, RefreshControl, Dimensions, StatusBar, Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,14 +35,39 @@ function getGreeting() {
 
 // ─── StatCard ──────────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, color }) {
+  const scaleAnim = useRef(new Animated.Value(0.92)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }),
+      Animated.timing(opacityAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   return (
-    <View style={[s.statCard, { width: CARD_W }]}>
-      <View style={[s.statIconWrap, { borderColor: `${color}33` }]}>
-        <Ionicons name={icon} size={19} color={color} />
+    <Animated.View style={[s.statCard, { width: CARD_W, transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
+      {/* Glow background */}
+      <View style={[s.statGlow, { backgroundColor: color }]} />
+
+      {/* Top row: icon */}
+      <View style={s.statTopRow}>
+        <View style={[s.statIconWrap, { backgroundColor: `${color}18`, borderColor: `${color}30` }]}>
+          <Ionicons name={icon} size={16} color={color} />
+        </View>
       </View>
+
+      {/* Big number */}
       <Text style={[s.statValue, { color }]}>{value}</Text>
+
+      {/* Label */}
       <Text style={s.statLabel}>{label}</Text>
-    </View>
+
+      {/* Bottom accent bar */}
+      <View style={[s.statBar, { backgroundColor: `${color}40` }]}>
+        <View style={[s.statBarFill, { backgroundColor: color, width: value > 0 ? '60%' : '15%' }]} />
+      </View>
+    </Animated.View>
   );
 }
 
@@ -400,16 +425,55 @@ const s = StyleSheet.create({
   statCard: {
     backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg,
     borderWidth: 1, borderColor: COLORS.border,
-    padding: SPACING.md, gap: 6,
+    padding: SPACING.md,
+    paddingBottom: 0,
+    overflow: 'hidden',
+    gap: 4,
+  },
+  statGlow: {
+    position: 'absolute',
+    top: -32,
+    right: -32,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    opacity: 0.08,
+  },
+  statTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
   },
   statIconWrap: {
-    width: 38, height: 38, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    width: 34, height: 34, borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  statValue: { fontSize: FONTS.sizes.xxl, fontFamily: FONTS.bold },
-  statLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  statValue: {
+    fontSize: 38,
+    fontFamily: FONTS.extraBold,
+    lineHeight: 40,
+    letterSpacing: -1,
+  },
+  statLabel: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: SPACING.md,
+  },
+  statBar: {
+    height: 3,
+    borderRadius: 2,
+    marginHorizontal: -SPACING.md,
+    overflow: 'hidden',
+  },
+  statBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
 
   // Quick Actions
   actionsRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl },

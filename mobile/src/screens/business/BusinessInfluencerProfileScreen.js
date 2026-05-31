@@ -78,7 +78,9 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
     );
   }
 
-  const photos = user.photos || [];
+  const photos = (user.photos || []).filter(Boolean);
+  const avatarUrl = user.avatarUrl || null;      // OAuth (Google/Apple)
+  const mainImage = photos[0] || avatarUrl;      // meilleure image disponible
   const score = user.score || 0;
   const sd = user.scoreDetails || {};
   const initials = (user.name || '?').slice(0, 2).toUpperCase();
@@ -87,6 +89,8 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
     : user.tiktok
     ? `@${user.tiktok.replace('@', '')}`
     : null;
+  const [imgErrors, setImgErrors] = useState({});
+  const markError = (key) => setImgErrors(prev => ({ ...prev, [key]: true }));
 
   return (
     <View style={s.container}>
@@ -96,11 +100,12 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
 
         {/* ── Photo header ── */}
         <View style={s.photoHeader}>
-          {photos.length > 0 ? (
+          {mainImage && !imgErrors['main'] ? (
             <Image
-              source={{ uri: photos[photoIndex] }}
+              source={{ uri: photos.length > 0 ? photos[photoIndex] : mainImage }}
               style={StyleSheet.absoluteFill}
               resizeMode="cover"
+              onError={() => markError('main')}
             />
           ) : (
             <LinearGradient
@@ -145,14 +150,15 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
                     source={{ uri }}
                     style={[s.thumb, i === photoIndex && s.thumbActive]}
                     resizeMode="cover"
+                    onError={() => markError(`thumb_${i}`)}
                   />
                 </TouchableOpacity>
               ))}
             </View>
           )}
 
-          {/* Avatar si pas de photo */}
-          {photos.length === 0 && (
+          {/* Avatar initiales — uniquement si aucune image disponible ou erreur */}
+          {(!mainImage || imgErrors['main']) && (
             <View style={[s.avatarLarge, { top: insets.top + 54 }]}>
               <LinearGradient colors={COLORS.gradient} style={s.avatarLargeGrad}>
                 <Text style={s.avatarLargeText}>{initials}</Text>
@@ -168,6 +174,12 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
               <View style={s.headerLocation}>
                 <Ionicons name="location-outline" size={13} color="rgba(255,255,255,0.6)" />
                 <Text style={s.headerLocationText}>{user.city}</Text>
+              </View>
+            )}
+            {!mainImage && (
+              <View style={s.noPhotoHint}>
+                <Ionicons name="camera-outline" size={12} color="rgba(255,255,255,0.4)" />
+                <Text style={s.noPhotoHintText}>Pas encore de photo de profil</Text>
               </View>
             )}
           </View>
@@ -378,6 +390,9 @@ const s = StyleSheet.create({
   scoreBarFill: { height: '100%', borderRadius: 3 },
   scoreBarValue: { width: 28, textAlign: 'right', color: COLORS.textPrimary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
   reviewsNote: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, textAlign: 'center' },
+  noPhotoHint: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  noPhotoHintText: { color: 'rgba(255,255,255,0.4)', fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  thumbError: { backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
 
   // Info rows
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
