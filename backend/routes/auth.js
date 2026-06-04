@@ -65,11 +65,23 @@ router.post('/login', async (req, res) => {
   try {
     const { email, phone, password } = req.body;
 
-    const query = email ? { email } : { phone };
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const normalizedPhone = typeof phone === 'string' ? phone.trim() : '';
+    const normalizedPassword = typeof password === 'string' ? password : '';
+
+    if ((!normalizedEmail && !normalizedPhone) || !normalizedPassword) {
+      return res.status(400).json({ message: 'Email ou téléphone et mot de passe requis' });
+    }
+
+    const query = normalizedEmail ? { email: normalizedEmail } : { phone: normalizedPhone };
     const user = await User.findOne(query).select('+password');
     if (!user) return res.status(401).json({ message: 'Identifiants incorrects' });
 
-    const valid = await user.comparePassword(password);
+    if (!user.password) {
+      return res.status(401).json({ message: 'Connexion par mot de passe indisponible pour ce compte' });
+    }
+
+    const valid = await user.comparePassword(normalizedPassword);
     if (!valid) return res.status(401).json({ message: 'Identifiants incorrects' });
 
     res.json({
@@ -100,6 +112,7 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (err) {
+    console.error('login error:', err);
     res.status(500).json({ message: err.message });
   }
 });

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  Image, Alert, StatusBar, Platform, ActivityIndicator, Modal,
+  Image, Alert, StatusBar, ActivityIndicator, Modal,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -11,13 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import KeyboardDismissScrollView from '../../components/KeyboardDismissScrollView';
 import { useAuth } from '../../context/AuthContext';
-import { authAPI, usersAPI } from '../../services/api';
-
-const BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:4000/api',
-  ios: 'http://localhost:4000/api',
-  default: 'http://localhost:4000/api',
-});
+import { authAPI, BASE_URL, usersAPI } from '../../services/api';
 
 // ─── Upload d'une image vers /api/upload ─────────────────────────────────────
 async function uploadImage(uri) {

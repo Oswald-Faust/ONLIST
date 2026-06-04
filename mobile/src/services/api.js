@@ -15,7 +15,7 @@ const fallbackBaseUrl = Platform.select({
   default: 'http://localhost:4000/api',
 });
 
-const BASE_URL = normalizedEnvBaseUrl || fallbackBaseUrl;
+export const BASE_URL = normalizedEnvBaseUrl || fallbackBaseUrl;
 
 const api = axios.create({ baseURL: BASE_URL, timeout: 15000 });
 
