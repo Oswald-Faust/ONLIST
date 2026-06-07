@@ -73,8 +73,14 @@ export const usersAPI = {
   review: (id, data) => api.post(`/users/${id}/review`, data),
 };
 
+export const subscriptionsAPI = {
+  status: () => api.get('/subscriptions/me'),
+  syncStatus: () => api.post('/subscriptions/sync'),
+};
+
 export const adminAPI = {
   users: (params) => api.get('/admin/users', { params }),
+  subscriptions: () => api.get('/admin/subscriptions'),
   updateStatus: (id, status) => api.put(`/admin/users/${id}/status`, { status }),
   stats: () => api.get('/admin/stats'),
   events: (params) => api.get('/admin/events', { params }),
@@ -107,7 +113,8 @@ export const lieuxAPI = {
 };
 
 export const uploadAPI = {
-  image: async (uri) => {
+  image: async (uri, options = {}) => {
+    const { onProgress } = options;
     const token = await AsyncStorage.getItem('token');
     const filename = uri.split('/').pop();
     const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
@@ -116,6 +123,10 @@ export const uploadAPI = {
     formData.append('file', { uri, name: filename, type });
     const response = await axios.post(`${BASE_URL}/upload`, formData, {
       headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` },
+      onUploadProgress: (event) => {
+        if (!onProgress || !event?.total) return;
+        onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      },
     });
     return response.data;
   },

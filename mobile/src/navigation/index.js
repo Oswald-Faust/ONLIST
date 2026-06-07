@@ -38,6 +38,7 @@ import EvenementsScreen from '../screens/business/EvenementsScreen';
 import BusinessProfileScreen from '../screens/business/BusinessProfileScreen';
 import BusinessEditProfileScreen from '../screens/business/BusinessEditProfileScreen';
 import BusinessSettingsScreen from '../screens/business/BusinessSettingsScreen';
+import BusinessSubscriptionScreen from '../screens/business/BusinessSubscriptionScreen';
 import CreateLieuScreen from '../screens/business/CreateLieuScreen';
 import CreateEventScreen from '../screens/business/CreateEventScreen';
 import BusinessEventDetailScreen from '../screens/business/BusinessEventDetailScreen';
@@ -123,10 +124,23 @@ function BusinessStack() {
       <Stack.Screen name="BusinessNotifications" component={BusinessNotificationsScreen} />
       <Stack.Screen name="BusinessEditProfile" component={BusinessEditProfileScreen} />
       <Stack.Screen name="BusinessSettings" component={BusinessSettingsScreen} />
+      <Stack.Screen name="BusinessSubscription" component={BusinessSubscriptionScreen} />
       <Stack.Screen name="CreateLieu" component={CreateLieuScreen} />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
       <Stack.Screen name="BusinessEventDetail" component={BusinessEventDetailScreen} />
       <Stack.Screen name="BusinessInfluencerProfile" component={BusinessInfluencerProfileScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function BusinessSubscriptionGate() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen
+        name="BusinessSubscriptionRequired"
+        component={BusinessSubscriptionScreen}
+        initialParams={{ mandatory: true }}
+      />
     </Stack.Navigator>
   );
 }
@@ -143,6 +157,10 @@ function AdminStack() {
 // ─── Root Navigator ────────────────────────────────────────────────────────────
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  const businessNeedsSubscription =
+    user?.type === 'business' &&
+    user?.status !== 'pending' &&
+    user?.subscriptionStatus !== 'active';
 
   if (loading) {
     return (
@@ -161,6 +179,8 @@ export default function RootNavigator() {
           <Stack.Screen name="Pending" component={PendingScreen} />
         ) : user.type === 'admin' ? (
           <Stack.Screen name="Admin" component={AdminStack} />
+        ) : businessNeedsSubscription ? (
+          <Stack.Screen name="BusinessSubscriptionGate" component={BusinessSubscriptionGate} />
         ) : user.type === 'business' ? (
           <Stack.Screen name="Business" component={BusinessStack} />
         ) : (

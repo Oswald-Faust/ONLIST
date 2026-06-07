@@ -2,6 +2,7 @@ const express = require('express');
 const Lieu = require('../models/Lieu');
 const LieuReview = require('../models/LieuReview');
 const { protect } = require('../middleware/auth');
+const { getBusinessPlan } = require('../utils/businessPlans');
 
 const router = express.Router();
 
@@ -29,6 +30,15 @@ router.get('/:id', protect, async (req, res) => {
 // POST /lieux — créer un lieu
 router.post('/', protect, async (req, res) => {
   try {
+    const plan = getBusinessPlan(req.user);
+    if (plan.maxLieux) {
+      const lieuxCount = await Lieu.countDocuments({ creator: req.user._id });
+      if (lieuxCount >= plan.maxLieux) {
+        return res.status(400).json({
+          message: `Votre abonnement ${plan.name} est limité à ${plan.maxLieux} établissement${plan.maxLieux > 1 ? 's' : ''}`,
+        });
+      }
+    }
     const lieu = await Lieu.create({ ...req.body, creator: req.user._id });
     res.status(201).json({ lieu });
   } catch (err) {

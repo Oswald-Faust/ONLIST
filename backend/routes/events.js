@@ -1,8 +1,28 @@
 const express = require('express');
 const Event = require('../models/Event');
 const { protect, requireValidated } = require('../middleware/auth');
+const { getBusinessPlan } = require('../utils/businessPlans');
 
 const router = express.Router();
+
+async function countFutureActiveEvents(userId, excludeEventId) {
+  const filter = {
+    creator: userId,
+    isActive: true,
+    date: { $gte: new Date() },
+  };
+  if (excludeEventId) filter._id = { $ne: excludeEventId };
+  return Event.countDocuments(filter);
+}
+
+function applyPlanEventLimits(payload, plan) {
+  if (!plan.maxCreatorsPerEvent) return payload;
+  const requested = Number(payload.maxParticipants) || plan.maxCreatorsPerEvent;
+  return {
+    ...payload,
+    maxParticipants: Math.min(requested, plan.maxCreatorsPerEvent),
+  };
+}
 
 // GET /events — liste publique avec filtres
 router.get('/', protect, requireValidated, async (req, res) => {
@@ -50,7 +70,20 @@ router.post('/', protect, requireValidated, async (req, res) => {
     if (req.user.type !== 'business' && req.user.type !== 'admin')
       return res.status(403).json({ message: 'Réservé aux établissements' });
 
-    const event = await Event.create({ ...req.body, creator: req.user._id });
+    const plan = getBusinessPlan(req.user);
+    if (plan.maxActiveEvents && req.body.isActive !== false) {
+      const activeEventsCount = await countFutureActiveEvents(req.user._id);
+      if (activeEventsCount >= plan.maxActiveEvents) {
+        return res.status(400).json({
+          message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEvents} événements actifs simultanés`,
+        });
+      }
+    }
+
+    const event = await Event.create({
+      ...applyPlanEventLimits(req.body, plan),
+      creator: req.user._id,
+    });
     res.status(201).json({ event });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -65,7 +98,24 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
     if (event.creator.toString() !== req.user._id.toString() && req.user.type !== 'admin')
       return res.status(403).json({ message: 'Non autorisé' });
 
-    const updated = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const plan = getBusinessPlan(req.user);
+    const nextIsActive = req.body.isActive !== undefined ? req.body.isActive : event.isActive;
+    const nextDate = req.body.date ? new Date(req.body.date) : event.date;
+
+    if (plan.maxActiveEvents && nextIsActive !== false && nextDate >= new Date()) {
+      const activeEventsCount = await countFutureActiveEvents(req.user._id, event._id);
+      if (activeEventsCount >= plan.maxActiveEvents) {
+        return res.status(400).json({
+          message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEvents} événements actifs simultanés`,
+        });
+      }
+    }
+
+    const updated = await Event.findByIdAndUpdate(
+      req.params.id,
+      applyPlanEventLimits(req.body, plan),
+      { new: true }
+    );
     res.json({ event: updated });
   } catch (err) {
     res.status(500).json({ message: err.message });

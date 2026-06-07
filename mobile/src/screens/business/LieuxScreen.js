@@ -12,12 +12,14 @@ import { lieuxAPI } from '../../services/api';
 
 const CATEGORY_LABELS = {
   restaurant: 'Restaurant', bar: 'Bar', club: 'Club', spa: 'Spa',
-  sport: 'Sport', wellness: 'Wellness', premium: 'Premium', other: 'Autre',
+  sport: 'Sport', wellness: 'Bien-être', hotel: 'Hôtel', cafe: 'Café',
+  beauty: 'Beauté', shop: 'Boutique', premium: 'Lieu Premium', other: 'Autre',
 };
 
 const CATEGORY_COLORS = {
   restaurant: '#E07B4A', bar: '#7B5EA7', club: '#3A8FD5',
-  spa: '#4CAF8A', sport: '#E05252', wellness: '#4A9EE0', premium: '#C9A961', other: '#7A7A7A',
+  spa: '#4CAF8A', sport: '#E05252', wellness: '#4A9EE0', hotel: '#7C8AA5',
+  cafe: '#A67C52', beauty: '#D46A9A', shop: '#6FAF8F', premium: '#C9A961', other: '#7A7A7A',
 };
 
 function LieuCard({ lieu, onEdit, onDelete, navigation }) {

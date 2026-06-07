@@ -8,10 +8,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { usersAPI, eventsAPI, applicationsAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { getBusinessPlan } from '../../constants/businessPlans';
 
-function InfluencerCard({ influencer, myEvents, onInvite }) {
+function InfluencerCard({ influencer, myEvents, onInvite, plan }) {
   const [inviting, setInviting] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
 
   const formatFollowers = (n) => {
@@ -57,7 +58,7 @@ function InfluencerCard({ influencer, myEvents, onInvite }) {
               <Ionicons name="people" size={12} color={COLORS.textMuted} />
               <Text style={styles.statText}>{formatFollowers(influencer.followersCount)}</Text>
             </View>
-            {influencer.score > 0 && (
+            {typeof influencer.score === 'number' && influencer.score > 0 && (
               <View style={styles.statItem}>
                 <Ionicons name="star" size={12} color={COLORS.gold} />
                 <Text style={styles.statText}>{influencer.score}/10</Text>
@@ -72,21 +73,25 @@ function InfluencerCard({ influencer, myEvents, onInvite }) {
           </View>
         </View>
 
-        {/* Invite button */}
-        <TouchableOpacity
-          style={styles.inviteBtn}
-          onPress={() => setShowDropdown(!showDropdown)}
-          disabled={inviting || myEvents.length === 0}
-        >
-          {inviting
-            ? <ActivityIndicator size="small" color={COLORS.white} />
-            : <Ionicons name="mail" size={18} color={COLORS.white} />
-          }
-        </TouchableOpacity>
+        {plan.canDirectInvite ? (
+          <TouchableOpacity
+            style={styles.inviteBtn}
+            onPress={() => setShowDropdown(!showDropdown)}
+            disabled={inviting || myEvents.length === 0}
+          >
+            {inviting
+              ? <ActivityIndicator size="small" color={COLORS.white} />
+              : <Ionicons name="mail" size={18} color={COLORS.white} />
+            }
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.lockedBadge}>
+            <Ionicons name="lock-closed" size={14} color={COLORS.textMuted} />
+          </View>
+        )}
       </View>
 
-      {/* Dropdown événements */}
-      {showDropdown && myEvents.length > 0 && (
+      {plan.canDirectInvite && showDropdown && myEvents.length > 0 && (
         <View style={styles.dropdown}>
           <Text style={styles.dropdownTitle}>Inviter pour :</Text>
           {myEvents.map(ev => (
@@ -98,7 +103,7 @@ function InfluencerCard({ influencer, myEvents, onInvite }) {
         </View>
       )}
 
-      {myEvents.length === 0 && showDropdown && (
+      {plan.canDirectInvite && myEvents.length === 0 && showDropdown && (
         <View style={styles.dropdown}>
           <Text style={styles.noEventsText}>Aucun événement actif. Créez-en un d'abord.</Text>
         </View>
@@ -108,8 +113,11 @@ function InfluencerCard({ influencer, myEvents, onInvite }) {
 }
 
 export default function InfluencerListScreen({ navigation }) {
+  const { user } = useAuth();
+  const basePlan = getBusinessPlan(user?.subscriptionPlan);
   const [influencers, setInfluencers] = useState([]);
   const [myEvents, setMyEvents] = useState([]);
+  const [plan, setPlan] = useState(basePlan);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -121,6 +129,7 @@ export default function InfluencerListScreen({ navigation }) {
           eventsAPI.myEvents(),
         ]);
         setInfluencers(usersData.users || []);
+        if (usersData.plan?.key) setPlan({ ...basePlan, ...usersData.plan });
         setMyEvents(eventsData.events || []);
       } catch (err) {
         console.log('InfluencerList error:', err.message);
@@ -162,6 +171,19 @@ export default function InfluencerListScreen({ navigation }) {
             onChangeText={setSearch}
           />
         </View>
+
+        <View style={styles.planBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.planBannerTitle}>{plan.name}</Text>
+            <Text style={styles.planBannerText}>
+              Créateurs jusqu’à {plan.maxFollowersAccess ? `${Math.round(plan.maxFollowersAccess / 1000)}k` : 'illimité'} followers
+              {plan.canDirectInvite ? ' · invitation directe active' : ' · invitation directe verrouillée'}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.planBannerBtn} onPress={() => navigation.navigate('BusinessSubscription')}>
+            <Text style={styles.planBannerBtnText}>Upgrade</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
 
       {loading ? (
@@ -173,7 +195,7 @@ export default function InfluencerListScreen({ navigation }) {
           data={filtered}
           keyExtractor={item => item._id}
           renderItem={({ item }) => (
-            <InfluencerCard influencer={item} myEvents={myEvents} onInvite={handleInvite} />
+            <InfluencerCard influencer={item} myEvents={myEvents} onInvite={handleInvite} plan={plan} />
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -244,6 +266,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'flex-start',
   },
+  lockedBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.bgCard2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignSelf: 'flex-start',
+  },
+  planBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bgCard,
+  },
+  planBannerTitle: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: 'Poppins_700Bold', marginBottom: 2 },
+  planBannerText: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: 'Poppins_400Regular' },
+  planBannerBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  planBannerBtnText: { color: '#0A0A0F', fontSize: FONTS.sizes.xs, fontFamily: 'Poppins_700Bold' },
   dropdown: {
     borderTopWidth: 1,
     borderColor: COLORS.border,

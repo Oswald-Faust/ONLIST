@@ -15,7 +15,7 @@ const eventSchema = new mongoose.Schema({
 
   category: {
     type: String,
-    enum: ['restaurant', 'bar', 'club', 'spa', 'sport', 'wellness', 'premium', 'other'],
+    enum: ['restaurant', 'bar', 'club', 'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other'],
     default: 'other',
   },
 

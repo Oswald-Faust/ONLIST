@@ -52,13 +52,29 @@ const userSchema = new mongoose.Schema({
   businessName: { type: String },
   businessType: {
     type: String,
-    enum: ['restaurant', 'bar', 'club', 'spa', 'sport', 'wellness', 'premium', 'other'],
+    enum: ['restaurant', 'bar', 'club', 'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other'],
   },
   businessAddress: { type: String },
   businessCity: { type: String },
   businessPostalCode: { type: String },
   businessDescription: { type: String },
   businessLogo: { type: String },
+  subscriptionPlan: {
+    type: String,
+    enum: ['starter', 'pro', 'group'],
+    default: 'starter',
+  },
+  subscriptionStatus: {
+    type: String,
+    enum: ['inactive', 'trialing', 'active', 'past_due', 'cancelled'],
+    default: 'inactive',
+  },
+  revenueCatCustomerId: { type: String, trim: true },
+  revenueCatEntitlement: { type: String, trim: true },
+  subscriptionProductId: { type: String, trim: true },
+  subscriptionStore: { type: String, trim: true },
+  subscriptionExpiresAt: { type: Date },
+  subscriptionUpdatedAt: { type: Date },
 
   // Plasma = currency/points
   plasma: { type: Number, default: 0 },

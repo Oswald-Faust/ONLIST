@@ -8,19 +8,34 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.onlist.club/api"
+        "EXPO_PUBLIC_API_URL": "https://api.onlist.club/api",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_FWVPLEtNqAtDaOPXYLNxHovTaTb",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "",
+        "EXPO_PUBLIC_RC_STARTER_PRODUCT_ID": "onlist_business_starter_monthly",
+        "EXPO_PUBLIC_RC_PRO_PRODUCT_ID": "onlist_business_pro_monthly",
+        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.onlist.club/api"
+        "EXPO_PUBLIC_API_URL": "https://api.onlist.club/api",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_FWVPLEtNqAtDaOPXYLNxHovTaTb",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "",
+        "EXPO_PUBLIC_RC_STARTER_PRODUCT_ID": "onlist_business_starter_monthly",
+        "EXPO_PUBLIC_RC_PRO_PRODUCT_ID": "onlist_business_pro_monthly",
+        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.onlist.club/api"
+        "EXPO_PUBLIC_API_URL": "https://api.onlist.club/api",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_FWVPLEtNqAtDaOPXYLNxHovTaTb",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "",
+        "EXPO_PUBLIC_RC_STARTER_PRODUCT_ID": "onlist_business_starter_monthly",
+        "EXPO_PUBLIC_RC_PRO_PRODUCT_ID": "onlist_business_pro_monthly",
+        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly"
       }
     }
   },

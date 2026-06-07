@@ -6,38 +6,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { TERMS_OF_USE_TEXT, PRIVACY_POLICY_TEXT } from '../../constants/legalContent';
 import { useAuth } from '../../context/AuthContext';
 import { usersAPI } from '../../services/api';
-
-// ─── Texte de la politique de confidentialité ─────────────────────────────────
-const PRIVACY_TEXT = `Politique de Confidentialité — ONLIST
-
-Dernière mise à jour : Janvier 2025
-
-1. Collecte des données
-ONLIST collecte les informations que vous nous fournissez directement lors de la création de votre compte : nom, adresse e-mail, numéro de téléphone, date de naissance, photos de profil, comptes de réseaux sociaux.
-
-2. Utilisation des données
-Vos données sont utilisées pour :
-- Gérer votre compte et votre profil
-- Vous mettre en relation avec des établissements partenaires
-- Vous envoyer des notifications relatives aux événements
-- Améliorer nos services
-
-3. Partage des données
-Vos informations de profil (nom, photos, réseaux sociaux, statistiques) sont visibles par les établissements partenaires dans le cadre des événements auxquels vous postulez. Nous ne vendons jamais vos données à des tiers.
-
-4. Conservation des données
-Vos données sont conservées tant que votre compte est actif. Vous pouvez demander la suppression de vos données à tout moment via les paramètres de l'application.
-
-5. Sécurité
-Nous mettons en œuvre des mesures de sécurité techniques et organisationnelles pour protéger vos données contre tout accès non autorisé.
-
-6. Vos droits
-Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données. Contactez-nous à : privacy@onlist.app
-
-7. Contact
-ONLIST SAS — contact@onlist.app`;
 
 // ─── Composant item de paramètre ─────────────────────────────────────────────
 function SettingItem({ icon, label, onPress, destructive, chevron = true }) {
@@ -69,8 +40,9 @@ export default function SettingsScreen({ navigation }) {
   const [showConfirm,   setShowConfirm]   = useState(false);
   const [pwdSaving,     setPwdSaving]     = useState(false);
 
-  // ── Modal privacy ──
-  const [privacyVisible, setPrivacyVisible] = useState(false);
+  // ── Modal legal ──
+  const [legalVisible, setLegalVisible] = useState(false);
+  const [legalType, setLegalType] = useState('privacy');
 
   const resetPwdForm = () => {
     setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
@@ -167,9 +139,15 @@ export default function SettingsScreen({ navigation }) {
           />
           <View style={S.divider} />
           <SettingItem
+            icon="document-outline"
+            label="Conditions d’utilisation"
+            onPress={() => { setLegalType('terms'); setLegalVisible(true); }}
+          />
+          <View style={S.divider} />
+          <SettingItem
             icon="document-text-outline"
             label="Politique de confidentialité"
-            onPress={() => setPrivacyVisible(true)}
+            onPress={() => { setLegalType('privacy'); setLegalVisible(true); }}
           />
           <View style={S.divider} />
           <SettingItem
@@ -263,24 +241,28 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* ════ Modal : Politique de confidentialité ════ */}
+      {/* ════ Modal : Légal ════ */}
       <Modal
-        visible={privacyVisible}
+        visible={legalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setPrivacyVisible(false)}
+        onRequestClose={() => setLegalVisible(false)}
       >
         <View style={[S.modalOverlay, { justifyContent: 'flex-end' }]}>
           <View style={[S.privacySheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
             <View style={S.sheetHandle} />
             <View style={S.privacyHeader}>
-              <Text style={S.sheetTitle}>Politique de confidentialité</Text>
-              <TouchableOpacity onPress={() => setPrivacyVisible(false)}>
+              <Text style={S.sheetTitle}>
+                {legalType === 'terms' ? 'Conditions d’utilisation' : 'Politique de confidentialité'}
+              </Text>
+              <TouchableOpacity onPress={() => setLegalVisible(false)}>
                 <Ionicons name="close" size={22} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '80%' }}>
-              <Text style={S.privacyText}>{PRIVACY_TEXT}</Text>
+              <Text style={S.privacyText}>
+                {legalType === 'terms' ? TERMS_OF_USE_TEXT : PRIVACY_POLICY_TEXT}
+              </Text>
             </ScrollView>
           </View>
         </View>

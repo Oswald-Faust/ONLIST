@@ -31,6 +31,8 @@ router.post('/register', async (req, res) => {
       nationality, gender, dateOfBirth,
       photos: Array.isArray(photos) ? photos : [],
       businessName, businessType, businessAddress, businessCity, businessDescription,
+      subscriptionPlan: type === 'business' ? 'starter' : undefined,
+      subscriptionStatus: type === 'business' ? 'inactive' : undefined,
       status: 'pending',
     });
 
@@ -53,6 +55,15 @@ router.post('/register', async (req, res) => {
         nationality: user.nationality, gender: user.gender, dateOfBirth: user.dateOfBirth,
         instagram: user.instagram, tiktok: user.tiktok, followersCount: user.followersCount,
         photos: user.photos,
+        businessName: user.businessName,
+        businessType: user.businessType,
+        businessCity: user.businessCity,
+        subscriptionPlan: user.subscriptionPlan,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionProductId: user.subscriptionProductId,
+        subscriptionStore: user.subscriptionStore,
+        subscriptionExpiresAt: user.subscriptionExpiresAt,
+        revenueCatCustomerId: user.revenueCatCustomerId,
       },
     });
   } catch (err) {
@@ -107,6 +118,13 @@ router.post('/login', async (req, res) => {
         dateOfBirth: user.dateOfBirth,
         businessName: user.businessName,
         businessType: user.businessType,
+        businessCity: user.businessCity,
+        subscriptionPlan: user.subscriptionPlan,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionProductId: user.subscriptionProductId,
+        subscriptionStore: user.subscriptionStore,
+        subscriptionExpiresAt: user.subscriptionExpiresAt,
+        revenueCatCustomerId: user.revenueCatCustomerId,
         plasma: user.plasma,
         expoPushToken: user.expoPushToken,
       },

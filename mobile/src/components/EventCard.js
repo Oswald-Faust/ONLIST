@@ -11,6 +11,10 @@ const CATEGORY_ICONS = {
   spa: 'flower',
   sport: 'fitness',
   wellness: 'heart',
+  hotel: 'bed',
+  cafe: 'cafe',
+  beauty: 'color-palette',
+  shop: 'cart',
   premium: 'diamond',
   other: 'star',
 };

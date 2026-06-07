@@ -151,6 +151,50 @@ function EventRow({ event, onDelete }) {
   );
 }
 
+function SubscriptionRow({ user }) {
+  const planLabels = {
+    starter: 'APP STARTER',
+    pro: 'APP PRO',
+    group: 'APP GROUP',
+  };
+  const statusLabels = {
+    inactive: 'Inactive',
+    trialing: 'Essai',
+    active: 'Active',
+    past_due: 'Impayé',
+    cancelled: 'Annulée',
+  };
+
+  const plan = user.subscriptionPlan || 'starter';
+  const status = user.subscriptionStatus || 'inactive';
+  const expiresAt = user.subscriptionExpiresAt
+    ? new Date(user.subscriptionExpiresAt).toLocaleDateString('fr-FR')
+    : '—';
+
+  return (
+    <View style={sub.row}>
+      <View style={sub.left}>
+        <View style={sub.avatar}>
+          <Text style={sub.avatarText}>{(user.businessName || user.name || '?').slice(0, 1).toUpperCase()}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={sub.name}>{user.businessName || user.name || '—'}</Text>
+          <Text style={sub.meta}>{user.email || '—'}{user.businessCity ? ` · ${user.businessCity}` : ''}</Text>
+          <Text style={sub.meta}>Exp. {expiresAt}</Text>
+        </View>
+      </View>
+      <View style={sub.right}>
+        <View style={[sub.planPill, plan === 'group' && sub.planPillGroup, plan === 'pro' && sub.planPillPro]}>
+          <Text style={[sub.planText, plan !== 'starter' && sub.planTextDark]}>{planLabels[plan] || plan}</Text>
+        </View>
+        <Text style={[sub.status, status === 'active' ? sub.statusActive : sub.statusInactive]}>
+          {statusLabels[status] || status}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Modal Création d'événement ────────────────────────────────────────────────
 
 function CreateEventModal({ visible, onClose, onCreated }) {
@@ -511,6 +555,7 @@ export default function AdminDashboardScreen() {
   const [stats, setStats] = useState(null);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -528,6 +573,8 @@ export default function AdminDashboardScreen() {
       setStats(statsData);
       setPendingUsers(pendingData.users || []);
       setAllUsers(allData.users?.filter(u => u.type !== 'admin') || []);
+      const subscriptionsData = await adminAPI.subscriptions();
+      setSubscriptions(subscriptionsData.subscriptions || []);
     } catch (err) {
       console.log('Admin error:', err.message);
     } finally {
@@ -584,6 +631,7 @@ export default function AdminDashboardScreen() {
   const TABS = [
     { key: 'pending', label: 'En attente', count: pendingUsers.length },
     { key: 'users', label: 'Utilisateurs', count: allUsers.length },
+    { key: 'subscriptions', label: 'Abonnements', count: subscriptions.length },
     { key: 'events', label: 'Événements', count: events.length },
   ];
 
@@ -640,6 +688,10 @@ export default function AdminDashboardScreen() {
                 { label: 'Businesses', value: stats.businesses, icon: 'storefront', color: COLORS.primary },
                 { label: 'Événements', value: stats.totalEvents ?? events.length, icon: 'calendar', color: COLORS.secondary },
                 { label: 'Candidatures', value: stats.totalApplications, icon: 'document-text', color: COLORS.primaryLight },
+                { label: 'Subs actives', value: stats.subscriptions?.active ?? 0, icon: 'card', color: COLORS.success },
+                { label: 'Starter', value: stats.subscriptions?.starter ?? 0, icon: 'ribbon', color: COLORS.textSecondary },
+                { label: 'Pro', value: stats.subscriptions?.pro ?? 0, icon: 'diamond', color: COLORS.primary },
+                { label: 'Group', value: stats.subscriptions?.group ?? 0, icon: 'sparkles', color: COLORS.warning },
               ].map((s, i) => (
                 <View key={i} style={styles.statCard}>
                   <Ionicons name={s.icon} size={20} color={s.color} />
@@ -707,6 +759,21 @@ export default function AdminDashboardScreen() {
                         onValidate={() => updateUserStatus(user._id, 'validated')}
                         onReject={() => updateUserStatus(user._id, 'rejected')}
                       />
+                    ))
+                  )}
+                </>
+              )}
+
+              {tab === 'subscriptions' && (
+                <>
+                  {subscriptions.length === 0 ? (
+                    <View style={styles.empty}>
+                      <Ionicons name="card-outline" size={48} color={COLORS.textMuted} />
+                      <Text style={styles.emptyTxt}>Aucun abonnement business</Text>
+                    </View>
+                  ) : (
+                    subscriptions.map((user) => (
+                      <SubscriptionRow key={user._id} user={user} />
                     ))
                   )}
                 </>
@@ -889,6 +956,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+});
+
+const sub = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bgCard,
+    marginBottom: SPACING.sm,
+    gap: SPACING.md,
+  },
+  left: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1 },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.12)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  avatarText: { color: COLORS.primary, fontFamily: FONTS.bold, fontSize: FONTS.sizes.base },
+  name: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold, marginBottom: 2 },
+  meta: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  right: { alignItems: 'flex-end', gap: 6 },
+  planPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bgCard2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  planPillPro: { backgroundColor: COLORS.primary },
+  planPillGroup: { backgroundColor: COLORS.warning },
+  planText: { color: COLORS.white, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
+  planTextDark: { color: '#0A0A0F' },
+  status: { fontSize: FONTS.sizes.xs, fontFamily: FONTS.medium },
+  statusActive: { color: COLORS.success },
+  statusInactive: { color: COLORS.textMuted },
 });
 
 // ─── Styles UserRow ────────────────────────────────────────────────────────────

@@ -43,7 +43,7 @@ function PulsingDot() {
 export default function PendingScreen() {
   const { user, logout, updateUser } = useAuth();
   const insets = useSafeAreaInsets();
-  const firstName = user?.name?.split(' ')[0] ?? 'toi';
+  const displayName = user?.name?.trim() || 'toi';
 
   // Polling : vérifie le statut toutes les 15s et met à jour le contexte si changement
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function PendingScreen() {
           {/* ── Titre ── */}
           <Text style={styles.title}>
             Ta demande est{'\n'}bien reçue,{' '}
-            <Text style={styles.titleAccent}>{firstName}</Text>
+            <Text style={styles.titleAccent}>{displayName}</Text>
             {' '}✦
           </Text>
 

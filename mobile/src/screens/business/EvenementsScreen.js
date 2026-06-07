@@ -13,7 +13,8 @@ import { eventsAPI } from '../../services/api';
 const MOMENT_LABELS = { morning: 'Matin', afternoon: 'Après-midi', evening: 'Soir', night: 'Nuit' };
 const CATEGORY_LABELS = {
   restaurant: 'Restaurant', bar: 'Bar', club: 'Club', spa: 'Spa',
-  sport: 'Sport', wellness: 'Wellness', premium: 'Premium', other: 'Autre',
+  sport: 'Sport', wellness: 'Bien-être', hotel: 'Hôtel', cafe: 'Café',
+  beauty: 'Beauté', shop: 'Boutique', premium: 'Lieu Premium', other: 'Autre',
 };
 
 function EventCard({ event, navigation }) {

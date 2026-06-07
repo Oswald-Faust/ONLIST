@@ -10,14 +10,17 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { eventsAPI, lieuxAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { getBusinessPlan } from '../../constants/businessPlans';
 
 const CATEGORY_LABELS = {
   restaurant: 'Restaurant', bar: 'Bar', club: 'Club', spa: 'Spa',
-  sport: 'Sport', wellness: 'Wellness', premium: 'Premium', other: 'Autre',
+  sport: 'Sport', wellness: 'Bien-être', hotel: 'Hôtel', cafe: 'Café',
+  beauty: 'Beauté', shop: 'Boutique', premium: 'Lieu Premium', other: 'Autre',
 };
 
 export default function BusinessProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
+  const businessPlan = getBusinessPlan(user?.subscriptionPlan);
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState({ events: 0, lieux: 0, applications: 0, avgScore: 0, totalReviews: 0 });
 
@@ -76,6 +79,17 @@ export default function BusinessProfileScreen({ navigation }) {
               )}
             </View>
             <Text style={s.businessName}>{user?.businessName || user?.name || "—"}</Text>
+            <View style={s.planRow}>
+              <View style={s.planBadge}>
+                <Text style={s.planBadgeText}>{businessPlan.name}</Text>
+              </View>
+              {businessPlan.hasPremiumBadge ? (
+                <View style={s.premiumBadge}>
+                  <Ionicons name="sparkles" size={12} color="#0A0A0F" />
+                  <Text style={s.premiumBadgeText}>Partenaire Premium</Text>
+                </View>
+              ) : null}
+            </View>
             {catLabel ? (
               <View style={s.catBadge}>
                 <Text style={s.catBadgeText}>{catLabel}</Text>
@@ -132,6 +146,7 @@ export default function BusinessProfileScreen({ navigation }) {
           <View style={s.menuCard}>
             {[
               { icon: "create-outline", label: "Modifier mon profil", onPress: () => navigation.navigate("BusinessEditProfile") },
+              { icon: "card-outline", label: "Abonnement", onPress: () => navigation.navigate("BusinessSubscription") },
               { icon: "settings-outline", label: "Paramètres", onPress: () => navigation.navigate("BusinessSettings") },
               { icon: "business-outline", label: "Mes lieux", onPress: () => navigation.navigate("Lieux") },
               { icon: "calendar-outline", label: "Mes événements", onPress: () => navigation.navigate("Events") },
@@ -176,6 +191,26 @@ const s = StyleSheet.create({
   avatarGrad: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#0A0A0F", fontSize: FONTS.sizes.xl, fontFamily: FONTS.bold },
   businessName: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold, textAlign: "center" },
+  planRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' },
+  planBadge: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  planBadgeText: { color: COLORS.white, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  premiumBadgeText: { color: '#0A0A0F', fontSize: FONTS.sizes.xs, fontFamily: FONTS.bold },
   catBadge: {
     backgroundColor: "rgba(201,169,97,0.1)", borderRadius: RADIUS.full,
     borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 12, paddingVertical: 4,

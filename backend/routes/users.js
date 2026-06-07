@@ -2,6 +2,11 @@ const express = require('express');
 const User = require('../models/User');
 const Review = require('../models/Review');
 const { protect, requireValidated } = require('../middleware/auth');
+const {
+  getBusinessPlan,
+  isInfluencerVisibleToBusiness,
+  sanitizeInfluencerForBusiness,
+} = require('../utils/businessPlans');
 
 const router = express.Router();
 
@@ -14,22 +19,43 @@ router.get('/', protect, requireValidated, async (req, res) => {
   try {
     const { city, minFollowers, minScore, page = 1, limit = 20 } = req.query;
     const filter = { type: 'influencer', status: 'validated' };
+    const businessPlan = req.user.type === 'business' ? getBusinessPlan(req.user) : null;
 
     if (city) filter.city = new RegExp(city, 'i');
     if (minFollowers) filter.followersCount = { $gte: Number(minFollowers) };
     if (minScore) filter.score = { $gte: Number(minScore) };
+    if (businessPlan?.maxFollowersAccess) {
+      filter.followersCount = {
+        ...(filter.followersCount || {}),
+        $lte: businessPlan.maxFollowersAccess,
+      };
+    }
 
     const skip = (page - 1) * limit;
     const [users, total] = await Promise.all([
       User.find(filter)
-        .select('name photos instagram tiktok followersCount score city bio reviewsCount')
+        .select('name photos instagram tiktok followersCount score city bio reviewsCount scoreDetails')
         .sort({ score: -1, followersCount: -1 })
         .skip(skip)
         .limit(Number(limit)),
       User.countDocuments(filter),
     ]);
 
-    res.json({ users, total, page: Number(page) });
+    const sanitizedUsers = req.user.type === 'business'
+      ? users.map((user) => sanitizeInfluencerForBusiness(user, req.user))
+      : users;
+
+    res.json({
+      users: sanitizedUsers,
+      total,
+      page: Number(page),
+      plan: businessPlan ? {
+        key: businessPlan.key,
+        canDirectInvite: businessPlan.canDirectInvite,
+        creatorStatsLevel: businessPlan.creatorStatsLevel,
+        maxFollowersAccess: businessPlan.maxFollowersAccess,
+      } : undefined,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -61,6 +87,12 @@ router.get('/:id', protect, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+    if (req.user.type === 'business' && user.type === 'influencer') {
+      if (!isInfluencerVisibleToBusiness(user, req.user)) {
+        return res.status(403).json({ message: 'Ce profil créateur n’est pas inclus dans votre abonnement actuel' });
+      }
+      return res.json({ user: sanitizeInfluencerForBusiness(user, req.user) });
+    }
     res.json({ user });
   } catch (err) {
     res.status(500).json({ message: err.message });

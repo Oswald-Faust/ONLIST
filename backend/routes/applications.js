@@ -5,6 +5,7 @@ const Review = require('../models/Review');
 const User = require('../models/User');
 const { protect, requireValidated } = require('../middleware/auth');
 const { createNotification } = require('../utils/notifications');
+const { getBusinessPlan, isInfluencerVisibleToBusiness } = require('../utils/businessPlans');
 
 const router = express.Router();
 
@@ -124,12 +125,24 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
     if (!['accepted', 'rejected'].includes(status))
       return res.status(400).json({ message: 'Statut invalide' });
 
+    const previousStatus = application.status;
+    const plan = getBusinessPlan(req.user);
+    if (status === 'accepted' && previousStatus !== 'accepted' && plan.maxCreatorsPerEvent) {
+      if ((event.acceptedCount || 0) >= plan.maxCreatorsPerEvent) {
+        return res.status(400).json({
+          message: `Votre abonnement ${plan.name} limite cet événement à ${plan.maxCreatorsPerEvent} créateurs acceptés`,
+        });
+      }
+    }
+
     application.status = status;
     application.respondedAt = new Date();
     await application.save();
 
-    if (status === 'accepted') {
+    if (status === 'accepted' && previousStatus !== 'accepted') {
       await Event.findByIdAndUpdate(event._id, { $inc: { acceptedCount: 1 } });
+    } else if (status === 'rejected' && previousStatus === 'accepted') {
+      await Event.findByIdAndUpdate(event._id, { $inc: { acceptedCount: -1 } });
     }
 
     await createNotification({
@@ -213,11 +226,32 @@ router.post('/invite', protect, requireValidated, async (req, res) => {
     if (req.user.type !== 'business' && req.user.type !== 'admin')
       return res.status(403).json({ message: 'Réservé aux établissements' });
 
+    const plan = getBusinessPlan(req.user);
+    if (!plan.canDirectInvite) {
+      return res.status(403).json({
+        message: `L’invitation directe est réservée aux abonnements APP PRO et APP GROUP`,
+      });
+    }
+
     const { userId, eventId } = req.body;
-    const event = await Event.findById(eventId);
+    const [event, influencer] = await Promise.all([
+      Event.findById(eventId),
+      User.findById(userId).select('followersCount type status'),
+    ]);
     if (!event) return res.status(404).json({ message: 'Événement introuvable' });
     if (event.creator.toString() !== req.user._id.toString() && req.user.type !== 'admin')
       return res.status(403).json({ message: 'Non autorisé' });
+    if (!influencer || influencer.type !== 'influencer' || influencer.status !== 'validated') {
+      return res.status(404).json({ message: 'Créateur introuvable' });
+    }
+    if (!isInfluencerVisibleToBusiness(influencer, req.user)) {
+      return res.status(403).json({ message: 'Ce créateur n’est pas inclus dans votre abonnement actuel' });
+    }
+    if (plan.maxCreatorsPerEvent && (event.acceptedCount || 0) >= plan.maxCreatorsPerEvent) {
+      return res.status(400).json({
+        message: `Votre abonnement ${plan.name} limite cet événement à ${plan.maxCreatorsPerEvent} créateurs`,
+      });
+    }
 
     const existing = await Application.findOne({ user: userId, event: eventId });
     if (existing) return res.status(400).json({ message: 'Déjà invité ou postulé' });

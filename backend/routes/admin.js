@@ -34,6 +34,19 @@ router.get('/users', protect, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /admin/subscriptions — vue abonnements business
+router.get('/subscriptions', protect, requireAdmin, async (req, res) => {
+  try {
+    const businesses = await User.find({ type: 'business' })
+      .select('name email businessName businessCity subscriptionPlan subscriptionStatus subscriptionProductId subscriptionStore subscriptionExpiresAt subscriptionUpdatedAt revenueCatCustomerId createdAt status')
+      .sort({ subscriptionUpdatedAt: -1, createdAt: -1 });
+
+    res.json({ subscriptions: businesses });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // PUT /admin/users/:id/status — valider ou rejeter un utilisateur
 router.put('/users/:id/status', protect, requireAdmin, async (req, res) => {
   try {
@@ -138,7 +151,27 @@ router.get('/stats', protect, requireAdmin, async (req, res) => {
     const influencers = await User.countDocuments({ type: 'influencer', status: 'validated' });
     const businesses = await User.countDocuments({ type: 'business', status: 'validated' });
 
-    res.json({ totalUsers, pendingUsers, totalEvents, totalApplications, influencers, businesses });
+    const [starterBusinesses, proBusinesses, groupBusinesses, activeSubscriptions] = await Promise.all([
+      User.countDocuments({ type: 'business', subscriptionPlan: 'starter' }),
+      User.countDocuments({ type: 'business', subscriptionPlan: 'pro' }),
+      User.countDocuments({ type: 'business', subscriptionPlan: 'group' }),
+      User.countDocuments({ type: 'business', subscriptionStatus: 'active' }),
+    ]);
+
+    res.json({
+      totalUsers,
+      pendingUsers,
+      totalEvents,
+      totalApplications,
+      influencers,
+      businesses,
+      subscriptions: {
+        starter: starterBusinesses,
+        pro: proBusinesses,
+        group: groupBusinesses,
+        active: activeSubscriptions,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

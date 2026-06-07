@@ -105,8 +105,8 @@ export default function HomeScreen({ navigation }) {
   const [selectedCity, setSelectedCity] = useState(user?.selectedCity || '');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
-  const city      = selectedCity;
-  const firstName = user?.name?.split(' ')[0] || 'toi';
+  const city = selectedCity;
+  const displayName = user?.name?.trim() || 'toi';
 
   useEffect(() => {
     setSelectedCity(user?.selectedCity || '');
@@ -284,7 +284,7 @@ export default function HomeScreen({ navigation }) {
             {/* Greeting */}
             <View style={styles.greetingWrap}>
               <Text style={styles.welcomeBack}>Welcome back</Text>
-              <Text style={styles.hiName}>Hi, {firstName}</Text>
+              <Text style={styles.hiName}>Hi, {displayName}</Text>
             </View>
 
             {/* Actions droite */}

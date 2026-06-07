@@ -14,7 +14,7 @@ const { width: W, height: SCREEN_H } = Dimensions.get('window');
 const PHOTO_H = Math.round(SCREEN_H * 0.66);
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800';
 
-const buildMoreItems = ({ navigation, logout, share, close }) => [
+const buildMoreItems = ({ navigation, logout, shareProfile, inviteCreator, close }) => [
   {
     icon: 'settings-outline',
     label: 'Paramètres',
@@ -24,7 +24,12 @@ const buildMoreItems = ({ navigation, logout, share, close }) => [
   {
     icon: 'chatbubble-ellipses-outline',
     label: 'Partager votre avis',
-    onPress: () => { close(); share(); },
+    onPress: () => { close(); shareProfile(); },
+  },
+  {
+    icon: 'paper-plane-outline',
+    label: 'Inviter un créateur',
+    onPress: () => { close(); inviteCreator(); },
   },
   { icon: 'information-circle-outline', label: "À propos d'ONLIST", onPress: close },
   {
@@ -319,6 +324,14 @@ export default function ProfileScreen({ navigation }) {
     } catch {}
   };
 
+  const handleInviteCreator = async () => {
+    try {
+      await Share.share({
+        message: `Rejoins-moi sur ONLIST. L'app aide les créateurs de contenu à découvrir des événements, lieux et opportunités adaptés à leur profil. Télécharge-la ici : https://onlist.club`,
+      });
+    } catch {}
+  };
+
   const handleLogout = () => {
     Alert.alert('Déconnexion', 'Voulez-vous vous déconnecter ?', [
       { text: 'Annuler', style: 'cancel' },
@@ -345,7 +358,8 @@ export default function ProfileScreen({ navigation }) {
   const moreItems = buildMoreItems({
     navigation,
     logout: handleLogout,
-    share:  handleShare,
+    shareProfile: handleShare,
+    inviteCreator: handleInviteCreator,
     close:  () => setMoreVisible(false),
   });
 
@@ -573,6 +587,19 @@ export default function ProfileScreen({ navigation }) {
               ) : null}
             </View>
           ) : null}
+
+          <TouchableOpacity style={S.inviteCard} activeOpacity={0.86} onPress={handleInviteCreator}>
+            <View style={S.inviteIcon}>
+              <Ionicons name="paper-plane-outline" size={18} color={COLORS.primaryLight} />
+            </View>
+            <View style={S.inviteBody}>
+              <Text style={S.inviteTitle}>Inviter un créateur</Text>
+              <Text style={S.inviteText}>
+                Partage ONLIST avec un ami créateur de contenu.
+              </Text>
+            </View>
+            <Ionicons name="share-social-outline" size={18} color={COLORS.textMuted} />
+          </TouchableOpacity>
 
           {/* Score */}
           {user?.score > 0 ? (
@@ -803,6 +830,40 @@ const S = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(201,169,97,0.22)',
   },
   socialChipTxt: { color: COLORS.primaryLight, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium },
+  inviteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  inviteIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.22)',
+  },
+  inviteBody: { flex: 1 },
+  inviteTitle: {
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.semiBold,
+    marginBottom: 2,
+  },
+  inviteText: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.regular,
+    lineHeight: 18,
+  },
 
   scoreCard: {
     flexDirection: 'row', alignItems: 'center', gap: SPACING.md,

@@ -45,11 +45,15 @@ const POPULAR = [
 
 function CityItem({ item, selected, onSelect }) {
   const active = selected === item.city;
+  const disabled = !item.hasEvent;
   return (
     <TouchableOpacity
-      style={[styles.cityRow, active && styles.cityRowActive]}
-      onPress={() => onSelect(item.city)}
-      activeOpacity={0.7}
+      style={[styles.cityRow, active && styles.cityRowActive, disabled && styles.cityRowDisabled]}
+      onPress={() => {
+        if (!disabled) onSelect(item.city);
+      }}
+      activeOpacity={disabled ? 1 : 0.7}
+      disabled={disabled}
     >
       {active && (
         <LinearGradient
@@ -60,16 +64,16 @@ function CityItem({ item, selected, onSelect }) {
       <Text style={styles.cityFlag}>{item.flag || '📍'}</Text>
       <View style={styles.cityInfo}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={[styles.cityName, active && styles.cityNameActive]}>{item.city}</Text>
-          {item.hasEvent && (
-            <View style={styles.eventBadge}>
-              <Text style={styles.eventBadgeTxt}>events</Text>
-            </View>
-          )}
+          <Text style={[styles.cityName, active && styles.cityNameActive, disabled && styles.cityNameDisabled]}>{item.city}</Text>
+          <View style={item.hasEvent ? styles.eventBadge : styles.eventBadgeDisabled}>
+            <Text style={item.hasEvent ? styles.eventBadgeTxt : styles.eventBadgeTxtDisabled}>
+              {item.hasEvent ? 'events' : 'Bientôt disponible'}
+            </Text>
+          </View>
         </View>
         {item.country ? <Text style={styles.cityCountry}>{item.country}</Text> : null}
       </View>
-      <View style={[styles.radio, active && styles.radioActive]}>
+      <View style={[styles.radio, active && styles.radioActive, disabled && styles.radioDisabled]}>
         {active && <View style={styles.radioDot} />}
       </View>
     </TouchableOpacity>
@@ -431,6 +435,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cityRowActive: { borderWidth: 1, borderColor: COLORS.border },
+  cityRowDisabled: { opacity: 0.52 },
   cityFlag: { fontSize: 22 },
   cityInfo: { flex: 1 },
   cityName: {
@@ -440,6 +445,7 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   cityNameActive: { color: COLORS.white, fontFamily: FONTS.semiBold },
+  cityNameDisabled: { color: COLORS.textMuted },
   cityCountry: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
   radio: {
     width: 20,
@@ -451,6 +457,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(201,169,97,0.1)' },
+  radioDisabled: { borderColor: 'rgba(255,255,255,0.08)' },
   radioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: COLORS.primary },
 
   emptyWrap: { paddingVertical: SPACING.lg, alignItems: 'center' },
@@ -470,6 +477,20 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: FONTS.semiBold,
     letterSpacing: 0.3,
+  },
+  eventBadgeDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  eventBadgeTxtDisabled: {
+    color: COLORS.textMuted,
+    fontSize: 9,
+    fontFamily: FONTS.semiBold,
+    letterSpacing: 0.2,
   },
 
   // Footer

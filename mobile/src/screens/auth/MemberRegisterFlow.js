@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, StatusBar, Alert, Image,
   Keyboard, TouchableWithoutFeedback,
-  Dimensions, Modal, FlatList, ActivityIndicator,
+  Dimensions, Modal, FlatList, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { PHONE_CODES } from '../../constants/phoneCodes';
+import { TERMS_OF_USE_TEXT, PRIVACY_POLICY_TEXT } from '../../constants/legalContent';
 import { useAuth } from '../../context/AuthContext';
 import { metaAPI, uploadAPI, usersAPI } from '../../services/api';
 
@@ -28,7 +29,7 @@ const STEPS = [
     id: 'name',
     context: 'Bienvenue sur ONLIST ✦',
     question: 'Comment tu\nt\'appelles ?',
-    type: 'fullName',
+    type: 'nickname',
   },
   {
     id: 'email',
@@ -329,32 +330,20 @@ function StepText({ config, value, onChange, onPress, editable = true }) {
   );
 }
 
-// ─── Étape Prénom + Nom ────────────────────────────────────────────────────────
+// ─── Étape Pseudo ───────────────────────────────────────────────────────────────
 
-function StepFullName({ form, update }) {
+function StepNickname({ form, update }) {
   return (
     <View style={step.inputWrap}>
       <TextInput
         style={step.bigInput}
-        value={form.firstName}
-        onChangeText={v => update('firstName', v)}
-        placeholder="Prénom"
+        value={form.name}
+        onChangeText={v => update('name', v)}
+        placeholder="Pseudo"
         placeholderTextColor={COLORS.textMuted}
-        autoCapitalize="words"
+        autoCapitalize="none"
         keyboardType="default"
         autoFocus
-        selectionColor={COLORS.primary}
-      />
-      <View style={step.inputLine} />
-      <View style={{ height: 20 }} />
-      <TextInput
-        style={step.bigInput}
-        value={form.lastName}
-        onChangeText={v => update('lastName', v)}
-        placeholder="Nom de famille"
-        placeholderTextColor={COLORS.textMuted}
-        autoCapitalize="words"
-        keyboardType="default"
         selectionColor={COLORS.primary}
       />
       <View style={step.inputLine} />
@@ -871,7 +860,7 @@ function StepPhotos({ photos, onAdd, onRemove }) {
 
 // ─── Étape Mot de passe ────────────────────────────────────────────────────────
 
-function StepPassword({ form, update }) {
+function StepPassword({ form, update, onOpenTerms, onOpenPrivacy }) {
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const match = form.password && form.confirmPassword && form.password === form.confirmPassword;
@@ -931,9 +920,9 @@ function StepPassword({ form, update }) {
         </View>
         <Text style={step.termsText}>
           J'accepte les{' '}
-          <Text style={step.termsLink}>conditions d'utilisation</Text>
+          <Text style={step.termsLink} onPress={onOpenTerms}>conditions d'utilisation</Text>
           {' '}et la{' '}
-          <Text style={step.termsLink}>politique de confidentialité</Text>
+          <Text style={step.termsLink} onPress={onOpenPrivacy}>politique de confidentialité</Text>
         </Text>
       </TouchableOpacity>
     </View>
@@ -948,11 +937,14 @@ export default function MemberRegisterFlow({ navigation }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState('forward');
   const [loading, setLoading] = useState(false);
+  const [submitStage, setSubmitStage] = useState('idle');
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, percent: 0 });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [draftBirthDate, setDraftBirthDate] = useState(getMaximumBirthDate());
+  const [legalModal, setLegalModal] = useState(null);
 
   const [form, setForm] = useState({
-    firstName: '', lastName: '', email: '',
+    name: '', email: '',
     phoneCode: '+33', phone: '',
     dateOfBirth: '',
     gender: '', nationality: '', country: 'France', city: '',
@@ -984,7 +976,7 @@ export default function MemberRegisterFlow({ navigation }) {
   const canContinue = useCallback(() => {
     const s = STEPS[currentStep];
     switch (s.id) {
-      case 'name': return form.firstName.trim().length >= 2 && form.lastName.trim().length >= 2;
+      case 'name': return form.name.trim().length >= 2;
       case 'email': return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
       case 'phone': return form.phone.replace(/[\s\-]/g, '').length >= 6;
       case 'dateOfBirth': return form.dateOfBirth.length === 10;
@@ -1048,10 +1040,12 @@ export default function MemberRegisterFlow({ navigation }) {
 
   const handleSubmit = async () => {
     setLoading(true);
+    setSubmitStage('registering');
+    setUploadProgress({ current: 0, total: form.photos.length, percent: 0 });
     try {
       // 1. Créer le compte (le token est stocké dans AsyncStorage par register())
       await register({
-        name: `${form.firstName.trim()} ${form.lastName.trim()}`,
+        name: form.name.trim(),
         email: form.email.trim(),
         password: form.password,
         type: 'influencer',
@@ -1069,14 +1063,26 @@ export default function MemberRegisterFlow({ navigation }) {
 
       // 2. Uploader les photos avec le token maintenant disponible
       if (form.photos.length > 0) {
-        const results = await Promise.allSettled(
-          form.photos.map(uri => uploadAPI.image(uri))
-        );
-        const photoUrls = results
-          .filter(r => r.status === 'fulfilled')
-          .map(r => r.value.url);
+        setSubmitStage('uploading');
+        const photoUrls = [];
+
+        for (let index = 0; index < form.photos.length; index += 1) {
+          const uri = form.photos[index];
+          setUploadProgress({ current: index + 1, total: form.photos.length, percent: 0 });
+          try {
+            const uploaded = await uploadAPI.image(uri, {
+              onProgress: (percent) => {
+                setUploadProgress({ current: index + 1, total: form.photos.length, percent });
+              },
+            });
+            if (uploaded?.url) photoUrls.push(uploaded.url);
+          } catch {
+            // Ignore les uploads individuels échoués; le profil continue avec les photos réussies.
+          }
+        }
 
         if (photoUrls.length > 0) {
+          setSubmitStage('saving-profile');
           const data = await usersAPI.updateMe({ photos: photoUrls });
           await updateUser(data.user || { photos: photoUrls });
         }
@@ -1085,6 +1091,8 @@ export default function MemberRegisterFlow({ navigation }) {
       Alert.alert('Erreur', err.message);
     } finally {
       setLoading(false);
+      setSubmitStage('idle');
+      setUploadProgress({ current: 0, total: 0, percent: 0 });
     }
   };
 
@@ -1100,8 +1108,8 @@ export default function MemberRegisterFlow({ navigation }) {
   const renderContent = () => {
     const s = STEPS[currentStep];
     switch (s.type) {
-      case 'fullName':
-        return <StepFullName form={form} update={update} />;
+      case 'nickname':
+        return <StepNickname form={form} update={update} />;
       case 'text':
         return (
           <StepText
@@ -1138,7 +1146,14 @@ export default function MemberRegisterFlow({ navigation }) {
           />
         );
       case 'password':
-        return <StepPassword form={form} update={update} />;
+        return (
+          <StepPassword
+            form={form}
+            update={update}
+            onOpenTerms={() => setLegalModal('terms')}
+            onOpenPrivacy={() => setLegalModal('privacy')}
+          />
+        );
       default:
         return null;
     }
@@ -1146,6 +1161,19 @@ export default function MemberRegisterFlow({ navigation }) {
 
   const active = canContinue() && !showDatePicker;
   const isLast = currentStep === STEPS.length - 1;
+  const submitLabel = (() => {
+    if (!loading) return isLast ? 'Créer mon compte' : 'Continuer';
+    if (submitStage === 'registering') return 'Création du compte...';
+    if (submitStage === 'uploading') {
+      const { current, total, percent } = uploadProgress;
+      return `Upload photo ${current}/${total} · ${percent}%`;
+    }
+    if (submitStage === 'saving-profile') return 'Finalisation du profil...';
+    return isLast ? 'Créer mon compte' : 'Continuer';
+  })();
+  const submitHint = submitStage === 'uploading'
+    ? 'Tes photos sont en cours d’envoi. Cela peut prendre quelques secondes.'
+    : null;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -1173,96 +1201,104 @@ export default function MemberRegisterFlow({ navigation }) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
-          <Animated.View
-            key={currentStep}
-            entering={
-              direction === 'forward'
-                ? SlideInRight.duration(300)
-                : SlideInLeft.duration(300)
-            }
-            exiting={
-              direction === 'forward'
-                ? SlideOutLeft.duration(300)
-                : SlideOutRight.duration(300)
-            }
-            style={styles.stepWrapper}
+          <ScrollView
+            contentContainerStyle={styles.stepScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets
           >
-            <Text style={styles.contextLabel}>{getContext()}</Text>
-            <Text style={styles.question}>{STEPS[currentStep].question}</Text>
-            {renderContent()}
-          </Animated.View>
-
-          {showDatePicker && Platform.OS === 'ios' && (
-            <View style={styles.iosDateSheetWrap}>
-              <View style={styles.iosDateSheet}>
-                <View style={styles.iosDateHeader}>
-                  <Text style={styles.iosDateTitle}>Date de naissance</Text>
-                  <TouchableOpacity onPress={() => {
-                    update('dateOfBirth', formatDateValue(draftBirthDate));
-                    setShowDatePicker(false);
-                  }}>
-                    <Text style={styles.iosDateDone}>Valider</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  value={draftBirthDate}
-                  mode="date"
-                  display="spinner"
-                  themeVariant="dark"
-                  maximumDate={getMaximumBirthDate()}
-                  onChange={(_, date) => {
-                    if (date) setDraftBirthDate(date);
-                  }}
-                />
-              </View>
-            </View>
-          )}
-
-          {/* ── Bouton Continuer ── */}
-          <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-            <TouchableOpacity
-              onPress={goNext}
-              activeOpacity={active ? 0.85 : 1}
-              style={styles.continueOuter}
+            <Animated.View
+              key={currentStep}
+              entering={
+                direction === 'forward'
+                  ? SlideInRight.duration(300)
+                  : SlideInLeft.duration(300)
+              }
+              exiting={
+                direction === 'forward'
+                  ? SlideOutLeft.duration(300)
+                  : SlideOutRight.duration(300)
+              }
+              style={styles.stepWrapper}
             >
-              {active ? (
-                <LinearGradient
-                  colors={COLORS.gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.continueBtn}
-                >
-                  {loading ? (
-                    <ActivityIndicator color={COLORS.bg} size="small" />
-                  ) : (
-                    <>
-                      <Text style={styles.continueTxt}>
-                        {isLast ? 'Créer mon compte' : 'Continuer'}
-                      </Text>
-                      {!loading && (
-                        <Ionicons
-                          name={isLast ? 'checkmark' : 'arrow-forward'}
-                          size={20}
-                          color={COLORS.bg}
-                        />
-                      )}
-                    </>
-                  )}
-                </LinearGradient>
-              ) : (
-                <View style={styles.continueBtnDisabled}>
-                  <Text style={styles.continueTxtDisabled}>
-                    {isLast ? 'Créer mon compte' : 'Continuer'}
-                  </Text>
+              <Text style={styles.contextLabel}>{getContext()}</Text>
+              <Text style={styles.question}>{STEPS[currentStep].question}</Text>
+              {renderContent()}
+            </Animated.View>
+            {showDatePicker && Platform.OS === 'ios' && (
+              <View style={styles.iosDateSheetWrap}>
+                <View style={styles.iosDateSheet}>
+                  <View style={styles.iosDateHeader}>
+                    <Text style={styles.iosDateTitle}>Date de naissance</Text>
+                    <TouchableOpacity onPress={() => {
+                      update('dateOfBirth', formatDateValue(draftBirthDate));
+                      setShowDatePicker(false);
+                    }}>
+                      <Text style={styles.iosDateDone}>Valider</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <DateTimePicker
+                    value={draftBirthDate}
+                    mode="date"
+                    display="spinner"
+                    themeVariant="dark"
+                    maximumDate={getMaximumBirthDate()}
+                    onChange={(_, date) => {
+                      if (date) setDraftBirthDate(date);
+                    }}
+                  />
                 </View>
-              )}
-            </TouchableOpacity>
+              </View>
+            )}
 
-            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginRow}>
-              <Text style={styles.loginQ}>Déjà un compte ? </Text>
-              <Text style={styles.loginLink}>Se connecter</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+              <TouchableOpacity
+                onPress={goNext}
+                activeOpacity={active ? 0.85 : 1}
+                style={styles.continueOuter}
+              >
+                {active ? (
+                  <LinearGradient
+                    colors={COLORS.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.continueBtn}
+                >
+                    {loading ? (
+                      <>
+                        <ActivityIndicator color={COLORS.bg} size="small" />
+                        <Text style={styles.continueTxt}>{submitLabel}</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.continueTxt}>{submitLabel}</Text>
+                        {!loading && (
+                          <Ionicons
+                            name={isLast ? 'checkmark' : 'arrow-forward'}
+                            size={20}
+                            color={COLORS.bg}
+                          />
+                        )}
+                      </>
+                    )}
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.continueBtnDisabled}>
+                    <Text style={styles.continueTxtDisabled}>{submitLabel}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {submitHint && (
+                <Text style={styles.submitHint}>{submitHint}</Text>
+              )}
+
+              <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginRow}>
+                <Text style={styles.loginQ}>Déjà un compte ? </Text>
+                <Text style={styles.loginLink}>Se connecter</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
 
@@ -1280,6 +1316,32 @@ export default function MemberRegisterFlow({ navigation }) {
           }}
         />
       )}
+
+      <Modal
+        visible={!!legalModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLegalModal(null)}
+      >
+        <View style={styles.legalOverlay}>
+          <View style={[styles.legalSheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+            <View style={styles.legalHandle} />
+            <View style={styles.legalHeader}>
+              <Text style={styles.legalTitle}>
+                {legalModal === 'terms' ? 'Conditions d’utilisation' : 'Politique de confidentialité'}
+              </Text>
+              <TouchableOpacity onPress={() => setLegalModal(null)}>
+                <Ionicons name="close" size={22} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.legalScroll}>
+              <Text style={styles.legalText}>
+                {legalModal === 'terms' ? TERMS_OF_USE_TEXT : PRIVACY_POLICY_TEXT}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1327,9 +1389,12 @@ const styles = StyleSheet.create({
   },
 
   stepWrapper: {
-    flex: 1,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xl,
+  },
+  stepScrollContent: {
+    flexGrow: 1,
+    paddingBottom: SPACING.lg,
   },
   contextLabel: {
     color: COLORS.primary,
@@ -1347,7 +1412,9 @@ const styles = StyleSheet.create({
   },
 
   footer: {
+    marginTop: 'auto',
     paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.xl,
     gap: SPACING.sm,
   },
   continueOuter: {},
@@ -1377,6 +1444,14 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: FONTS.sizes.md,
     fontFamily: FONTS.medium,
+  },
+  submitHint: {
+    color: COLORS.textMuted,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.regular,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: SPACING.md,
   },
   loginRow: {
     flexDirection: 'row',
@@ -1421,6 +1496,54 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: FONTS.sizes.sm,
     fontFamily: FONTS.semiBold,
+  },
+  legalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  legalSheet: {
+    backgroundColor: COLORS.bgCard,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: COLORS.border,
+    maxHeight: '84%',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+  },
+  legalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.border,
+    alignSelf: 'center',
+    marginBottom: SPACING.md,
+  },
+  legalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  legalTitle: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.base,
+    fontFamily: FONTS.bold,
+    paddingRight: SPACING.md,
+  },
+  legalScroll: {
+    maxHeight: '100%',
+  },
+  legalText: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.regular,
+    lineHeight: 22,
+    paddingBottom: SPACING.md,
   },
 });
 

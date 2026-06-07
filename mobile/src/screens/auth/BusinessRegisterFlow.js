@@ -129,6 +129,7 @@ function StepBusinessType({ value, onChange }) {
             style={[step.typeCard, active && step.typeCardActive]}
             onPress={() => onChange(t.id)}
             activeOpacity={0.75}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
             {active && (
               <LinearGradient
@@ -637,6 +638,7 @@ export default function BusinessRegisterFlow({ navigation }) {
           <KeyboardDismissScrollView
             contentContainerStyle={styles.stepWrapper}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="always"
           >
             <Text style={styles.contextLabel}>{STEPS[currentStep].context}</Text>
             <Text style={styles.question}>{STEPS[currentStep].question}</Text>
@@ -737,7 +739,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xl,
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
   contextLabel: {
     color: COLORS.primary,

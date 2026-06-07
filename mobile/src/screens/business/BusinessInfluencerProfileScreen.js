@@ -8,6 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { usersAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { getBusinessPlan } from '../../constants/businessPlans';
 
 const W = Dimensions.get('window').width;
 const HEADER_H = 300;
@@ -49,6 +51,8 @@ function Card({ title, children, style }) {
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 export default function BusinessInfluencerProfileScreen({ route, navigation }) {
+  const { user: businessUser } = useAuth();
+  const plan = getBusinessPlan(businessUser?.subscriptionPlan);
   const { userId } = route.params;
   const insets = useSafeAreaInsets();
   const [user, setUser] = useState(null);
@@ -193,8 +197,8 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
           </View>
           <View style={s.statDivider} />
           <View style={s.statItem}>
-            <Text style={[s.statValue, score > 0 && { color: COLORS.primary }]}>
-              {score > 0 ? score.toFixed(1) : '—'}
+            <Text style={[s.statValue, typeof user.score === 'number' && score > 0 && { color: COLORS.primary }]}>
+              {typeof user.score === 'number' && score > 0 ? score.toFixed(1) : '—'}
             </Text>
             <Text style={s.statLabel}>Score /10</Text>
           </View>
@@ -243,7 +247,22 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
         ) : null}
 
         {/* ── Score influenceur ── */}
-        {score > 0 && (
+        {plan.creatorStatsLevel === 'basic' && typeof user.score === 'number' && (
+          <Card style={s.cardMx}>
+            <View style={s.scoreHeader}>
+              <Text style={s.cardTitle}>Statistiques créateur</Text>
+              <View style={s.globalScorePill}>
+                <Text style={s.globalScoreNum}>{score > 0 ? score.toFixed(1) : '—'}</Text>
+                <Text style={s.globalScoreUnit}>/10</Text>
+              </View>
+            </View>
+            <Text style={s.reviewsNote}>
+              Vue synthétique disponible avec votre abonnement {plan.name}
+            </Text>
+          </Card>
+        )}
+
+        {plan.creatorStatsLevel === 'full' && score > 0 && (
           <Card style={s.cardMx}>
             <View style={s.scoreHeader}>
               <Text style={s.cardTitle}>Score influenceur</Text>

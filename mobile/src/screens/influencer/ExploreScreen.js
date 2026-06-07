@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import EventCard from '../../components/EventCard';
 import { eventsAPI, metaAPI } from '../../services/api';
@@ -30,6 +31,22 @@ const MOMENTS = [
   { id: 'night', label: 'Nuit' },
 ];
 
+const DATE_FILTERS = [
+  { id: '', label: 'Toutes dates' },
+  { id: 'today', label: 'Aujourd’hui' },
+  { id: 'tomorrow', label: 'Demain' },
+  { id: 'week', label: 'Cette semaine' },
+  { id: 'custom', label: 'Choisir une date' },
+];
+
+const toLocalDayKey = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+const isSameDay = (left, right) => toLocalDayKey(left) === toLocalDayKey(right);
+
 export default function ExploreScreen({ navigation }) {
   const { user } = useAuth();
 
@@ -43,6 +60,9 @@ export default function ExploreScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [moment, setMoment] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [customDate, setCustomDate] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Ville : par défaut celle de l'utilisateur, sinon "toutes"
   const [city, setCity] = useState(user?.selectedCity || '');
@@ -67,7 +87,7 @@ export default function ExploreScreen({ navigation }) {
   const fetchEvents = useCallback(async (reset = true) => {
     try {
       const p = reset ? 1 : page + 1;
-      const params = { page: p, limit: 12 };
+      const params = { page: p, limit: 50 };
       if (category) params.category = category;
       if (moment) params.moment = moment;
       if (city) params.city = city;
@@ -115,12 +135,25 @@ export default function ExploreScreen({ navigation }) {
     setCategory(nextCategory);
   };
 
+  const handleSelectDateFilter = (nextDateFilter) => {
+    if (nextDateFilter === 'custom') {
+      setShowDatePicker(true);
+      return;
+    }
+    setDateFilter(nextDateFilter);
+    if (nextDateFilter !== 'custom') {
+      setCustomDate(null);
+    }
+  };
+
   const handleResetFilters = () => {
     setLoading(true);
     setRefreshing(false);
     setSearch('');
     setCategory('');
     setMoment('');
+    setDateFilter('');
+    setCustomDate(null);
     setCity('');
   };
 
@@ -132,12 +165,42 @@ export default function ExploreScreen({ navigation }) {
     }
   };
 
-  const displayedEvents = search
-    ? events.filter(e =>
-        e.title?.toLowerCase().includes(search.toLowerCase()) ||
-        e.venue?.toLowerCase().includes(search.toLowerCase())
-      )
-    : events;
+  const displayedEvents = events.filter((e) => {
+    const matchesSearch = !search
+      || e.title?.toLowerCase().includes(search.toLowerCase())
+      || e.venue?.toLowerCase().includes(search.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (!dateFilter && !customDate) return true;
+    if (!e?.date) return false;
+
+    const eventDate = new Date(e.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (dateFilter === 'today') {
+      return isSameDay(eventDate, today);
+    }
+
+    if (dateFilter === 'tomorrow') {
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      return isSameDay(eventDate, tomorrow);
+    }
+
+    if (dateFilter === 'week') {
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(today.getDate() + 7);
+      return eventDate >= today && eventDate < endOfWeek;
+    }
+
+    if (dateFilter === 'custom' && customDate) {
+      return isSameDay(eventDate, customDate);
+    }
+
+    return true;
+  });
 
   // Construire la liste villes pour le filtre : ville user en premier, puis villes avec events
   const cityOptions = ['', ...availableCities];
@@ -240,6 +303,35 @@ export default function ExploreScreen({ navigation }) {
               );
             })}
           </ScrollView>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filtersRow}
+            contentContainerStyle={styles.chipsContent}
+          >
+            {DATE_FILTERS.map((filter) => {
+              const active = filter.id === 'custom'
+                ? dateFilter === 'custom' && !!customDate
+                : dateFilter === filter.id;
+              const label = filter.id === 'custom' && customDate
+                ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(customDate)
+                : filter.label;
+
+              return (
+                <TouchableOpacity
+                  key={filter.id || '__all_dates__'}
+                  onPress={() => handleSelectDateFilter(filter.id)}
+                  style={[styles.momentChip, active && styles.momentChipActive, styles.chipWrap]}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.momentChipTxt, active && styles.momentChipTxtActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       </SafeAreaView>
 
@@ -285,9 +377,9 @@ export default function ExploreScreen({ navigation }) {
         <Text style={styles.resultsText}>
           {loading
             ? 'Chargement...'
-            : `${total} événement${total !== 1 ? 's' : ''}${city ? ` à ${city}` : ''}`}
+            : `${displayedEvents.length} événement${displayedEvents.length !== 1 ? 's' : ''}${city ? ` à ${city}` : ''}`}
         </Text>
-        {(category || moment || city) && (
+        {(category || moment || city || dateFilter || customDate) && (
           <TouchableOpacity onPress={handleResetFilters}>
             <Text style={styles.resetFilters}>Réinitialiser</Text>
           </TouchableOpacity>
@@ -344,6 +436,22 @@ export default function ExploreScreen({ navigation }) {
               )}
             </View>
           }
+        />
+      )}
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={customDate || new Date()}
+          mode="date"
+          display="default"
+          minimumDate={new Date()}
+          onChange={(event, date) => {
+            setShowDatePicker(false);
+            if (event.type === 'set' && date) {
+              setCustomDate(date);
+              setDateFilter('custom');
+            }
+          }}
         />
       )}
     </View>

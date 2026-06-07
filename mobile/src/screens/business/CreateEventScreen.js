@@ -12,6 +12,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { eventsAPI, lieuxAPI, uploadAPI } from '../../services/api';
 import LocationAutocompleteFields from '../../components/LocationAutocompleteFields';
+import { useAuth } from '../../context/AuthContext';
+import { getBusinessPlan } from '../../constants/businessPlans';
 
 const TOTAL_STEPS = 5;
 const STEP_LABELS = ['Lieu', 'Médias', 'Description', 'Contenu', 'Paramètres'];
@@ -169,6 +171,8 @@ function TagInput({ values, onAdd, onRemove, placeholder }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────────────────────
 export default function CreateEventScreen({ route, navigation }) {
+  const { user } = useAuth();
+  const businessPlan = getBusinessPlan(user?.subscriptionPlan);
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -351,7 +355,9 @@ export default function CreateEventScreen({ route, navigation }) {
         deliverables: form.deliverables,
         rules: form.requirements.trim(),
         accountsToMention: form.accountsToMention,
-        maxParticipants: parseInt(form.maxParticipants) || 10,
+        maxParticipants: businessPlan.maxCreatorsPerEvent
+          ? Math.min(parseInt(form.maxParticipants) || businessPlan.maxCreatorsPerEvent, businessPlan.maxCreatorsPerEvent)
+          : (parseInt(form.maxParticipants) || 10),
         ageRequirement: parseInt(form.ageRequirement) || 18,
         dresscode: form.dresscode.trim(),
         isSponsored: form.isSponsored,
@@ -603,6 +609,12 @@ export default function CreateEventScreen({ route, navigation }) {
                 </InputBlock>
               </View>
             </View>
+
+            <Text style={s.planHint}>
+              {businessPlan.maxCreatorsPerEvent
+                ? `Votre pack ${businessPlan.name} limite cet événement à ${businessPlan.maxCreatorsPerEvent} créateurs maximum.`
+                : `Votre pack ${businessPlan.name} autorise un nombre illimité de créateurs par événement.`}
+            </Text>
 
             <InputBlock label="Dress code">
               <StyledInput value={form.dresscode} onChangeText={v => upd('dresscode', v)} placeholder="Smart casual, tenue de soirée..." />
@@ -964,6 +976,14 @@ const s = StyleSheet.create({
   nextBtn: { flex: 1, borderRadius: RADIUS.full, overflow: 'hidden' },
   nextBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14 },
   nextBtnText: { color: '#0A0A0F', fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  planHint: {
+    color: COLORS.textMuted,
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.regular,
+    lineHeight: 18,
+    marginTop: -4,
+    marginBottom: SPACING.md,
+  },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
   modalSheet: { backgroundColor: COLORS.bgCard, borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl, maxHeight: '70%' },
