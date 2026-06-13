@@ -113,6 +113,7 @@ export const AuthProvider = ({ children }) => {
           subscriptionStatus: status.subscriptionStatus,
           subscriptionExpiresAt: status.subscriptionExpiresAt,
           stripeCustomerId: status.stripeCustomerId,
+          billingEnabled: status.billingEnabled,
         };
         await AsyncStorage.setItem('user', JSON.stringify(merged));
         setUser(merged);

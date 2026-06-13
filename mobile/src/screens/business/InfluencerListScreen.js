@@ -180,9 +180,11 @@ export default function InfluencerListScreen({ navigation }) {
               {plan.canDirectInvite ? ' · invitation directe active' : ' · invitation directe verrouillée'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.planBannerBtn} onPress={() => navigation.navigate('BusinessSubscription')}>
-            <Text style={styles.planBannerBtnText}>Upgrade</Text>
-          </TouchableOpacity>
+          {user?.billingEnabled ? (
+            <TouchableOpacity style={styles.planBannerBtn} onPress={() => navigation.navigate('BusinessSubscription')}>
+              <Text style={styles.planBannerBtnText}>Upgrade</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </SafeAreaView>
 

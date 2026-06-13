@@ -1,9 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '@/lib/auth';
 import Header from '@/components/Header';
 import { useAuth } from '@/lib/auth';
-import { Shield, Key, UserPlus, Zap, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Shield, Key, UserPlus, Zap, AlertTriangle, CheckCircle, CreditCard, Lock } from 'lucide-react';
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Erreur inconnue';
@@ -26,6 +26,41 @@ export default function SettingsPage() {
   const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '' });
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminMsg, setAdminMsg] = useState('');
+  const [billingEnabled, setBillingEnabled] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingReady, setBillingReady] = useState(false);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await api('/admin/settings');
+        const data = await res.json();
+        setBillingEnabled(Boolean(data.settings?.subscriptionBillingEnabled));
+      } catch {
+        // settings indisponibles : on laisse l'état par défaut (gratuit)
+      } finally {
+        setBillingReady(true);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const toggleBilling = async () => {
+    const next = !billingEnabled;
+    setBillingLoading(true);
+    try {
+      const res = await api('/admin/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ subscriptionBillingEnabled: next }),
+      });
+      const data = await res.json();
+      setBillingEnabled(Boolean(data.settings?.subscriptionBillingEnabled ?? next));
+    } catch {
+      // en cas d'erreur, on ne change pas l'état affiché
+    } finally {
+      setBillingLoading(false);
+    }
+  };
 
   const seedAdmin = async () => {
     setSeedLoading(true);
@@ -67,6 +102,60 @@ export default function SettingsPage() {
 
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
         <div className="w-full max-w-6xl mx-auto space-y-6">
+          <Section
+            title="Abonnements établissements"
+            desc="Active ou non la facturation des abonnements pour les établissements. Tu décides quand basculer en mode payant."
+          >
+            <div className="flex flex-col md:flex-row md:items-center gap-5 p-5 rounded-[1.5rem] surface-2">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: billingEnabled ? 'rgba(16,185,129,0.14)' : 'rgba(201,169,97,0.12)', border: `1px solid ${billingEnabled ? 'rgba(16,185,129,0.28)' : 'rgba(201,169,97,0.24)'}` }}>
+                {billingEnabled ? <CreditCard size={22} style={{ color: '#10b981' }} /> : <Lock size={22} style={{ color: 'var(--primary)' }} />}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+                    {billingEnabled ? 'Mode payant activé' : 'Gratuit (lancement)'}
+                  </p>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                    style={billingEnabled
+                      ? { background: 'rgba(16,185,129,0.14)', color: '#10b981' }
+                      : { background: 'rgba(201,169,97,0.14)', color: 'var(--primary-light)' }}>
+                    {billingEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {billingEnabled
+                    ? 'Les établissements voient l’écran d’abonnement et doivent souscrire un pack pour accéder au dashboard.'
+                    : 'Tout est gratuit : l’écran d’abonnement n’apparaît pas dans l’app, les établissements accèdent librement.'}
+                </p>
+              </div>
+
+              <button
+                onClick={toggleBilling}
+                disabled={billingLoading || !billingReady}
+                aria-label="Basculer le mode payant"
+                className="relative flex-shrink-0 w-[68px] h-9 rounded-full transition-all disabled:opacity-50"
+                style={{
+                  background: billingEnabled ? '#10b981' : 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                }}
+              >
+                <span
+                  className="absolute top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white shadow-md transition-all"
+                  style={{ left: billingEnabled ? '34px' : '3px' }}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-start gap-3 mt-4 p-4 rounded-[1.5rem]" style={{ background: 'rgba(215,167,76,0.08)', border: '1px solid rgba(215,167,76,0.16)' }}>
+              <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-300">
+                Le changement est immédiat côté backend. Les apps déjà ouvertes prennent en compte le nouveau mode au prochain rafraîchissement (réouverture ou changement d’écran).
+              </p>
+            </div>
+          </Section>
+
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.8fr)]">
             <Section title="Mon compte admin" desc="Informations de votre compte administrateur">
               <div className="flex items-center gap-4 p-5 rounded-[1.5rem] surface-2">

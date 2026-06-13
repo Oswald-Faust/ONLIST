@@ -8,6 +8,7 @@ const {
 } = require('../utils/stripe');
 const { getOrCreateStripeCustomer } = require('../utils/stripeSubscription');
 const { BUSINESS_PLAN_KEYS } = require('../utils/businessPlans');
+const SystemSettings = require('../models/SystemSettings');
 
 const router = express.Router();
 
@@ -15,6 +16,9 @@ const VALID_PLANS = Object.values(BUSINESS_PLAN_KEYS);
 
 router.get('/me', protect, async (req, res) => {
   try {
+    const settings = await SystemSettings.findOne({ key: 'global' }).lean();
+    // Mode payant: OFF (défaut) = tout gratuit, l'écran d'abonnement n'est pas affiché côté app.
+    const billingEnabled = settings?.subscriptionBillingEnabled === true;
     res.json({
       subscriptionPlan: req.user.subscriptionPlan || 'starter',
       subscriptionStatus: req.user.subscriptionStatus || 'inactive',
@@ -24,6 +28,7 @@ router.get('/me', protect, async (req, res) => {
       subscriptionExpiresAt: req.user.subscriptionExpiresAt || null,
       stripeCustomerId: req.user.stripeCustomerId || '',
       hasActiveStripeSubscription: Boolean(req.user.stripeSubscriptionId),
+      billingEnabled,
       updatedAt: req.user.subscriptionUpdatedAt || null,
     });
   } catch (err) {

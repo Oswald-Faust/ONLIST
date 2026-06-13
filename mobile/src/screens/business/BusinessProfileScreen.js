@@ -146,11 +146,12 @@ export default function BusinessProfileScreen({ navigation }) {
           <View style={s.menuCard}>
             {[
               { icon: "create-outline", label: "Modifier mon profil", onPress: () => navigation.navigate("BusinessEditProfile") },
-              { icon: "card-outline", label: "Abonnement", onPress: () => navigation.navigate("BusinessSubscription") },
+              // L'entrée Abonnement n'apparaît qu'en mode payant (piloté par l'admin)
+              user?.billingEnabled ? { icon: "card-outline", label: "Abonnement", onPress: () => navigation.navigate("BusinessSubscription") } : null,
               { icon: "settings-outline", label: "Paramètres", onPress: () => navigation.navigate("BusinessSettings") },
               { icon: "business-outline", label: "Mes lieux", onPress: () => navigation.navigate("Lieux") },
               { icon: "calendar-outline", label: "Mes événements", onPress: () => navigation.navigate("Events") },
-            ].map((item, i) => (
+            ].filter(Boolean).map((item, i) => (
               <TouchableOpacity key={i} style={[s.menuRow, i > 0 && { borderTopWidth: 1, borderTopColor: COLORS.border }]} onPress={item.onPress}>
                 <View style={s.menuRowLeft}>
                   <View style={s.menuIcon}>

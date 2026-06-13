@@ -157,7 +157,10 @@ function AdminStack() {
 // ─── Root Navigator ────────────────────────────────────────────────────────────
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  // Mode payant piloté depuis le dashboard admin (subscriptionBillingEnabled).
+  // OFF (défaut au lancement) = tout gratuit, aucun blocage abonnement.
   const businessNeedsSubscription =
+    user?.billingEnabled === true &&
     user?.type === 'business' &&
     user?.status !== 'pending' &&
     !['active', 'trialing', 'grace'].includes(user?.subscriptionStatus);
