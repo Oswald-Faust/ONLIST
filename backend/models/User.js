@@ -123,6 +123,9 @@ const userSchema = new mongoose.Schema({
   subscriptionRenewalReminderFor: { type: Date },
   subscriptionHistory: { type: [subscriptionHistorySchema], default: [] },
 
+  // Événements mis en favoris par l'influenceur
+  favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
+
   // Plasma = currency/points
   plasma: { type: Number, default: 0 },
 

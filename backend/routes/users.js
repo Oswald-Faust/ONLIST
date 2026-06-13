@@ -1,6 +1,8 @@
 const express = require('express');
 const User = require('../models/User');
 const Review = require('../models/Review');
+const Application = require('../models/Application');
+const Event = require('../models/Event');
 const { protect, requireValidated } = require('../middleware/auth');
 const {
   getBusinessPlan,
@@ -88,7 +90,16 @@ router.get('/:id', protect, async (req, res) => {
     const user = await User.findById(req.params.id).select('-password');
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
     if (req.user.type === 'business' && user.type === 'influencer') {
-      if (!isInfluencerVisibleToBusiness(user, req.user)) {
+      let allowed = isInfluencerVisibleToBusiness(user, req.user);
+      if (!allowed) {
+        // Toujours autoriser la consultation d'un influenceur qui a candidaté/participé
+        // à un événement de ce business (sinon les candidatures deviennent inaccessibles).
+        const myEventIds = await Event.find({ creator: req.user._id }).distinct('_id');
+        if (myEventIds.length) {
+          allowed = Boolean(await Application.exists({ user: user._id, event: { $in: myEventIds } }));
+        }
+      }
+      if (!allowed) {
         return res.status(403).json({ message: 'Ce profil créateur n’est pas inclus dans votre abonnement actuel' });
       }
       return res.json({ user: sanitizeInfluencerForBusiness(user, req.user) });

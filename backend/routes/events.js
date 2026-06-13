@@ -1,5 +1,6 @@
 const express = require('express');
 const Event = require('../models/Event');
+const User = require('../models/User');
 const { protect, requireValidated } = require('../middleware/auth');
 const { getBusinessPlan } = require('../utils/businessPlans');
 
@@ -113,6 +114,45 @@ router.get('/', protect, requireValidated, async (req, res) => {
     ]);
 
     res.json({ events, total, page: Number(page), pages: Math.ceil(total / limit) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /events/favorites/mine — événements mis en favoris par l'influenceur
+router.get('/favorites/mine', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate({
+      path: 'favorites',
+      populate: [
+        { path: 'creator', select: 'name businessName businessType businessLogo city' },
+        { path: 'lieu', select: 'name city photos score reviewsCount scoreDetails' },
+      ],
+    });
+    const favorites = (user?.favorites || []).filter(Boolean);
+    res.json({ events: favorites });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /events/:id/favorite — basculer un événement en favori
+router.post('/:id/favorite', protect, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id).select('_id');
+    if (!event) return res.status(404).json({ message: 'Événement introuvable' });
+
+    const user = await User.findById(req.user._id);
+    const exists = user.favorites.some((id) => String(id) === String(event._id));
+
+    if (exists) {
+      user.favorites = user.favorites.filter((id) => String(id) !== String(event._id));
+    } else {
+      user.favorites.push(event._id);
+    }
+    await user.save();
+
+    res.json({ favorited: !exists, favorites: user.favorites });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
