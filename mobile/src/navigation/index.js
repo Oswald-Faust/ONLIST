@@ -22,12 +22,15 @@ import NewPasswordScreen from '../screens/auth/NewPasswordScreen';
 import HomeScreen from '../screens/influencer/HomeScreen';
 import ExploreScreen from '../screens/influencer/ExploreScreen';
 import EventDetailScreen from '../screens/influencer/EventDetailScreen';
+import LieuDetailScreen from '../screens/influencer/LieuDetailScreen';
 import MyEventsScreen from '../screens/influencer/MyEventsScreen';
 import ProfileScreen from '../screens/influencer/ProfileScreen';
 import EditProfileScreen from '../screens/influencer/EditProfileScreen';
 import SettingsScreen from '../screens/influencer/SettingsScreen';
 import SearchScreen from '../screens/influencer/SearchScreen';
 import NotificationsScreen from '../screens/influencer/NotificationsScreen';
+import AttendanceConfirmedScreen from '../screens/influencer/AttendanceConfirmedScreen';
+import AccessPassScreen from '../screens/influencer/AccessPassScreen';
 
 // Business screens
 import BusinessDashboardScreen from '../screens/business/BusinessDashboardScreen';
@@ -42,6 +45,7 @@ import BusinessSubscriptionScreen from '../screens/business/BusinessSubscription
 import CreateLieuScreen from '../screens/business/CreateLieuScreen';
 import CreateEventScreen from '../screens/business/CreateEventScreen';
 import BusinessEventDetailScreen from '../screens/business/BusinessEventDetailScreen';
+import EventCheckInScannerScreen from '../screens/business/EventCheckInScannerScreen';
 
 // Admin screens
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -93,10 +97,13 @@ function InfluencerStack() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="InfluencerTabs" component={InfluencerTabs} />
       <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+      <Stack.Screen name="LieuDetail" component={LieuDetailScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Search" component={SearchScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="AttendanceConfirmed" component={AttendanceConfirmedScreen} />
+      <Stack.Screen name="AccessPass" component={AccessPassScreen} />
     </Stack.Navigator>
   );
 }
@@ -129,6 +136,7 @@ function BusinessStack() {
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
       <Stack.Screen name="BusinessEventDetail" component={BusinessEventDetailScreen} />
       <Stack.Screen name="BusinessInfluencerProfile" component={BusinessInfluencerProfileScreen} />
+      <Stack.Screen name="EventCheckInScanner" component={EventCheckInScannerScreen} />
     </Stack.Navigator>
   );
 }

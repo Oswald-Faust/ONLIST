@@ -7,14 +7,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_LABELS } from '../../constants/categories';
 import { eventsAPI, applicationsAPI } from '../../services/api';
+import { getDeliverableLabel } from '../../constants/businessEventOptions';
 
 const MOMENT_LABELS = { morning: 'Matin', afternoon: 'Apres-midi', evening: 'Soir', night: 'Nuit' };
-const CATEGORY_LABELS = {
-  restaurant: 'Restaurant', bar: 'Bar', club: 'Club', spa: 'Spa',
-  sport: 'Sport', wellness: 'Bien-être', hotel: 'Hôtel', cafe: 'Café',
-  beauty: 'Beauté', shop: 'Boutique', premium: 'Lieu Premium', other: 'Autre',
-};
 
 // --- Tabs ---
 function TabBar({ activeTab, onPress, counts }) {
@@ -107,7 +104,7 @@ function DetailsTab({ event }) {
           {event.deliverables.map((d, i) => (
             <View key={i} style={s.bulletRow}>
               <View style={s.bullet} />
-              <Text style={s.bodyText}>{d}</Text>
+              <Text style={s.bodyText}>{getDeliverableLabel(d)}</Text>
             </View>
           ))}
         </View>
@@ -338,19 +335,37 @@ export default function BusinessEventDetailScreen({ route, navigation }) {
         {event.images && event.images.length > 0
           ? <Image source={{ uri: event.images[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
           : <LinearGradient colors={['rgba(201,169,97,0.2)', 'rgba(201,169,97,0.04)']} style={StyleSheet.absoluteFill} />}
-        <LinearGradient colors={['rgba(10,10,15,0.4)', 'rgba(10,10,15,0.95)']} style={StyleSheet.absoluteFill} />
+        {/* Dégradé bas : laisse l'image visible en haut, lisibilité du titre en bas */}
+        <LinearGradient
+          colors={['transparent', 'rgba(10,10,15,0.55)', 'rgba(10,10,15,0.97)']}
+          locations={[0.25, 0.62, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Dégradé haut : lisibilité des boutons nav */}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.45)', 'transparent']}
+          style={[StyleSheet.absoluteFill, { height: 110 }]}
+        />
 
         <SafeAreaView style={s.imageHeaderContent}>
           <View style={s.imageHeaderTop}>
             <TouchableOpacity style={s.backCircle} onPress={() => navigation.goBack()}>
               <Ionicons name="chevron-back" size={20} color={COLORS.white} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={s.editCircle}
-              onPress={() => navigation.navigate('CreateEvent', { eventToEdit: event })}
-            >
-              <Ionicons name="pencil-outline" size={18} color={COLORS.primary} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={s.editCircle}
+                onPress={() => navigation.navigate('EventCheckInScanner', { eventId: event._id })}
+              >
+                <Ionicons name="qr-code-outline" size={18} color={COLORS.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.editCircle}
+                onPress={() => navigation.navigate('CreateEvent', { eventToEdit: event })}
+              >
+                <Ionicons name="pencil-outline" size={18} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={s.imageHeaderBottom}>
             <View style={[s.statusBadge, { backgroundColor: event.isActive ? 'rgba(16,217,160,0.15)' : 'rgba(245,158,11,0.15)' }]}>
@@ -393,7 +408,7 @@ export default function BusinessEventDetailScreen({ route, navigation }) {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
 
-  imageHeader: { height: 260, position: 'relative' },
+  imageHeader: { height: 300, position: 'relative' },
   imageHeaderContent: { flex: 1, justifyContent: 'space-between' },
   imageHeaderTop: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
   backCircle: {

@@ -5,10 +5,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
-import { applicationsAPI } from '../../services/api';
+import { applicationsAPI, eventsAPI } from '../../services/api';
 import CityPickerSheet from './CityPickerScreen';
 import { useAuth } from '../../context/AuthContext';
 
@@ -19,6 +20,7 @@ const STATUS_ITEMS = [
   { id: 'pending',  label: 'En attente', icon: 'time-outline',             color: COLORS.warning },
   { id: 'accepted', label: 'Confirmés',  icon: 'checkmark-circle-outline', color: COLORS.success },
   { id: 'rejected', label: 'Passés',     icon: 'close-circle-outline',     color: COLORS.error   },
+  { id: 'favorites', label: 'Favoris',   icon: 'heart-outline',            color: COLORS.primary },
 ];
 
 const MONTHS_FR = [
@@ -350,6 +352,7 @@ export default function MyEventsScreen({ navigation }) {
   const [viewMode,     setViewMode]     = useState('list');
   const [filter,       setFilter]       = useState('pending');
   const [applications, setApplications] = useState([]);
+  const [favorites,    setFavorites]    = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
   const [cityPickerVisible, setCityPickerVisible] = useState(false);
@@ -361,8 +364,13 @@ export default function MyEventsScreen({ navigation }) {
 
   const fetchApplications = useCallback(async () => {
     try {
-      const data = await applicationsAPI.myApplications({});
-      setApplications(data.applications || []);
+      const [appsData, favData] = await Promise.all([
+        applicationsAPI.myApplications({}),
+        eventsAPI.favorites().catch(() => ({ events: [] })),
+      ]);
+      setApplications(appsData.applications || []);
+      // On normalise les favoris au même format que les candidatures (item.event)
+      setFavorites((favData.events || []).map((ev) => ({ _id: ev._id, event: ev, status: 'favorite' })));
     } catch (err) {
       console.log('MyEvents error:', err.message);
     } finally {
@@ -373,14 +381,25 @@ export default function MyEventsScreen({ navigation }) {
 
   useEffect(() => { fetchApplications(); }, []);
 
+  // Rafraîchit les favoris au retour sur l'écran (ex: après un toggle depuis le détail)
+  useFocusEffect(
+    useCallback(() => {
+      eventsAPI.favorites()
+        .then((data) => setFavorites((data.events || []).map((ev) => ({ _id: ev._id, event: ev, status: 'favorite' }))))
+        .catch(() => {});
+    }, [])
+  );
+
   const onRefresh = () => { setRefreshing(true); fetchApplications(); };
 
-  const count = (id) => applications.filter(a => a.status === id).length;
+  const count = (id) =>
+    id === 'favorites' ? favorites.length : applications.filter(a => a.status === id).length;
 
   const filtered =
-    filter === 'pending'  ? applications.filter(a => a.status === 'pending')  :
-    filter === 'accepted' ? applications.filter(a => a.status === 'accepted') :
-                            applications.filter(a => a.status === 'rejected');
+    filter === 'favorites' ? favorites :
+    filter === 'pending'   ? applications.filter(a => a.status === 'pending')  :
+    filter === 'accepted'  ? applications.filter(a => a.status === 'accepted') :
+                             applications.filter(a => a.status === 'rejected');
 
   const cityFiltered = selectedCity
     ? filtered.filter((a) => {
@@ -472,7 +491,9 @@ export default function MyEventsScreen({ navigation }) {
           renderItem={({ item }) => (
             <EventCard
               item={item}
-              onPress={() => navigation.navigate('EventDetail', { event: item.event })}
+              onPress={() => item.status === 'accepted'
+                ? navigation.navigate('AttendanceConfirmed', { application: item })
+                : navigation.navigate('EventDetail', { event: item.event })}
             />
           )}
           contentContainerStyle={S.listContent}
@@ -486,13 +507,18 @@ export default function MyEventsScreen({ navigation }) {
           }
           ListEmptyComponent={
             <View style={S.empty}>
-              <Ionicons name="calendar-outline" size={52} color={COLORS.textMuted} />
+              <Ionicons name={filter === 'favorites' ? 'heart-outline' : 'calendar-outline'} size={52} color={COLORS.textMuted} />
               <Text style={S.emptyTitle}>
-                {filter === 'pending'  ? 'Aucune candidature en attente' :
-                 filter === 'accepted' ? 'Aucun événement confirmé' :
-                                        'Aucun événement passé'}
+                {filter === 'pending'   ? 'Aucune candidature en attente' :
+                 filter === 'accepted'  ? 'Aucun événement confirmé' :
+                 filter === 'favorites' ? 'Aucun événement en favori' :
+                                          'Aucun événement passé'}
               </Text>
-              <Text style={S.emptyText}>Explorez les événements et postulez !</Text>
+              <Text style={S.emptyText}>
+                {filter === 'favorites'
+                  ? 'Appuyez sur le ♥ d\'un événement pour le retrouver ici.'
+                  : 'Explorez les événements et postulez !'}
+              </Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('Explore')}
                 style={{ borderRadius: RADIUS.full, overflow: 'hidden', marginTop: SPACING.md }}

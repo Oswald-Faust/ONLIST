@@ -51,6 +51,8 @@ export const eventsAPI = {
   update: (id, data) => api.put(`/events/${id}`, data),
   delete: (id) => api.delete(`/events/${id}`),
   myEvents: (lieuId) => api.get('/events/business/mine', { params: lieuId ? { lieu: lieuId } : {} }),
+  favorites: () => api.get('/events/favorites/mine'),
+  toggleFavorite: (id) => api.post(`/events/${id}/favorite`),
 };
 
 export const applicationsAPI = {
@@ -60,6 +62,8 @@ export const applicationsAPI = {
   respond: (id, status) => api.put(`/applications/${id}`, { status }),
   invite: (data) => api.post('/applications/invite', data),
   businessPending: (params) => api.get('/applications/business/pending', { params }),
+  confirm: (id) => api.post(`/applications/${id}/confirm`),
+  checkin: (code) => api.post('/applications/checkin', { code }),
 };
 
 export const deliverablesAPI = {
