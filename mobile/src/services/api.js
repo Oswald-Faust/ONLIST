@@ -124,15 +124,39 @@ export const lieuxAPI = {
   delete: (id) => api.delete(`/lieux/${id}`),
 };
 
+// Détermine le nom de fichier et le MIME type d'une image à envoyer.
+// On privilégie le mimeType fourni par expo-image-picker (asset.mimeType) :
+// l'URI iOS n'a pas toujours d'extension fiable (photos HEIC notamment).
+const MIME_TO_EXT = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+};
+
+function resolveImageMeta(uri, mimeType, fileName) {
+  const uriName = (uri.split('/').pop() || '').split('?')[0];
+  let type = mimeType;
+  if (!type) {
+    const ext = (uriName.split('.').pop() || 'jpg').toLowerCase();
+    type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+  }
+  const ext = MIME_TO_EXT[type] || 'jpg';
+  // On garantit un nom avec une extension cohérente avec le MIME type.
+  const base = fileName || uriName || `photo.${ext}`;
+  const name = /\.[a-z0-9]+$/i.test(base) ? base : `${base}.${ext}`;
+  return { name, type };
+}
+
 export const uploadAPI = {
   image: async (uri, options = {}) => {
-    const { onProgress, isPublic = false } = options;
+    const { onProgress, isPublic = false, mimeType, fileName } = options;
     const token = await AsyncStorage.getItem('token');
-    const filename = uri.split('/').pop();
-    const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
-    const type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+    const { name, type } = resolveImageMeta(uri, mimeType, fileName);
     const formData = new FormData();
-    formData.append('file', { uri, name: filename, type });
+    formData.append('file', { uri, name, type });
     const headers = { 'Content-Type': 'multipart/form-data' };
     if (!isPublic && token) {
       headers.Authorization = `Bearer ${token}`;
@@ -147,12 +171,10 @@ export const uploadAPI = {
     return response.data;
   },
   publicImage: async (uri, options = {}) => {
-    const { onProgress } = options;
-    const filename = uri.split('/').pop();
-    const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
-    const type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+    const { onProgress, mimeType, fileName } = options;
+    const { name, type } = resolveImageMeta(uri, mimeType, fileName);
     const formData = new FormData();
-    formData.append('file', { uri, name: filename, type });
+    formData.append('file', { uri, name, type });
     const response = await axios.post(`${BASE_URL}/upload/public`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: (event) => {

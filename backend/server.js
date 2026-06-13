@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const connectDB = require('./config/db');
+const { startSchedulers } = require('./jobs/scheduler');
 
 const app = express();
 connectDB();
@@ -62,4 +63,7 @@ app.use((err, req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Serveur ONLIST démarré sur le port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Serveur ONLIST démarré sur le port ${PORT}`);
+  startSchedulers();
+});

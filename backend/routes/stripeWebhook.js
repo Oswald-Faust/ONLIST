@@ -1,10 +1,11 @@
 const express = require('express');
-const { getStripe } = require('../utils/stripe');
+const { getStripe, getPlanLabel, formatStripeAmount } = require('../utils/stripe');
 const {
   resolveUserFromStripe,
   applyStripeSubscriptionToUser,
   markStripeSubscriptionEnded,
 } = require('../utils/stripeSubscription');
+const { createNotification } = require('../utils/notifications');
 
 const router = express.Router();
 
@@ -44,6 +45,24 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
               action: 'stripe_checkout_completed',
               note: 'Paiement Stripe Checkout finalisé',
             });
+
+            // Notification in-app confirmant le paiement et le plan actuel
+            const planLabel = getPlanLabel(user.subscriptionPlan);
+            await createNotification({
+              userId: user._id,
+              type: 'payment_confirmed',
+              category: 'system',
+              title: 'Paiement confirmé',
+              body: `Votre paiement a bien été reçu. Votre abonnement ${planLabel} est désormais actif.`,
+              entityType: 'system',
+              entityId: user._id,
+              data: {
+                plan: user.subscriptionPlan,
+                planLabel,
+                status: user.subscriptionStatus,
+                expiresAt: user.subscriptionExpiresAt || null,
+              },
+            });
           }
         }
         break;
@@ -75,6 +94,45 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         });
         if (user) {
           await markStripeSubscriptionEnded(user, subscription);
+        }
+        break;
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+        // On ne notifie QUE les renouvellements de cycle (le 1er paiement est déjà couvert
+        // par 'payment_confirmed' via checkout.session.completed)
+        if (invoice.subscription && invoice.billing_reason === 'subscription_cycle') {
+          const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+          const user = await resolveUserFromStripe({
+            stripeCustomerId: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id,
+            stripeSubscriptionId: subscription.id,
+          });
+          if (user) {
+            await applyStripeSubscriptionToUser(user, subscription, {
+              action: 'stripe_payment_succeeded',
+              note: 'Renouvellement Stripe payé',
+            });
+
+            const planLabel = getPlanLabel(user.subscriptionPlan);
+            const amount = formatStripeAmount(invoice.amount_paid, invoice.currency);
+            await createNotification({
+              userId: user._id,
+              type: 'payment_renewed',
+              category: 'system',
+              title: 'Abonnement renouvelé',
+              body: `Votre abonnement ${planLabel} a bien été renouvelé${amount ? ` (${amount})` : ''}. Merci de votre confiance !`,
+              entityType: 'system',
+              entityId: user._id,
+              data: {
+                plan: user.subscriptionPlan,
+                planLabel,
+                amount,
+                status: user.subscriptionStatus,
+                expiresAt: user.subscriptionExpiresAt || null,
+              },
+            });
+          }
         }
         break;
       }

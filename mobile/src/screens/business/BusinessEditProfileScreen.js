@@ -50,7 +50,10 @@ export default function BusinessEditProfileScreen({ navigation }) {
     try {
       const uploaded = [];
       for (const asset of result.assets) {
-        const data = await uploadAPI.image(asset.uri);
+        const data = await uploadAPI.image(asset.uri, {
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+        });
         uploaded.push(data.url);
       }
       setPhotos((prev) => [...prev, ...uploaded].slice(0, 6));

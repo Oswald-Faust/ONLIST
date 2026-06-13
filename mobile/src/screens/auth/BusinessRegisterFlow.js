@@ -490,7 +490,10 @@ function StepMedia({ form, update }) {
 
     try {
       setUploadingField(field);
-      const data = await uploadAPI.publicImage(result.assets[0].uri);
+      const data = await uploadAPI.publicImage(result.assets[0].uri, {
+        mimeType: result.assets[0].mimeType,
+        fileName: result.assets[0].fileName,
+      });
       update(field, data.url);
     } catch (error) {
       Alert.alert('Erreur upload', error.message);

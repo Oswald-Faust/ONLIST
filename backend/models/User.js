@@ -7,7 +7,7 @@ const subscriptionHistorySchema = new mongoose.Schema({
     enum: [
       'created', 'manual_update', 'revenuecat_sync', 'founding_partner_granted', 'founding_partner_revoked',
       'stripe_sync', 'stripe_checkout_completed', 'stripe_created', 'stripe_updated',
-      'stripe_payment_failed', 'stripe_subscription_deleted',
+      'stripe_payment_failed', 'stripe_payment_succeeded', 'stripe_subscription_deleted',
     ],
     required: true,
   },
@@ -114,6 +114,8 @@ const userSchema = new mongoose.Schema({
   subscriptionStore: { type: String, trim: true },
   subscriptionExpiresAt: { type: Date },
   subscriptionUpdatedAt: { type: Date },
+  // Échéance pour laquelle le rappel de renouvellement (J-2) a déjà été envoyé (anti-doublon)
+  subscriptionRenewalReminderFor: { type: Date },
   subscriptionHistory: { type: [subscriptionHistorySchema], default: [] },
 
   // Plasma = currency/points

@@ -30,6 +30,15 @@ const CATEGORY_ICONS = {
   system:  'settings-outline',
 };
 
+// Icône spécifique selon le type (prioritaire sur l'icône de catégorie)
+const TYPE_ICONS = {
+  payment_confirmed: 'card-outline',
+  payment_renewed:   'refresh-circle-outline',
+  payment_upcoming:  'time-outline',
+  account_validated: 'checkmark-circle-outline',
+  account_rejected:  'close-circle-outline',
+};
+
 function formatRelativeTime(dateString) {
   const createdAt = new Date(dateString);
   const diffMs = Date.now() - createdAt.getTime();
@@ -45,7 +54,7 @@ function formatRelativeTime(dateString) {
 
 function NotificationCard({ item, onPress }) {
   const accentColor = item.isRead ? COLORS.textMuted : COLORS.primaryLight;
-  const iconName = CATEGORY_ICONS[item.category] || CATEGORY_ICONS.all;
+  const iconName = TYPE_ICONS[item.type] || CATEGORY_ICONS[item.category] || CATEGORY_ICONS.all;
 
   return (
     <TouchableOpacity

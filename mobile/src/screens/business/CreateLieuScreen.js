@@ -213,7 +213,10 @@ export default function CreateLieuScreen({ navigation, route }) {
 
     setUploading(true);
     try {
-      const data = await uploadAPI.image(result.assets[0].uri);
+      const data = await uploadAPI.image(result.assets[0].uri, {
+        mimeType: result.assets[0].mimeType,
+        fileName: result.assets[0].fileName,
+      });
       if (field === 'logo') setLogo(data.url);
       if (field === 'bannerPhoto') setBannerPhoto(data.url);
     } catch (err) {
