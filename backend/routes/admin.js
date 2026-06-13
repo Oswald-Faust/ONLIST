@@ -6,6 +6,8 @@ const DeliverableSubmission = require('../models/DeliverableSubmission');
 const SystemSettings = require('../models/SystemSettings');
 const { protect, requireAdmin } = require('../middleware/auth');
 const { createNotification } = require('../utils/notifications');
+const { getStripe, isStripeConfigured } = require('../utils/stripe');
+const { BUSINESS_PLANS } = require('../utils/businessPlans');
 const {
   sendInfluencerValidatedEmail,
   sendInfluencerRejectedEmail,
@@ -84,10 +86,47 @@ router.get('/subscriptions', protect, requireAdmin, async (req, res) => {
     }
 
     const businesses = await User.find(filter)
-      .select('name email businessName businessCity subscriptionPlan subscriptionStatus subscriptionProductId subscriptionStore subscriptionExpiresAt subscriptionUpdatedAt revenueCatCustomerId createdAt status isFoundingPartner foundingPartnerGrantedAt')
+      .select('name email businessName businessCity subscriptionPlan subscriptionStatus subscriptionProductId subscriptionStore subscriptionExpiresAt subscriptionUpdatedAt stripeCustomerId stripeSubscriptionId revenueCatCustomerId createdAt status isFoundingPartner foundingPartnerGrantedAt')
       .sort({ subscriptionUpdatedAt: -1, createdAt: -1 });
 
-    res.json({ subscriptions: businesses });
+    // Métriques globales (indépendantes des filtres de recherche) : MRR, actifs, par pack
+    const allBusiness = await User.find({ type: 'business' })
+      .select('subscriptionPlan subscriptionStatus subscriptionStore isFoundingPartner')
+      .lean();
+
+    const metrics = {
+      mrr: 0,
+      activeCount: 0,
+      trialingCount: 0,
+      pastDueCount: 0,
+      cancelledCount: 0,
+      inactiveCount: 0,
+      graceCount: 0,
+      foundingPartners: 0,
+      stripeCount: 0,
+      byPlan: { starter: 0, pro: 0, group: 0 },
+    };
+
+    for (const b of allBusiness) {
+      if (b.isFoundingPartner) metrics.foundingPartners += 1;
+      if (b.subscriptionStore === 'stripe') metrics.stripeCount += 1;
+      const status = b.subscriptionStatus || 'inactive';
+      const plan = b.subscriptionPlan || 'starter';
+      if (status === 'active') metrics.activeCount += 1;
+      else if (status === 'trialing') metrics.trialingCount += 1;
+      else if (status === 'past_due') metrics.pastDueCount += 1;
+      else if (status === 'cancelled') metrics.cancelledCount += 1;
+      else if (status === 'grace') metrics.graceCount += 1;
+      else metrics.inactiveCount += 1;
+
+      // MRR = revenu récurrent des abonnements actifs ou en essai
+      if (['active', 'trialing'].includes(status)) {
+        if (metrics.byPlan[plan] !== undefined) metrics.byPlan[plan] += 1;
+        metrics.mrr += BUSINESS_PLANS[plan]?.priceMonthly || 0;
+      }
+    }
+
+    res.json({ subscriptions: businesses, metrics });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -96,7 +135,7 @@ router.get('/subscriptions', protect, requireAdmin, async (req, res) => {
 router.get('/subscriptions/:id', protect, requireAdmin, async (req, res) => {
   try {
     const user = await User.findOne({ _id: req.params.id, type: 'business' })
-      .select('name email phone status createdAt businessName businessType businessCity businessAddress businessDescription businessLogo isFoundingPartner foundingPartnerGrantedAt subscriptionPlan subscriptionStatus subscriptionProductId subscriptionStore subscriptionExpiresAt subscriptionUpdatedAt subscriptionHistory revenueCatCustomerId');
+      .select('name email phone status createdAt businessName businessType businessCity businessAddress businessDescription businessLogo isFoundingPartner foundingPartnerGrantedAt subscriptionPlan subscriptionStatus subscriptionProductId subscriptionStore subscriptionExpiresAt subscriptionUpdatedAt subscriptionHistory stripeCustomerId stripeSubscriptionId revenueCatCustomerId');
 
     if (!user) {
       return res.status(404).json({ message: 'Abonnement introuvable' });
@@ -109,8 +148,43 @@ router.get('/subscriptions/:id', protect, requireAdmin, async (req, res) => {
       status: 'pending',
     });
 
+    // Données Stripe live (lecture seule) si un client/abonnement Stripe est rattaché
+    let stripe = null;
+    if (isStripeConfigured() && user.stripeCustomerId) {
+      const isTestMode = (process.env.STRIPE_SECRET_KEY || '').startsWith('sk_test');
+      const dashboardBase = `https://dashboard.stripe.com/${isTestMode ? 'test/' : ''}`;
+      stripe = {
+        configured: true,
+        testMode: isTestMode,
+        customerId: user.stripeCustomerId,
+        subscriptionId: user.stripeSubscriptionId || null,
+        customerUrl: `${dashboardBase}customers/${user.stripeCustomerId}`,
+        subscriptionUrl: user.stripeSubscriptionId ? `${dashboardBase}subscriptions/${user.stripeSubscriptionId}` : null,
+      };
+      try {
+        if (user.stripeSubscriptionId) {
+          const sub = await getStripe().subscriptions.retrieve(user.stripeSubscriptionId, {
+            expand: ['default_payment_method'],
+          });
+          const item = sub.items?.data?.[0];
+          const pm = sub.default_payment_method;
+          stripe.status = sub.status;
+          stripe.cancelAtPeriodEnd = Boolean(sub.cancel_at_period_end);
+          stripe.currentPeriodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+          stripe.amount = item?.price?.unit_amount != null ? item.price.unit_amount / 100 : null;
+          stripe.currency = (item?.price?.currency || 'eur').toUpperCase();
+          stripe.interval = item?.price?.recurring?.interval || null;
+          stripe.priceId = item?.price?.id || null;
+          stripe.paymentMethod = pm && pm.card ? { brand: pm.card.brand, last4: pm.card.last4 } : null;
+        }
+      } catch (stripeErr) {
+        stripe.error = stripeErr.message;
+      }
+    }
+
     res.json({
       subscription: user,
+      stripe,
       metrics: {
         activeEvents,
         pendingApplications,

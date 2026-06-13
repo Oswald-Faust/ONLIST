@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 
 interface SubscriptionHistoryItem {
-  action: 'created' | 'manual_update' | 'revenuecat_sync' | 'founding_partner_granted' | 'founding_partner_revoked';
-  source: 'admin' | 'revenuecat' | 'system';
+  action: string;
+  source: string;
   plan?: 'starter' | 'pro' | 'group';
   status?: 'inactive' | 'trialing' | 'active' | 'past_due' | 'cancelled' | 'grace';
   productId?: string;
@@ -59,8 +59,27 @@ interface SubscriptionDetail {
   subscriptionHistory?: SubscriptionHistoryItem[];
 }
 
+interface StripeInfo {
+  configured: boolean;
+  testMode: boolean;
+  customerId: string;
+  subscriptionId: string | null;
+  customerUrl: string;
+  subscriptionUrl: string | null;
+  status?: string;
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: string | null;
+  amount?: number | null;
+  currency?: string;
+  interval?: string | null;
+  priceId?: string | null;
+  paymentMethod?: { brand: string; last4: string } | null;
+  error?: string;
+}
+
 interface SubscriptionPayload {
   subscription: SubscriptionDetail;
+  stripe?: StripeInfo | null;
   metrics: {
     activeEvents: number;
     pendingApplications: number;
@@ -86,6 +105,12 @@ const ACTION_LABELS: Record<string, string> = {
   created: 'Création du suivi abonnement',
   manual_update: 'Modification manuelle',
   revenuecat_sync: 'Synchronisation RevenueCat',
+  stripe_sync: 'Synchronisation Stripe',
+  stripe_checkout_completed: 'Paiement Stripe finalisé',
+  stripe_created: 'Abonnement Stripe créé',
+  stripe_updated: 'Abonnement Stripe mis à jour',
+  stripe_payment_failed: 'Échec de paiement Stripe',
+  stripe_subscription_deleted: 'Abonnement Stripe terminé',
   founding_partner_granted: 'Founding Partner accordé',
   founding_partner_revoked: 'Founding Partner retiré',
 };
@@ -303,6 +328,82 @@ export default function SubscriptionDetailPage() {
             <MetricCard label="Events actifs" value={data?.metrics.activeEvents || 0} icon={Calendar} tone="#d4af77" />
             <MetricCard label="Candidatures en attente" value={data?.metrics.pendingApplications || 0} icon={Shield} tone="#7ba2d6" />
           </div>
+        </div>
+
+        {/* Panneau Stripe (lecture seule) */}
+        <div className="rounded-[2rem] p-7 glass">
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(99,91,255,0.14)', border: '1px solid rgba(99,91,255,0.28)' }}>
+                <CreditCard size={20} style={{ color: '#8b85ff' }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Abonnement Stripe</h3>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {data?.stripe?.testMode ? 'Mode test' : 'Mode live'} · données en temps réel
+                </p>
+              </div>
+            </div>
+            {data?.stripe?.customerUrl ? (
+              <a
+                href={data.stripe.customerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all"
+                style={{ background: 'rgba(99,91,255,0.14)', border: '1px solid rgba(99,91,255,0.28)', color: '#8b85ff' }}
+              >
+                Voir dans Stripe
+                <ExternalLink size={15} />
+              </a>
+            ) : null}
+          </div>
+
+          {!data?.stripe ? (
+            <div className="rounded-2xl p-6 surface" style={{ color: 'var(--text-muted)' }}>
+              Aucun client Stripe rattaché à ce compte (paiement non encore effectué, ou abonnement géré manuellement).
+            </div>
+          ) : data.stripe.error ? (
+            <div className="rounded-2xl p-4 surface" style={{ color: '#f59e0b' }}>
+              Client Stripe rattaché mais lecture impossible : {data.stripe.error}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-2xl p-4 surface">
+                <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: 'var(--text-muted)' }}>Statut Stripe</p>
+                <p className="text-base font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>{data.stripe.status || '—'}</p>
+                {data.stripe.cancelAtPeriodEnd ? (
+                  <p className="text-xs mt-1" style={{ color: '#f59e0b' }}>Annulation en fin de période</p>
+                ) : null}
+              </div>
+              <div className="rounded-2xl p-4 surface">
+                <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: 'var(--text-muted)' }}>Montant</p>
+                <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {data.stripe.amount != null ? `${data.stripe.amount} ${data.stripe.currency}` : '—'}
+                  {data.stripe.interval ? <span className="text-sm font-normal" style={{ color: 'var(--text-muted)' }}> /{data.stripe.interval === 'month' ? 'mois' : data.stripe.interval}</span> : null}
+                </p>
+              </div>
+              <div className="rounded-2xl p-4 surface">
+                <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: 'var(--text-muted)' }}>Prochaine facture</p>
+                <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {data.stripe.currentPeriodEnd ? new Date(data.stripe.currentPeriodEnd).toLocaleDateString('fr-FR') : '—'}
+                </p>
+              </div>
+              <div className="rounded-2xl p-4 surface">
+                <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: 'var(--text-muted)' }}>Moyen de paiement</p>
+                <p className="text-base font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>
+                  {data.stripe.paymentMethod ? `${data.stripe.paymentMethod.brand} ···· ${data.stripe.paymentMethod.last4}` : '—'}
+                </p>
+              </div>
+              <div className="rounded-2xl p-4 surface sm:col-span-2">
+                <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: 'var(--text-muted)' }}>Customer ID</p>
+                <p className="text-sm font-mono break-all" style={{ color: 'var(--text-secondary)' }}>{data.stripe.customerId}</p>
+              </div>
+              <div className="rounded-2xl p-4 surface sm:col-span-2">
+                <p className="text-xs uppercase tracking-[0.18em] mb-2" style={{ color: 'var(--text-muted)' }}>Subscription ID</p>
+                <p className="text-sm font-mono break-all" style={{ color: 'var(--text-secondary)' }}>{data.stripe.subscriptionId || '—'}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-6">

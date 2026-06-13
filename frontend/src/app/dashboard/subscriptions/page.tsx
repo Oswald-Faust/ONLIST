@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Link from 'next/link';
 import { api } from '@/lib/auth';
-import { CheckCircle2, CreditCard, Filter, Search, Shield, Sparkles } from 'lucide-react';
+import { Building2, CheckCircle2, CreditCard, Filter, Search, Shield, Sparkles, TrendingUp } from 'lucide-react';
 
 interface SubscriptionUser {
   _id: string;
@@ -19,6 +19,19 @@ interface SubscriptionUser {
   subscriptionUpdatedAt?: string | null;
   isFoundingPartner?: boolean;
   status?: string;
+}
+
+interface SubscriptionMetrics {
+  mrr: number;
+  activeCount: number;
+  trialingCount: number;
+  pastDueCount: number;
+  cancelledCount: number;
+  inactiveCount: number;
+  graceCount: number;
+  foundingPartners: number;
+  stripeCount: number;
+  byPlan: { starter: number; pro: number; group: number };
 }
 
 const PLAN_LABELS = {
@@ -38,6 +51,7 @@ const STATUS_LABELS = {
 
 export default function SubscriptionsPage() {
   const [items, setItems] = useState<SubscriptionUser[]>([]);
+  const [metrics, setMetrics] = useState<SubscriptionMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [plan, setPlan] = useState('');
@@ -56,6 +70,7 @@ export default function SubscriptionsPage() {
         const res = await api(`/admin/subscriptions?${params}`);
         const data = await res.json();
         setItems(data.subscriptions || []);
+        if (data.metrics) setMetrics(data.metrics);
       } finally {
         setLoading(false);
       }
@@ -63,34 +78,70 @@ export default function SubscriptionsPage() {
     load();
   }, [plan, status, search, foundingPartner]);
 
-  const summary = useMemo(() => ({
-    active: items.filter((item) => item.subscriptionStatus === 'active').length,
-    grace: items.filter((item) => item.subscriptionStatus === 'grace').length,
-    founding: items.filter((item) => item.isFoundingPartner).length,
-  }), [items]);
+  const mrrLabel = useMemo(() => `${(metrics?.mrr || 0).toLocaleString('fr-FR')} €`, [metrics]);
+  const activeTotal = (metrics?.activeCount || 0) + (metrics?.trialingCount || 0);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header title="Abonnements" subtitle={`${items.length} comptes business consultés`} />
 
       <div className="flex-1 overflow-y-auto p-8 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { label: 'Subs actives', value: summary.active, icon: CreditCard, color: '#10b981' },
-            { label: 'Périodes de grâce', value: summary.grace, icon: Sparkles, color: '#d4af77' },
-            { label: 'Founding Partners', value: summary.founding, icon: Shield, color: '#7ba2d6' },
-          ].map((card) => (
-            <div key={card.label} className="rounded-[1.75rem] p-6 glass">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: `${card.color}18`, border: `1px solid ${card.color}24` }}>
-                  <card.icon size={22} style={{ color: card.color }} />
-                </div>
-                <CheckCircle2 size={16} style={{ color: 'var(--text-muted)' }} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* MRR */}
+          <div className="rounded-[1.75rem] p-6 glass">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: '#10b98118', border: '1px solid #10b98124' }}>
+                <TrendingUp size={22} style={{ color: '#10b981' }} />
               </div>
-              <p className="text-4xl font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{card.value}</p>
-              <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{card.label}</p>
+              <span className="text-[11px] font-semibold px-2 py-1 rounded-full" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>Stripe</span>
             </div>
-          ))}
+            <p className="text-4xl font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{mrrLabel}</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Revenu mensuel récurrent (MRR)</p>
+          </div>
+
+          {/* Actifs */}
+          <div className="rounded-[1.75rem] p-6 glass">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: '#d4af7718', border: '1px solid #d4af7724' }}>
+                <CreditCard size={22} style={{ color: '#d4af77' }} />
+              </div>
+              <CheckCircle2 size={16} style={{ color: 'var(--text-muted)' }} />
+            </div>
+            <p className="text-4xl font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{activeTotal}</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              Abonnements actifs{metrics?.trialingCount ? ` · ${metrics.trialingCount} en essai` : ''}
+            </p>
+          </div>
+
+          {/* Répartition par pack */}
+          <div className="rounded-[1.75rem] p-6 glass">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: '#c9a96118', border: '1px solid #c9a96124' }}>
+                <Building2 size={22} style={{ color: 'var(--primary)' }} />
+              </div>
+            </div>
+            <div className="flex items-end gap-4">
+              {([['Starter', metrics?.byPlan.starter || 0], ['Pro', metrics?.byPlan.pro || 0], ['Group', metrics?.byPlan.group || 0]] as const).map(([label, value]) => (
+                <div key={label}>
+                  <p className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                  <p className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm font-medium mt-3" style={{ color: 'var(--text-secondary)' }}>Répartition par pack</p>
+          </div>
+
+          {/* Founding Partners */}
+          <div className="rounded-[1.75rem] p-6 glass">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: '#7ba2d618', border: '1px solid #7ba2d624' }}>
+                <Shield size={22} style={{ color: '#7ba2d6' }} />
+              </div>
+              <Sparkles size={16} style={{ color: 'var(--text-muted)' }} />
+            </div>
+            <p className="text-4xl font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{metrics?.foundingPartners || 0}</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Founding Partners</p>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-3 items-center">
