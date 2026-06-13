@@ -4,12 +4,16 @@ const bcrypt = require('bcryptjs');
 const subscriptionHistorySchema = new mongoose.Schema({
   action: {
     type: String,
-    enum: ['created', 'manual_update', 'revenuecat_sync', 'founding_partner_granted', 'founding_partner_revoked'],
+    enum: [
+      'created', 'manual_update', 'revenuecat_sync', 'founding_partner_granted', 'founding_partner_revoked',
+      'stripe_sync', 'stripe_checkout_completed', 'stripe_created', 'stripe_updated',
+      'stripe_payment_failed', 'stripe_subscription_deleted',
+    ],
     required: true,
   },
   source: {
     type: String,
-    enum: ['admin', 'revenuecat', 'system'],
+    enum: ['admin', 'revenuecat', 'system', 'stripe'],
     default: 'system',
   },
   plan: {
