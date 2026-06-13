@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const Application = require('../models/Application');
 const Event = require('../models/Event');
@@ -8,6 +9,14 @@ const { createNotification } = require('../utils/notifications');
 const { getBusinessPlan, isInfluencerVisibleToBusiness } = require('../utils/businessPlans');
 
 const router = express.Router();
+
+// Code d'access pass unique (encodé dans le QR) + code court lisible de secours
+function generateAccessCode() {
+  return crypto.randomBytes(18).toString('hex'); // 36 caractères, non devinable
+}
+function generateShortCode() {
+  return crypto.randomBytes(4).toString('hex').toUpperCase(); // ex: 8 caractères
+}
 
 // POST /applications — postuler à un événement
 router.post('/', protect, requireValidated, async (req, res) => {
@@ -137,6 +146,11 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
 
     application.status = status;
     application.respondedAt = new Date();
+    // Génère l'access pass (QR) dès l'acceptation
+    if (status === 'accepted' && !application.accessCode) {
+      application.accessCode = generateAccessCode();
+      application.accessCodeShort = generateShortCode();
+    }
     await application.save();
 
     if (status === 'accepted' && previousStatus !== 'accepted') {
@@ -164,6 +178,89 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
       },
     });
 
+    res.json({ application });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /applications/checkin — le business scanne le QR d'un influenceur pour valider l'entrée
+router.post('/checkin', protect, requireValidated, async (req, res) => {
+  try {
+    if (req.user.type !== 'business' && req.user.type !== 'admin')
+      return res.status(403).json({ message: 'Réservé aux établissements' });
+
+    const code = String(req.body.code || '').trim();
+    if (!code) return res.status(400).json({ message: 'Code manquant' });
+
+    const application = await Application.findOne({
+      $or: [{ accessCode: code }, { accessCodeShort: code.toUpperCase() }],
+    })
+      .populate('event', 'title creator date city plusOneMode guestsRequired')
+      .populate('user', 'name photos instagram followersCount');
+
+    if (!application) return res.status(404).json({ message: 'Pass invalide ou inconnu' });
+    if (req.user.type !== 'admin' && String(application.event?.creator) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Ce pass ne concerne pas un de vos événements' });
+    }
+    if (application.status !== 'accepted') {
+      return res.status(400).json({ message: 'Participation non valide (candidature non acceptée)' });
+    }
+
+    const guest = application.user || {};
+    const guestInfo = {
+      name: guest.name,
+      photo: (guest.photos && guest.photos[0]) || null,
+      instagram: guest.instagram,
+      followersCount: guest.followersCount,
+      eventTitle: application.event?.title,
+      plusOneRequired: application.event?.plusOneMode === 'plus_one_required',
+      guestsRequired: application.event?.guestsRequired || 0,
+    };
+
+    if (application.checkedIn) {
+      return res.status(409).json({
+        message: 'Ce pass a déjà été utilisé',
+        alreadyCheckedIn: true,
+        checkedInAt: application.checkedInAt,
+        guest: guestInfo,
+      });
+    }
+
+    application.checkedIn = true;
+    application.checkedInAt = new Date();
+    if (!application.confirmed) {
+      application.confirmed = true;
+      application.confirmedAt = new Date();
+    }
+    await application.save();
+
+    res.json({ success: true, guest: guestInfo, checkedInAt: application.checkedInAt });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /applications/:id/confirm — l'influenceur confirme sa présence (active l'access pass)
+router.post('/:id/confirm', protect, requireValidated, async (req, res) => {
+  try {
+    const application = await Application.findById(req.params.id)
+      .populate('event', 'title city date startTime endTime images venue plusOneMode guestsRequired');
+    if (!application) return res.status(404).json({ message: 'Candidature introuvable' });
+    if (application.user.toString() !== req.user._id.toString())
+      return res.status(403).json({ message: 'Non autorisé' });
+    if (application.status !== 'accepted')
+      return res.status(400).json({ message: 'Votre participation doit d’abord être acceptée' });
+
+    if (!application.accessCode) {
+      application.accessCode = generateAccessCode();
+      application.accessCodeShort = generateShortCode();
+    }
+    if (!application.confirmed) {
+      application.confirmed = true;
+      application.confirmedAt = new Date();
+    }
+    await application.save();
     res.json({ application });
   } catch (err) {
     res.status(500).json({ message: err.message });
