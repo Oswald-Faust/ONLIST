@@ -73,14 +73,29 @@ function normalizeEventPayload(payload = {}) {
     nextPayload.cutoffTime = buildCutoffTime(payload);
   }
 
+  // Le boost n'est valide que si l'événement est sponsorisé ET la durée fait partie de l'enum.
+  const VALID_BOOST_DAYS = [1, 3, 7, 14];
+  if (!payload.isSponsored || !VALID_BOOST_DAYS.includes(Number(payload.boostDurationDays))) {
+    nextPayload.boostDurationDays = undefined;
+  } else {
+    nextPayload.boostDurationDays = Number(payload.boostDurationDays);
+  }
+
   return nextPayload;
+}
+
+// Champs obligatoires pour publier un événement (un brouillon peut être incomplet)
+function missingPublishFields(payload = {}) {
+  const labels = { title: 'titre', description: 'description', city: 'ville', date: 'date' };
+  return Object.keys(labels).filter((field) => !payload[field]).map((field) => labels[field]);
 }
 
 // GET /events — liste publique avec filtres
 router.get('/', protect, requireValidated, async (req, res) => {
   try {
     const { city, category, moment, page = 1, limit = 20 } = req.query;
-    const filter = { isActive: true };
+    // Les brouillons ne sont jamais visibles côté influenceurs
+    const filter = { isActive: true, status: { $ne: 'draft' } };
 
     if (city) filter.city = new RegExp(city, 'i');
     if (category) filter.category = category;
@@ -123,18 +138,29 @@ router.post('/', protect, requireValidated, async (req, res) => {
       return res.status(403).json({ message: 'Réservé aux établissements' });
 
     const plan = getBusinessPlan(req.user);
-    const nextDate = req.body.date ? new Date(req.body.date) : null;
-    if (plan.maxActiveEventsPerDay && req.body.isActive !== false && nextDate) {
-      const activeEventsCount = await countActiveEventsForDay(req.user._id, nextDate);
-      if (activeEventsCount >= plan.maxActiveEventsPerDay) {
-        return res.status(400).json({
-          message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEventsPerDay} événement${plan.maxActiveEventsPerDay > 1 ? 's' : ''} actif${plan.maxActiveEventsPerDay > 1 ? 's' : ''} ce jour-là`,
-        });
+    const status = req.body.status === 'draft' ? 'draft' : 'published';
+    const isActive = status === 'draft' ? false : (req.body.isActive !== false);
+
+    if (status === 'published') {
+      const missing = missingPublishFields(req.body);
+      if (missing.length) {
+        return res.status(400).json({ message: `Pour publier, complète : ${missing.join(', ')}.` });
+      }
+      const nextDate = req.body.date ? new Date(req.body.date) : null;
+      if (plan.maxActiveEventsPerDay && isActive && nextDate) {
+        const activeEventsCount = await countActiveEventsForDay(req.user._id, nextDate);
+        if (activeEventsCount >= plan.maxActiveEventsPerDay) {
+          return res.status(400).json({
+            message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEventsPerDay} événement${plan.maxActiveEventsPerDay > 1 ? 's' : ''} actif${plan.maxActiveEventsPerDay > 1 ? 's' : ''} ce jour-là`,
+          });
+        }
       }
     }
 
     const event = await Event.create({
       ...normalizeEventPayload(applyPlanEventLimits(req.body, plan)),
+      status,
+      isActive,
       creator: req.user._id,
     });
     res.status(201).json({ event });
@@ -152,21 +178,38 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
       return res.status(403).json({ message: 'Non autorisé' });
 
     const plan = getBusinessPlan(req.user);
-    const nextIsActive = req.body.isActive !== undefined ? req.body.isActive : event.isActive;
+    const nextStatus = req.body.status
+      ? (req.body.status === 'draft' ? 'draft' : 'published')
+      : (event.status || 'published');
+    const nextIsActive = nextStatus === 'draft'
+      ? false
+      : (req.body.isActive !== undefined ? req.body.isActive : (event.isActive !== false));
     const nextDate = req.body.date ? new Date(req.body.date) : event.date;
 
-    if (plan.maxActiveEventsPerDay && nextIsActive !== false) {
-      const activeEventsCount = await countActiveEventsForDay(req.user._id, nextDate, event._id);
-      if (activeEventsCount >= plan.maxActiveEventsPerDay) {
-        return res.status(400).json({
-          message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEventsPerDay} événement${plan.maxActiveEventsPerDay > 1 ? 's' : ''} actif${plan.maxActiveEventsPerDay > 1 ? 's' : ''} ce jour-là`,
-        });
+    if (nextStatus === 'published') {
+      const merged = {
+        title: req.body.title !== undefined ? req.body.title : event.title,
+        description: req.body.description !== undefined ? req.body.description : event.description,
+        city: req.body.city !== undefined ? req.body.city : event.city,
+        date: req.body.date !== undefined ? req.body.date : event.date,
+      };
+      const missing = missingPublishFields(merged);
+      if (missing.length) {
+        return res.status(400).json({ message: `Pour publier, complète : ${missing.join(', ')}.` });
+      }
+      if (plan.maxActiveEventsPerDay && nextIsActive !== false) {
+        const activeEventsCount = await countActiveEventsForDay(req.user._id, nextDate, event._id);
+        if (activeEventsCount >= plan.maxActiveEventsPerDay) {
+          return res.status(400).json({
+            message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEventsPerDay} événement${plan.maxActiveEventsPerDay > 1 ? 's' : ''} actif${plan.maxActiveEventsPerDay > 1 ? 's' : ''} ce jour-là`,
+          });
+        }
       }
     }
 
     const updated = await Event.findByIdAndUpdate(
       req.params.id,
-      normalizeEventPayload(applyPlanEventLimits(req.body, plan)),
+      { ...normalizeEventPayload(applyPlanEventLimits(req.body, plan)), status: nextStatus, isActive: nextIsActive },
       { new: true }
     );
     res.json({ event: updated });

@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_OPTIONS } from '../../constants/categories';
 import { eventsAPI, lieuxAPI, uploadAPI } from '../../services/api';
 import LocationAutocompleteFields from '../../components/LocationAutocompleteFields';
 import { useAuth } from '../../context/AuthContext';
@@ -24,16 +25,7 @@ import {
 const TOTAL_STEPS = 5;
 const STEP_LABELS = ['Lieu', 'Médias', 'Description', 'Contenu', 'Paramètres'];
 
-const CATEGORIES = [
-  { value: 'restaurant', label: 'Restaurant', icon: 'restaurant-outline' },
-  { value: 'bar',        label: 'Bar',        icon: 'wine-outline' },
-  { value: 'club',       label: 'Club',       icon: 'musical-notes-outline' },
-  { value: 'spa',        label: 'Spa',        icon: 'leaf-outline' },
-  { value: 'sport',      label: 'Sport',      icon: 'fitness-outline' },
-  { value: 'wellness',   label: 'Wellness',   icon: 'sparkles-outline' },
-  { value: 'premium',    label: 'Premium',    icon: 'star-outline' },
-  { value: 'other',      label: 'Autre',      icon: 'ellipsis-horizontal-outline' },
-];
+const CATEGORIES = CATEGORY_OPTIONS;
 
 const MOMENTS = [
   { value: 'morning',   label: 'Matin' },
@@ -410,6 +402,83 @@ export default function CreateEventScreen({ route, navigation }) {
     navigation.goBack();
   };
 
+  // ─── Brouillon ─────────────────────────────────────────────────────────────────────────────────
+  const isDraftSource = source?.status === 'draft';
+  // On propose le brouillon à la création OU à la reprise d'un brouillon (jamais sur un event publié)
+  const canSaveDraft = !isEdit || isDraftSource;
+
+  const hasContent = () => Boolean(
+    form.title?.trim() || form.description?.trim() || form.city?.trim() ||
+    form.date || (form.images && form.images.length) || form.lieuId || form.venueCustom?.trim()
+  );
+
+  const buildDraftPayload = () => {
+    let dateISO;
+    if (form.date) {
+      const dObj = new Date(`${form.date}T${form.startTime || '20:00'}:00`);
+      if (!isNaN(dObj.getTime())) dateISO = dObj.toISOString();
+    }
+    return {
+      status: 'draft',
+      isActive: false,
+      title: form.title?.trim() || '',
+      lieu: form.lieuId || undefined,
+      venue: form.lieuId ? form.lieuName : form.venueCustom,
+      address: form.lieuId ? (lieux.find((item) => item._id === form.lieuId)?.address || '') : (form.address?.trim() || ''),
+      city: form.city?.trim() || '',
+      date: dateISO,
+      startTime: form.startTime || undefined,
+      endTime: form.endTime || undefined,
+      category: form.category || undefined,
+      moment: form.moment,
+      description: form.description?.trim() || '',
+      images: form.images,
+      offerItems: form.offerItems,
+      otherOffer: form.otherOffer?.trim() || '',
+      deliverables: form.deliverables,
+      otherDeliverable: form.otherDeliverable?.trim() || '',
+      accountsToMention: form.accountsToMention,
+      maxParticipants: parseInt(form.maxParticipants) || undefined,
+      plusOneMode: form.plusOneMode,
+      isAdultsOnly: form.isAdultsOnly,
+      dresscode: form.dresscode?.trim() || '',
+      isSponsored: form.isSponsored,
+    };
+  };
+
+  const handleSaveDraft = async () => {
+    setSaving(true);
+    try {
+      const payload = buildDraftPayload();
+      if (isEdit) {
+        await eventsAPI.update(toEdit._id, payload);
+      } else {
+        await eventsAPI.create(payload);
+      }
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExit = () => {
+    if (!canSaveDraft || !hasContent()) {
+      navigation.goBack();
+      return;
+    }
+    Alert.alert(
+      'Enregistrer en brouillon ?',
+      'Garde cet événement en brouillon pour le terminer plus tard. Il ne sera pas visible par les influenceurs.',
+      [
+        { text: 'Quitter sans enregistrer', style: 'destructive', onPress: () => navigation.goBack() },
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Enregistrer en brouillon', onPress: handleSaveDraft },
+      ]
+    );
+  };
+
   // ─── Submit ────────────────────────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!validateStep()) return;
@@ -446,9 +515,12 @@ export default function CreateEventScreen({ route, navigation }) {
         plusOneMode: form.plusOneMode,
         isAdultsOnly: form.isAdultsOnly,
         dresscode: form.dresscode.trim(),
-        boostDurationDays: Number(form.boostDurationDays) || 0,
+        boostDurationDays: form.isSponsored && Number(form.boostDurationDays)
+          ? Number(form.boostDurationDays)
+          : undefined,
         isSponsored: form.isSponsored,
         isActive: form.isActive,
+        status: 'published',
       };
       if (isEdit) {
         await eventsAPI.update(toEdit._id, payload);
@@ -491,6 +563,27 @@ export default function CreateEventScreen({ route, navigation }) {
                   </View>
                 ) : null}
               </View>
+
+              {lieux.length === 0 ? (
+                <View style={s.emptyLieuxNotice}>
+                  <View style={s.emptyLieuxNoticeIcon}>
+                    <Ionicons name="storefront-outline" size={16} color={COLORS.primary} />
+                  </View>
+                  <View style={s.emptyLieuxNoticeBody}>
+                    <Text style={s.emptyLieuxNoticeTitle}>Aucun lieu enregistré pour le moment</Text>
+                    <Text style={s.emptyLieuxNoticeText}>
+                      Crée d'abord un lieu pour le réutiliser facilement dans tes prochains événements.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={s.emptyLieuxNoticeBtn}
+                    onPress={() => navigation.navigate('CreateLieu')}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={s.emptyLieuxNoticeBtnText}>Créer un lieu</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
 
               {form.lieuId ? (
                 <View style={s.lieuSelected}>
@@ -853,11 +946,17 @@ export default function CreateEventScreen({ route, navigation }) {
       <SafeAreaView style={{ flex: 1 }}>
         {/* Header */}
         <View style={s.header}>
-          <TouchableOpacity onPress={() => step > 1 ? goPrev() : navigation.goBack()} style={s.backBtn}>
+          <TouchableOpacity onPress={() => step > 1 ? goPrev() : handleExit()} style={s.backBtn}>
             <Ionicons name="chevron-back" size={22} color={COLORS.white} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>{isEdit ? 'Modifier' : 'Créer'} un événement</Text>
-          <View style={{ width: 36 }} />
+          <Text style={s.headerTitle}>{isEdit ? (isDraftSource ? 'Brouillon' : 'Modifier') : 'Créer'} un événement</Text>
+          {canSaveDraft ? (
+            <TouchableOpacity onPress={handleSaveDraft} disabled={saving} style={s.draftBtn}>
+              <Text style={s.draftBtnText}>Brouillon</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
         </View>
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -909,7 +1008,25 @@ export default function CreateEventScreen({ route, navigation }) {
               data={lieux}
               keyExtractor={item => item._id}
               contentContainerStyle={{ padding: SPACING.md, gap: SPACING.sm }}
-              ListEmptyComponent={<Text style={s.modalEmpty}>Aucun lieu enregistré</Text>}
+              ListEmptyComponent={
+                <View style={s.modalEmptyWrap}>
+                  <Ionicons name="business-outline" size={28} color={COLORS.primary} />
+                  <Text style={s.modalEmptyTitle}>Aucun lieu enregistré</Text>
+                  <Text style={s.modalEmptyText}>
+                    Crée un lieu avant de préparer tes prochains événements plus rapidement.
+                  </Text>
+                  <TouchableOpacity
+                    style={s.modalEmptyBtn}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setLieuModalVisible(false);
+                      navigation.navigate('CreateLieu');
+                    }}
+                  >
+                    <Text style={s.modalEmptyBtnText}>Créer un lieu</Text>
+                  </TouchableOpacity>
+                </View>
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[s.lieuItem, form.lieuId === item._id && s.lieuItemActive]}
@@ -1048,6 +1165,11 @@ const s = StyleSheet.create({
     backgroundColor: COLORS.bgCard, borderWidth: 1, borderColor: COLORS.border,
   },
   headerTitle: { color: COLORS.white, fontSize: FONTS.sizes.md, fontFamily: FONTS.bold },
+  draftBtn: {
+    paddingHorizontal: 12, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.bgCard, borderWidth: 1, borderColor: COLORS.border,
+  },
+  draftBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
   scroll: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
 
   stepContent: { gap: SPACING.md },
@@ -1130,6 +1252,48 @@ const s = StyleSheet.create({
   lieuSelectedInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   lieuSelectedName: { color: COLORS.primary, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
   lieuClear: { padding: 4 },
+  emptyLieuxNotice: {
+    backgroundColor: 'rgba(201,169,97,0.08)',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.2)',
+    padding: SPACING.md,
+    gap: 10,
+  },
+  emptyLieuxNoticeIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.12)',
+  },
+  emptyLieuxNoticeBody: { gap: 4 },
+  emptyLieuxNoticeTitle: {
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.semiBold,
+  },
+  emptyLieuxNoticeText: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.regular,
+    lineHeight: 18,
+  },
+  emptyLieuxNoticeBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(201,169,97,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.24)',
+  },
+  emptyLieuxNoticeBtnText: {
+    color: COLORS.primary,
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.semiBold,
+  },
 
   coverPicker: {
     height: 200, borderRadius: RADIUS.lg, borderWidth: 2, borderColor: COLORS.border,
@@ -1230,7 +1394,41 @@ const s = StyleSheet.create({
   pickerSheetTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
   pickerSheetCancel: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium },
   pickerSheetConfirm: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  modalEmptyWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xxl,
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.sm,
+  },
   modalEmpty: { color: COLORS.textMuted, textAlign: 'center', fontSize: FONTS.sizes.base, fontFamily: FONTS.regular, paddingVertical: SPACING.xl },
+  modalEmptyTitle: {
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.base,
+    fontFamily: FONTS.semiBold,
+    textAlign: 'center',
+  },
+  modalEmptyText: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.regular,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  modalEmptyBtn: {
+    marginTop: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 11,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(201,169,97,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.24)',
+  },
+  modalEmptyBtnText: {
+    color: COLORS.primary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.semiBold,
+  },
   lieuItem: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: COLORS.bgCard2, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border,

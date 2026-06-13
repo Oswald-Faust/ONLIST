@@ -15,7 +15,13 @@ import { useAuth } from '../../context/AuthContext';
 const MOMENT_LABELS = { morning: 'Matin', afternoon: 'Après-midi', evening: 'Soir', night: 'Nuit' };
 
 function EventCard({ event, navigation }) {
+  const isDraft = event.status === 'draft';
   const isActive = event.isActive;
+  const statusLabel = isDraft ? 'Brouillon' : (isActive ? 'Publié' : 'En pause');
+  const statusColor = isDraft ? COLORS.warning : (isActive ? COLORS.success : COLORS.textMuted);
+  const statusBg = isDraft
+    ? 'rgba(245,158,11,0.15)'
+    : (isActive ? 'rgba(16,217,160,0.15)' : 'rgba(255,255,255,0.08)');
   const date = event.date ? new Date(event.date) : null;
   const dateStr = date
     ? date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -25,7 +31,9 @@ function EventCard({ event, navigation }) {
     <TouchableOpacity
       style={styles.card}
       activeOpacity={0.88}
-      onPress={() => navigation.navigate('BusinessEventDetail', { eventId: event._id })}
+      onPress={() => isDraft
+        ? navigation.navigate('CreateEvent', { eventToEdit: event })
+        : navigation.navigate('BusinessEventDetail', { eventId: event._id })}
     >
       {/* Image header */}
       <View style={styles.cardImage}>
@@ -43,10 +51,10 @@ function EventCard({ event, navigation }) {
         />
 
         {/* Badge statut */}
-        <View style={[styles.statusBadge, { backgroundColor: isActive ? 'rgba(16,217,160,0.15)' : 'rgba(245,158,11,0.15)' }]}>
-          <View style={[styles.statusDot, { backgroundColor: isActive ? COLORS.success : COLORS.warning }]} />
-          <Text style={[styles.statusText, { color: isActive ? COLORS.success : COLORS.warning }]}>
-            {isActive ? 'Publié' : 'Brouillon'}
+        <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusText, { color: statusColor }]}>
+            {statusLabel}
           </Text>
         </View>
 

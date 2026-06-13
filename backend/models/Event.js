@@ -1,8 +1,12 @@
 const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema({
-  title: { type: String, required: true, trim: true },
-  description: { type: String, required: true },
+  // 'draft' = brouillon (création non terminée, visible uniquement par le créateur)
+  // 'published' = publié (visible par les influenceurs si isActive)
+  status: { type: String, enum: ['draft', 'published'], default: 'published' },
+  // Champs requis uniquement pour publier (validés dans la route), pas pour un brouillon
+  title: { type: String, trim: true },
+  description: { type: String },
   images: [{ type: String }],
 
   creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -10,12 +14,15 @@ const eventSchema = new mongoose.Schema({
 
   venue: { type: String },
   address: { type: String },
-  city: { type: String, required: true },
+  city: { type: String },
   country: { type: String, default: 'France' },
 
   category: {
     type: String,
-    enum: ['restaurant', 'bar', 'club', 'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other'],
+    enum: [
+      'gastronomie', 'restaurant', 'lounge', 'bar', 'club', 'bien_etre_spa', 'fitness', 'staycation', 'experiences', 'vip',
+      'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other',
+    ],
     default: 'other',
   },
 
@@ -25,7 +32,7 @@ const eventSchema = new mongoose.Schema({
     default: 'evening',
   },
 
-  date: { type: Date, required: true },
+  date: { type: Date },
   startTime: { type: String },
   endTime: { type: String },
   requiredArrivalTime: { type: String },
