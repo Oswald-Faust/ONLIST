@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_LABELS } from '../../constants/categories';
 import { eventsAPI, applicationsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -48,7 +49,8 @@ export default function BusinessHomeScreen({ navigation }) {
 
   const fetchData = useCallback(async () => {
     try {
-      const data = await eventsAPI.myEvents();
+      // Dashboard scopé sur l'établissement actif (si défini)
+      const data = await eventsAPI.myEvents(user?.activeLieu);
       const myEvents = data.events || [];
       setEvents(myEvents);
 
@@ -69,7 +71,7 @@ export default function BusinessHomeScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user?.activeLieu]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   const onRefresh = () => { setRefreshing(true); fetchData(); };
@@ -105,7 +107,7 @@ export default function BusinessHomeScreen({ navigation }) {
             {/* Type badge */}
             <View style={styles.typeBadge}>
               <Ionicons name="storefront" size={12} color={COLORS.gold} />
-              <Text style={styles.typeText}>{user?.businessType || 'Établissement'}</Text>
+              <Text style={styles.typeText}>{CATEGORY_LABELS[user?.businessType] || user?.businessType || 'Établissement'}</Text>
               <Text style={styles.typeDivider}>•</Text>
               <Text style={styles.typeText}>{user?.businessCity || user?.city || 'France'}</Text>
             </View>

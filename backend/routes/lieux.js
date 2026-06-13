@@ -1,16 +1,31 @@
 const express = require('express');
 const Lieu = require('../models/Lieu');
 const LieuReview = require('../models/LieuReview');
+const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const { getBusinessPlan } = require('../utils/businessPlans');
 
 const router = express.Router();
 
-// GET /lieux/mine — lieux du business connecté
+// GET /lieux/mine — lieux du business connecté (+ établissement actif)
 router.get('/mine', protect, async (req, res) => {
   try {
     const lieux = await Lieu.find({ creator: req.user._id }).sort({ createdAt: -1 });
-    res.json({ lieux });
+    res.json({ lieux, activeLieu: req.user.activeLieu || null });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT /lieux/active — définir l'établissement actif (doit être défini AVANT /:id)
+router.put('/active', protect, async (req, res) => {
+  try {
+    const { lieuId } = req.body;
+    if (!lieuId) return res.status(400).json({ message: 'lieuId requis' });
+    const lieu = await Lieu.findOne({ _id: lieuId, creator: req.user._id });
+    if (!lieu) return res.status(404).json({ message: 'Établissement introuvable' });
+    await User.findByIdAndUpdate(req.user._id, { activeLieu: lieu._id });
+    res.json({ activeLieu: lieu._id });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -74,6 +89,10 @@ router.post('/', protect, async (req, res) => {
       creator: req.user._id,
     };
     const lieu = await Lieu.create(payload);
+    // Le premier établissement créé devient automatiquement l'établissement actif
+    if (!req.user.activeLieu) {
+      await User.findByIdAndUpdate(req.user._id, { activeLieu: lieu._id });
+    }
     res.status(201).json({ lieu });
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -100,7 +119,12 @@ router.delete('/:id', protect, async (req, res) => {
   try {
     const lieu = await Lieu.findOneAndDelete({ _id: req.params.id, creator: req.user._id });
     if (!lieu) return res.status(404).json({ message: 'Lieu introuvable' });
-    res.json({ message: 'Lieu supprimé' });
+    // Si l'établissement supprimé était l'actif, on bascule sur un autre (ou aucun)
+    if (String(req.user.activeLieu) === String(lieu._id)) {
+      const fallback = await Lieu.findOne({ creator: req.user._id }).sort({ createdAt: 1 });
+      await User.findByIdAndUpdate(req.user._id, { activeLieu: fallback ? fallback._id : null });
+    }
+    res.json({ message: 'Lieu supprimé', activeLieu: undefined });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

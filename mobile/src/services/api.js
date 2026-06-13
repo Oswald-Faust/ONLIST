@@ -50,7 +50,7 @@ export const eventsAPI = {
   create: (data) => api.post('/events', data),
   update: (id, data) => api.put(`/events/${id}`, data),
   delete: (id) => api.delete(`/events/${id}`),
-  myEvents: () => api.get('/events/business/mine'),
+  myEvents: (lieuId) => api.get('/events/business/mine', { params: lieuId ? { lieu: lieuId } : {} }),
 };
 
 export const applicationsAPI = {
@@ -122,6 +122,7 @@ export const lieuxAPI = {
   create: (data) => api.post('/lieux', data),
   update: (id, data) => api.put(`/lieux/${id}`, data),
   delete: (id) => api.delete(`/lieux/${id}`),
+  setActive: (lieuId) => api.put('/lieux/active', { lieuId }),
 };
 
 // Détermine le nom de fichier et le MIME type d'une image à envoyer.

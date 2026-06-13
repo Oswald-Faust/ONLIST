@@ -8,21 +8,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_COLORS, CATEGORY_LABELS } from '../../constants/categories';
 import { lieuxAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
-const CATEGORY_LABELS = {
-  restaurant: 'Restaurant', bar: 'Bar', club: 'Club', spa: 'Spa',
-  sport: 'Sport', wellness: 'Bien-être', hotel: 'Hôtel', cafe: 'Café',
-  beauty: 'Beauté', shop: 'Boutique', premium: 'Lieu Premium', other: 'Autre',
-};
-
-const CATEGORY_COLORS = {
-  restaurant: '#E07B4A', bar: '#7B5EA7', club: '#3A8FD5',
-  spa: '#4CAF8A', sport: '#E05252', wellness: '#4A9EE0', hotel: '#7C8AA5',
-  cafe: '#A67C52', beauty: '#D46A9A', shop: '#6FAF8F', premium: '#C9A961', other: '#7A7A7A',
-};
-
-function LieuCard({ lieu, onEdit, onDelete, navigation }) {
+function LieuCard({ lieu, onEdit, onDelete, navigation, isActive, onSetActive }) {
   const catColor = CATEGORY_COLORS[lieu.category] || COLORS.primary;
 
   return (
@@ -46,6 +36,12 @@ function LieuCard({ lieu, onEdit, onDelete, navigation }) {
             {CATEGORY_LABELS[lieu.category] || lieu.category}
           </Text>
         </View>
+        {isActive ? (
+          <View style={styles.activeBadge}>
+            <Ionicons name="checkmark-circle" size={13} color="#0A0A0F" />
+            <Text style={styles.activeBadgeText}>Actif</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Infos */}
@@ -75,6 +71,19 @@ function LieuCard({ lieu, onEdit, onDelete, navigation }) {
           ) : null}
         </View>
 
+        {/* Bascule établissement actif */}
+        {isActive ? (
+          <View style={styles.activePill}>
+            <Ionicons name="checkmark-circle" size={15} color={COLORS.success} />
+            <Text style={styles.activePillText}>Établissement actif</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.setActiveBtn} onPress={() => onSetActive(lieu)}>
+            <Ionicons name="swap-horizontal" size={15} color={COLORS.textSecondary} />
+            <Text style={styles.setActiveText}>Définir comme actif</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Actions */}
         <View style={styles.cardActions}>
           <TouchableOpacity
@@ -99,7 +108,9 @@ function LieuCard({ lieu, onEdit, onDelete, navigation }) {
 }
 
 export default function LieuxScreen({ navigation }) {
+  const { user, updateUser } = useAuth();
   const [lieux, setLieux] = useState([]);
+  const [activeLieu, setActiveLieu] = useState(user?.activeLieu || null);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -107,8 +118,21 @@ export default function LieuxScreen({ navigation }) {
     try {
       const data = await lieuxAPI.mine();
       setLieux(data.lieux || []);
+      if (data.activeLieu !== undefined) setActiveLieu(data.activeLieu);
     } catch (err) {
       console.log('Erreur chargement lieux:', err.message);
+    }
+  };
+
+  const handleSetActive = async (lieu) => {
+    const previous = activeLieu;
+    setActiveLieu(lieu._id); // optimiste
+    try {
+      await lieuxAPI.setActive(lieu._id);
+      await updateUser({ activeLieu: lieu._id });
+    } catch (err) {
+      setActiveLieu(previous);
+      Alert.alert('Erreur', err.message);
     }
   };
 
@@ -151,7 +175,10 @@ export default function LieuxScreen({ navigation }) {
         <View style={styles.header}>
           <View>
             <Text style={styles.headerTitle}>Mes lieux</Text>
-            <Text style={styles.headerSub}>{lieux.length} lieu{lieux.length !== 1 ? 'x' : ''}</Text>
+            <Text style={styles.headerSub}>
+              {lieux.length} lieu{lieux.length !== 1 ? 'x' : ''}
+              {lieux.length > 1 ? ' · touche « Définir comme actif » pour basculer' : ''}
+            </Text>
           </View>
           <TouchableOpacity
             style={styles.addBtn}
@@ -188,6 +215,8 @@ export default function LieuxScreen({ navigation }) {
             <LieuCard
               lieu={item}
               navigation={navigation}
+              isActive={String(activeLieu) === String(item._id)}
+              onSetActive={handleSetActive}
               onEdit={(l) => navigation.navigate('CreateLieu', { lieu: l })}
               onDelete={handleDelete}
             />
@@ -223,6 +252,23 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4,
   },
   catBadgeText: { fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
+  activeBadge: {
+    position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: COLORS.success, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  activeBadgeText: { color: '#0A0A0F', fontSize: FONTS.sizes.xs, fontFamily: FONTS.bold },
+  activePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.md,
+    backgroundColor: 'rgba(16,217,160,0.1)', borderWidth: 1, borderColor: 'rgba(16,217,160,0.25)',
+    borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
+  },
+  activePillText: { color: COLORS.success, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  setActiveBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: SPACING.md,
+    backgroundColor: COLORS.bgCard2, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 10,
+  },
+  setActiveText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
 
   cardBody: { padding: SPACING.md },
   cardName: { color: COLORS.white, fontSize: FONTS.sizes.md, fontFamily: FONTS.bold, marginBottom: 8 },

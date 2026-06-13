@@ -8,14 +8,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_LABELS } from '../../constants/categories';
 import { eventsAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const MOMENT_LABELS = { morning: 'Matin', afternoon: 'Après-midi', evening: 'Soir', night: 'Nuit' };
-const CATEGORY_LABELS = {
-  restaurant: 'Restaurant', bar: 'Bar', club: 'Club', spa: 'Spa',
-  sport: 'Sport', wellness: 'Bien-être', hotel: 'Hôtel', cafe: 'Café',
-  beauty: 'Beauté', shop: 'Boutique', premium: 'Lieu Premium', other: 'Autre',
-};
 
 function EventCard({ event, navigation }) {
   const isActive = event.isActive;
@@ -135,20 +132,22 @@ function EventCard({ event, navigation }) {
 }
 
 export default function EvenementsScreen({ navigation }) {
+  const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
 
   const load = async () => {
     try {
-      const data = await eventsAPI.myEvents();
+      // Liste scopée sur l'établissement actif (si défini)
+      const data = await eventsAPI.myEvents(user?.activeLieu);
       setEvents(data.events || []);
     } catch (err) {
       console.log('Erreur chargement events:', err.message);
     }
   };
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => { load(); }, [user?.activeLieu]));
 
   const refresh = async () => {
     setRefreshing(true);

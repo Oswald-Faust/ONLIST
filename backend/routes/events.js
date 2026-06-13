@@ -193,7 +193,10 @@ router.delete('/:id', protect, async (req, res) => {
 // GET /events/business/mine — événements du business connecté
 router.get('/business/mine', protect, requireValidated, async (req, res) => {
   try {
-    const events = await Event.find({ creator: req.user._id }).sort({ date: -1 });
+    const filter = { creator: req.user._id };
+    // Scoping optionnel sur l'établissement actif (?lieu=<id>)
+    if (req.query.lieu) filter.lieu = req.query.lieu;
+    const events = await Event.find(filter).sort({ date: -1 });
     res.json({ events });
   } catch (err) {
     res.status(500).json({ message: err.message });

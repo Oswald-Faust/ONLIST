@@ -86,7 +86,10 @@ const userSchema = new mongoose.Schema({
   businessName: { type: String },
   businessType: {
     type: String,
-    enum: ['restaurant', 'bar', 'club', 'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other'],
+    enum: [
+      'gastronomie', 'restaurant', 'lounge', 'bar', 'club', 'bien_etre_spa', 'fitness', 'staycation', 'experiences', 'vip',
+      'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other',
+    ],
   },
   businessAddress: { type: String },
   businessCity: { type: String },
@@ -96,6 +99,8 @@ const userSchema = new mongoose.Schema({
   businessBannerPhoto: { type: String },
   isFoundingPartner: { type: Boolean, default: false },
   foundingPartnerGrantedAt: { type: Date },
+  // Établissement actuellement sélectionné (contexte de gestion multi-établissements)
+  activeLieu: { type: mongoose.Schema.Types.ObjectId, ref: 'Lieu' },
   subscriptionPlan: {
     type: String,
     enum: ['starter', 'pro', 'group'],
