@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [billingEnabled, setBillingEnabled] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingReady, setBillingReady] = useState(false);
+  const [billingMsg, setBillingMsg] = useState('');
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -45,18 +46,31 @@ export default function SettingsPage() {
     loadSettings();
   }, []);
 
+  useEffect(() => {
+    if (!billingMsg) return;
+    const t = setTimeout(() => setBillingMsg(''), 3000);
+    return () => clearTimeout(t);
+  }, [billingMsg]);
+
   const toggleBilling = async () => {
+    if (billingLoading) return;
     const next = !billingEnabled;
+    setBillingEnabled(next); // mise à jour optimiste (réactif immédiat)
     setBillingLoading(true);
+    setBillingMsg('');
     try {
       const res = await api('/admin/settings', {
         method: 'PATCH',
         body: JSON.stringify({ subscriptionBillingEnabled: next }),
       });
       const data = await res.json();
-      setBillingEnabled(Boolean(data.settings?.subscriptionBillingEnabled ?? next));
-    } catch {
-      // en cas d'erreur, on ne change pas l'état affiché
+      if (!res.ok) throw new Error(data.message || 'Échec de la mise à jour');
+      const saved = Boolean(data.settings?.subscriptionBillingEnabled);
+      setBillingEnabled(saved);
+      setBillingMsg(saved ? 'Mode payant activé.' : 'Mode gratuit activé.');
+    } catch (error: unknown) {
+      setBillingEnabled(!next); // échec : on revient à l'état précédent
+      setBillingMsg('Erreur: ' + getErrorMessage(error));
     } finally {
       setBillingLoading(false);
     }
@@ -147,6 +161,12 @@ export default function SettingsPage() {
                 />
               </button>
             </div>
+
+            {billingMsg && (
+              <p className={`text-sm px-3 py-2 mt-4 rounded-xl ${billingMsg.includes('Erreur') ? 'text-red-400 bg-red-500/10' : 'text-green-400 bg-green-500/10'}`}>
+                {billingMsg}
+              </p>
+            )}
 
             <div className="flex items-start gap-3 mt-4 p-4 rounded-[1.5rem]" style={{ background: 'rgba(215,167,76,0.08)', border: '1px solid rgba(215,167,76,0.16)' }}>
               <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
