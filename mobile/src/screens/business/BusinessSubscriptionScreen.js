@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Easing,
   Linking,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -88,6 +91,65 @@ function PlanCard({ plan, isCurrent, onPress, disabled, priceLabel, loading }) {
   );
 }
 
+function SubscriptionSuccessModal({ visible, planKey, onContinue }) {
+  const plan = planKey ? BUSINESS_PLANS[planKey] : null;
+  const pop = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      pop.setValue(0);
+      Animated.spring(pop, {
+        toValue: 1,
+        friction: 5,
+        tension: 80,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  if (!plan) return null;
+
+  const scale = pop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onContinue}>
+      <View style={s.successOverlay}>
+        <LinearGradient colors={['#15140F', '#0A0A0F']} style={s.successCard}>
+          <Animated.View style={[s.successBadge, { transform: [{ scale }] }]}>
+            <Ionicons name="checkmark" size={52} color="#0A0A0F" />
+          </Animated.View>
+
+          <Text style={s.successEmoji}>🎉</Text>
+          <Text style={s.successTitle}>Paiement réussi !</Text>
+          <Text style={s.successText}>
+            Félicitations, ton abonnement est désormais actif.
+          </Text>
+
+          <View style={s.successPlanPill}>
+            <Ionicons name="star" size={14} color={COLORS.primary} />
+            <Text style={s.successPlanName}>{plan.name}</Text>
+            <Text style={s.successPlanPrice}>{plan.priceMonthly}€/mois</Text>
+          </View>
+
+          <View style={s.successFeatures}>
+            {(PLAN_FEATURES[plan.key] || []).slice(0, 4).map((feature) => (
+              <View key={feature} style={s.featureRow}>
+                <Ionicons name="checkmark-circle" size={16} color={COLORS.primary} />
+                <Text style={s.featureText}>{feature}</Text>
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity style={s.successBtn} onPress={onContinue} activeOpacity={0.9}>
+            <Text style={s.successBtnText}>Accéder à mon dashboard</Text>
+            <Ionicons name="arrow-forward" size={18} color="#0A0A0F" />
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
+    </Modal>
+  );
+}
+
 export default function BusinessSubscriptionScreen({ navigation, route }) {
   const { user, updateUser, logout } = useAuth();
   const mandatory = Boolean(route?.params?.mandatory);
@@ -96,30 +158,22 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
   const activePlanKey = hasActiveSubscription ? currentPlan.key : null;
   const [purchasingPlan, setPurchasingPlan] = useState('');
   const [managingSubscription, setManagingSubscription] = useState(false);
+  const [successPlanKey, setSuccessPlanKey] = useState(null);
 
-  // Recharge le statut d'abonnement depuis le backend (le webhook Stripe le met à jour).
-  const refreshStatus = async () => {
-    try {
-      const status = await subscriptionsAPI.status();
-      if (status) {
-        await updateUser({
-          subscriptionPlan: status.subscriptionPlan,
-          subscriptionStatus: status.subscriptionStatus,
-        });
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Interroge le backend jusqu'à ce que l'abonnement soit actif (le webhook Stripe
+  // peut prendre quelques secondes après le retour du paiement).
+  const pollUntilActive = async (attempts = 8, delayMs = 1500) => {
+    for (let i = 0; i < attempts; i += 1) {
+      const status = await subscriptionsAPI.status().catch(() => null);
+      if (status && ['active', 'trialing'].includes(status.subscriptionStatus)) {
+        return status;
       }
-      return status;
-    } catch (_) {
-      return null;
+      if (i < attempts - 1) await sleep(delayMs);
     }
+    return null;
   };
-
-  // Rafraîchit le statut quand on revient sur l'écran (ex: retour du paiement Stripe).
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      refreshStatus();
-    });
-    return unsubscribe;
-  }, [navigation]);
 
   const handleChoosePlan = async (planKey) => {
     if (planKey === activePlanKey) return;
@@ -127,17 +181,15 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
     try {
       setPurchasingPlan(planKey);
       await openSubscriptionCheckout(planKey);
-      // Au retour du navigateur, on rafraîchit le statut (le webhook a normalement déjà sync).
-      const status = await refreshStatus();
-      if (status && ['active', 'trialing'].includes(status.subscriptionStatus)) {
-        Alert.alert(
-          'Abonnement actif',
-          `Le pack ${BUSINESS_PLANS[planKey].name} est désormais actif.`
-        );
+      // Au retour du navigateur, on attend la confirmation du webhook.
+      const status = await pollUntilActive();
+      if (status) {
+        // On affiche la célébration AVANT de débloquer la navigation.
+        setSuccessPlanKey(planKey);
       } else {
         Alert.alert(
           'Paiement en cours de validation',
-          'Si tu viens de payer, ton accès s’activera dans quelques secondes. Tu peux rafraîchir cet écran.'
+          'Si tu viens de payer, ton accès s’activera dans quelques secondes. Reviens sur cet écran pour réessayer.'
         );
       }
     } catch (error) {
@@ -147,11 +199,27 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
     }
   };
 
+  // Validé depuis l'écran de félicitations : on met à jour le user, ce qui
+  // débloque automatiquement le dashboard établissement via la navigation.
+  const handleSuccessContinue = async () => {
+    const planKey = successPlanKey;
+    setSuccessPlanKey(null);
+    if (planKey) {
+      await updateUser({ subscriptionPlan: planKey, subscriptionStatus: 'active' });
+    }
+  };
+
   const handleManageSubscription = async () => {
     try {
       setManagingSubscription(true);
       await openSubscriptionPortal();
-      await refreshStatus();
+      const status = await subscriptionsAPI.status().catch(() => null);
+      if (status) {
+        await updateUser({
+          subscriptionPlan: status.subscriptionPlan,
+          subscriptionStatus: status.subscriptionStatus,
+        });
+      }
     } catch (error) {
       Alert.alert('Gestion indisponible', error.message);
     } finally {
@@ -254,6 +322,12 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
 
         </ScrollView>
       </SafeAreaView>
+
+      <SubscriptionSuccessModal
+        visible={Boolean(successPlanKey)}
+        planKey={successPlanKey}
+        onContinue={handleSuccessContinue}
+      />
     </View>
   );
 }
@@ -357,4 +431,71 @@ const s = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   loadingText: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular },
+
+  // --- Écran de félicitations ---
+  successOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.lg,
+  },
+  successCard: {
+    width: '100%',
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    padding: SPACING.lg,
+    alignItems: 'center',
+  },
+  successBadge: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.sm,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  successEmoji: { fontSize: 30, marginTop: SPACING.md },
+  successTitle: { color: COLORS.white, fontSize: FONTS.sizes.xl, fontFamily: FONTS.bold, marginTop: 6 },
+  successText: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.regular,
+    textAlign: 'center',
+    marginTop: 6,
+    paddingHorizontal: SPACING.sm,
+  },
+  successPlanPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(201,169,97,0.14)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: SPACING.md,
+  },
+  successPlanName: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold },
+  successPlanPrice: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  successFeatures: { gap: 10, alignSelf: 'stretch', marginTop: SPACING.lg, marginBottom: SPACING.sm },
+  successBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    alignSelf: 'stretch',
+    height: 52,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primary,
+    marginTop: SPACING.md,
+  },
+  successBtnText: { color: '#0A0A0F', fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
 });
