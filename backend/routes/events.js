@@ -5,23 +5,75 @@ const { getBusinessPlan } = require('../utils/businessPlans');
 
 const router = express.Router();
 
-async function countFutureActiveEvents(userId, excludeEventId) {
+function getDayRange(dateInput) {
+  const date = new Date(dateInput);
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
+async function countActiveEventsForDay(userId, dateInput, excludeEventId) {
+  const { start, end } = getDayRange(dateInput);
   const filter = {
     creator: userId,
     isActive: true,
-    date: { $gte: new Date() },
+    date: { $gte: start, $lt: end },
   };
   if (excludeEventId) filter._id = { $ne: excludeEventId };
   return Event.countDocuments(filter);
 }
 
 function applyPlanEventLimits(payload, plan) {
-  if (!plan.maxCreatorsPerEvent) return payload;
-  const requested = Number(payload.maxParticipants) || plan.maxCreatorsPerEvent;
-  return {
-    ...payload,
-    maxParticipants: Math.min(requested, plan.maxCreatorsPerEvent),
-  };
+  const nextPayload = { ...payload };
+
+  if (plan.maxCreatorsPerEvent) {
+    const requested = Number(payload.maxParticipants) || plan.maxCreatorsPerEvent;
+    nextPayload.maxParticipants = Math.min(requested, plan.maxCreatorsPerEvent);
+  }
+
+  if (payload.applicationCutoffOffsetHours !== undefined) {
+    nextPayload.applicationCutoffOffsetHours = Number(payload.applicationCutoffOffsetHours) || 1;
+  }
+
+  if (payload.plusOneMode) {
+    nextPayload.plusOneMode = payload.plusOneMode;
+  }
+
+  if (payload.deliverables && Array.isArray(payload.deliverables)) {
+    nextPayload.deliverables = payload.deliverables.filter(Boolean);
+  }
+
+  return nextPayload;
+}
+
+function buildCutoffTime({ date, startTime, applicationCutoffOffsetHours }) {
+  if (!date || !applicationCutoffOffsetHours) return undefined;
+  const baseDate = new Date(date);
+  if (startTime && /^\d{2}:\d{2}$/.test(startTime)) {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    baseDate.setHours(hours, minutes, 0, 0);
+  }
+  return new Date(baseDate.getTime() - Number(applicationCutoffOffsetHours) * 60 * 60 * 1000).toISOString();
+}
+
+function normalizeEventPayload(payload = {}) {
+  const nextPayload = { ...payload };
+
+  if (payload.plusOneMode === 'required') {
+    const deliverables = Array.isArray(payload.deliverables) ? [...payload.deliverables] : [];
+    if (!deliverables.includes('google_review_plus_one_screen')) {
+      deliverables.push('google_review_plus_one_screen');
+    }
+    nextPayload.deliverables = deliverables;
+  }
+
+  if (payload.date && payload.startTime && !payload.cutoffTime && payload.applicationCutoffOffsetHours) {
+    nextPayload.cutoffTime = buildCutoffTime(payload);
+  }
+
+  return nextPayload;
 }
 
 // GET /events — liste publique avec filtres
@@ -71,17 +123,18 @@ router.post('/', protect, requireValidated, async (req, res) => {
       return res.status(403).json({ message: 'Réservé aux établissements' });
 
     const plan = getBusinessPlan(req.user);
-    if (plan.maxActiveEvents && req.body.isActive !== false) {
-      const activeEventsCount = await countFutureActiveEvents(req.user._id);
-      if (activeEventsCount >= plan.maxActiveEvents) {
+    const nextDate = req.body.date ? new Date(req.body.date) : null;
+    if (plan.maxActiveEventsPerDay && req.body.isActive !== false && nextDate) {
+      const activeEventsCount = await countActiveEventsForDay(req.user._id, nextDate);
+      if (activeEventsCount >= plan.maxActiveEventsPerDay) {
         return res.status(400).json({
-          message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEvents} événements actifs simultanés`,
+          message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEventsPerDay} événement${plan.maxActiveEventsPerDay > 1 ? 's' : ''} actif${plan.maxActiveEventsPerDay > 1 ? 's' : ''} ce jour-là`,
         });
       }
     }
 
     const event = await Event.create({
-      ...applyPlanEventLimits(req.body, plan),
+      ...normalizeEventPayload(applyPlanEventLimits(req.body, plan)),
       creator: req.user._id,
     });
     res.status(201).json({ event });
@@ -102,18 +155,18 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
     const nextIsActive = req.body.isActive !== undefined ? req.body.isActive : event.isActive;
     const nextDate = req.body.date ? new Date(req.body.date) : event.date;
 
-    if (plan.maxActiveEvents && nextIsActive !== false && nextDate >= new Date()) {
-      const activeEventsCount = await countFutureActiveEvents(req.user._id, event._id);
-      if (activeEventsCount >= plan.maxActiveEvents) {
+    if (plan.maxActiveEventsPerDay && nextIsActive !== false) {
+      const activeEventsCount = await countActiveEventsForDay(req.user._id, nextDate, event._id);
+      if (activeEventsCount >= plan.maxActiveEventsPerDay) {
         return res.status(400).json({
-          message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEvents} événements actifs simultanés`,
+          message: `Votre abonnement ${plan.name} est limité à ${plan.maxActiveEventsPerDay} événement${plan.maxActiveEventsPerDay > 1 ? 's' : ''} actif${plan.maxActiveEventsPerDay > 1 ? 's' : ''} ce jour-là`,
         });
       }
     }
 
     const updated = await Event.findByIdAndUpdate(
       req.params.id,
-      applyPlanEventLimits(req.body, plan),
+      normalizeEventPayload(applyPlanEventLimits(req.body, plan)),
       { new: true }
     );
     res.json({ event: updated });

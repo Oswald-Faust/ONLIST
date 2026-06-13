@@ -12,6 +12,8 @@ const applicationSchema = new mongoose.Schema({
   message: { type: String },
   appliedAt: { type: Date, default: Date.now },
   respondedAt: { type: Date },
+  reminderSentAt: { type: Date },
+  warningIssuedAt: { type: Date },
 });
 
 applicationSchema.index({ user: 1, event: 1 }, { unique: true });

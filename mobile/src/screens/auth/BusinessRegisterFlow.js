@@ -2,19 +2,21 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, StatusBar, Alert,
-  Dimensions, ActivityIndicator, Modal, FlatList,
+  Dimensions, ActivityIndicator, Modal, FlatList, Image,
+  Keyboard, TouchableWithoutFeedback, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   SlideInRight, SlideInLeft, SlideOutLeft, SlideOutRight,
   useSharedValue, useAnimatedStyle, withTiming, Easing,
 } from 'react-native-reanimated';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { PHONE_CODES } from '../../constants/phoneCodes';
-import KeyboardDismissScrollView from '../../components/KeyboardDismissScrollView';
 import { useAuth } from '../../context/AuthContext';
+import { uploadAPI } from '../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -84,6 +86,12 @@ const STEPS = [
     type: 'multiline',
     field: 'businessDescription',
     placeholder: 'Ambiance, offre, ce qui vous distingue...',
+  },
+  {
+    id: 'businessMedia',
+    context: 'Votre identité visuelle',
+    question: 'Ajoutez votre\nlogo et bannière',
+    type: 'media',
   },
   {
     id: 'password',
@@ -462,6 +470,86 @@ function StepPassword({ form, update }) {
   );
 }
 
+function StepMedia({ form, update }) {
+  const [uploadingField, setUploadingField] = useState('');
+
+  const pickImage = async (field) => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission requise', "Autorisez l'accès à la galerie pour ajouter une image.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsEditing: field === 'businessLogo',
+      aspect: field === 'businessLogo' ? [1, 1] : [16, 9],
+    });
+    if (result.canceled) return;
+
+    try {
+      setUploadingField(field);
+      const data = await uploadAPI.publicImage(result.assets[0].uri);
+      update(field, data.url);
+    } catch (error) {
+      Alert.alert('Erreur upload', error.message);
+    } finally {
+      setUploadingField('');
+    }
+  };
+
+  const MediaCard = ({ field, label, subtitle, icon }) => {
+    const uri = form[field];
+    const loading = uploadingField === field;
+    return (
+      <TouchableOpacity style={step.mediaCard} onPress={() => pickImage(field)} activeOpacity={0.85}>
+        {uri ? (
+          <>
+            <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <LinearGradient colors={['transparent', 'rgba(10,10,15,0.76)']} style={StyleSheet.absoluteFill} />
+            <View style={step.mediaBadge}>
+              <Ionicons name="images-outline" size={14} color={COLORS.white} />
+              <Text style={step.mediaBadgeText}>{label}</Text>
+            </View>
+          </>
+        ) : (
+          <View style={step.mediaEmpty}>
+            {loading ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : (
+              <>
+                <View style={step.mediaIconWrap}>
+                  <Ionicons name={icon} size={24} color={COLORS.primary} />
+                </View>
+                <Text style={step.mediaTitle}>{label}</Text>
+                <Text style={step.mediaSubtitle}>{subtitle}</Text>
+              </>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={{ gap: SPACING.md }}>
+      <MediaCard
+        field="businessLogo"
+        label="Logo"
+        subtitle="Ajoute le logo officiel de l’établissement"
+        icon="image-outline"
+      />
+      <MediaCard
+        field="businessBannerPhoto"
+        label="Photo bannière"
+        subtitle="Ajoute une photo large qui présente le lieu"
+        icon="images-outline"
+      />
+    </View>
+  );
+}
+
 // ─── Composant principal ───────────────────────────────────────────────────────
 
 export default function BusinessRegisterFlow({ navigation }) {
@@ -475,6 +563,7 @@ export default function BusinessRegisterFlow({ navigation }) {
     name: '', email: '', phone: '', password: '', confirmPassword: '',
     businessName: '', businessType: '', businessAddress: '',
     businessCity: '', businessDescription: '', phoneCode: '+33',
+    businessLogo: '', businessBannerPhoto: '',
   });
 
   const update = useCallback((key, val) => {
@@ -505,6 +594,7 @@ export default function BusinessRegisterFlow({ navigation }) {
       case 'managerName':         return form.name.trim().length >= 2;
       case 'contact':             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) && form.phone.trim().length >= 8;
       case 'businessDescription': return true; // optionnel
+      case 'businessMedia':       return !!form.businessLogo && !!form.businessBannerPhoto;
       case 'password':
         return form.password.length >= 8 && form.password === form.confirmPassword;
       default: return true;
@@ -548,6 +638,8 @@ export default function BusinessRegisterFlow({ navigation }) {
         businessAddress: form.businessAddress,
         businessCity: form.businessCity,
         businessDescription: form.businessDescription,
+        businessLogo: form.businessLogo,
+        businessBannerPhoto: form.businessBannerPhoto,
       });
     } catch (err) {
       Alert.alert('Erreur', err.message);
@@ -591,6 +683,8 @@ export default function BusinessRegisterFlow({ navigation }) {
         return <StepContact form={form} update={update} />;
       case 'password':
         return <StepPassword form={form} update={update} />;
+      case 'media':
+        return <StepMedia form={form} update={update} />;
       default:
         return null;
     }
@@ -617,80 +711,83 @@ export default function BusinessRegisterFlow({ navigation }) {
       </View>
 
       {/* Contenu animé */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <Animated.View
-          key={currentStep}
-          entering={
-            direction === 'forward'
-              ? SlideInRight.duration(300)
-              : SlideInLeft.duration(300)
-          }
-          exiting={
-            direction === 'forward'
-              ? SlideOutLeft.duration(300)
-              : SlideOutRight.duration(300)
-          }
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
           style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
         >
-          <KeyboardDismissScrollView
-            contentContainerStyle={styles.stepWrapper}
+          <ScrollView
+            contentContainerStyle={styles.stepScrollContent}
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="always"
+            automaticallyAdjustKeyboardInsets
           >
-            <Text style={styles.contextLabel}>{STEPS[currentStep].context}</Text>
-            <Text style={styles.question}>{STEPS[currentStep].question}</Text>
-            {renderContent()}
-          </KeyboardDismissScrollView>
-        </Animated.View>
+            <Animated.View
+              key={currentStep}
+              entering={
+                direction === 'forward'
+                  ? SlideInRight.duration(300)
+                  : SlideInLeft.duration(300)
+              }
+              exiting={
+                direction === 'forward'
+                  ? SlideOutLeft.duration(300)
+                  : SlideOutRight.duration(300)
+              }
+              style={styles.stepWrapper}
+            >
+              <Text style={styles.contextLabel}>{STEPS[currentStep].context}</Text>
+              <Text style={styles.question}>{STEPS[currentStep].question}</Text>
+              {renderContent()}
+            </Animated.View>
 
-        {/* Footer */}
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity
-            onPress={goNext}
-            activeOpacity={active ? 0.85 : 1}
-            style={styles.continueOuter}
-          >
-            {active ? (
-              <LinearGradient
-                colors={COLORS.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.continueBtn}
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+              <TouchableOpacity
+                onPress={goNext}
+                activeOpacity={active ? 0.85 : 1}
+                style={styles.continueOuter}
               >
-                {loading ? (
-                  <ActivityIndicator color={COLORS.bg} size="small" />
+                {active ? (
+                  <LinearGradient
+                    colors={COLORS.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.continueBtn}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color={COLORS.bg} size="small" />
+                    ) : (
+                      <>
+                        <Text style={styles.continueTxt}>
+                          {isLast ? 'Envoyer ma demande' : 'Continuer'}
+                        </Text>
+                        <Ionicons
+                          name={isLast ? 'checkmark' : 'arrow-forward'}
+                          size={20}
+                          color={COLORS.bg}
+                        />
+                      </>
+                    )}
+                  </LinearGradient>
                 ) : (
-                  <>
-                    <Text style={styles.continueTxt}>
-                      {isLast ? 'Envoyer ma demande' : 'Continuer'}
-                    </Text>
-                    <Ionicons
-                      name={isLast ? 'checkmark' : 'arrow-forward'}
-                      size={20}
-                      color={COLORS.bg}
-                    />
-                  </>
+                  <View style={styles.continueBtnDisabled}>
+                    <Text style={styles.continueTxtDisabled}>Continuer</Text>
+                  </View>
                 )}
-              </LinearGradient>
-            ) : (
-              <View style={styles.continueBtnDisabled}>
-                <Text style={styles.continueTxtDisabled}>Continuer</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Login')}
-            style={styles.loginRow}
-          >
-            <Text style={styles.loginQ}>Déjà un compte ? </Text>
-            <Text style={styles.loginLink}>Se connecter</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Login')}
+                style={styles.loginRow}
+              >
+                <Text style={styles.loginQ}>Déjà un compte ? </Text>
+                <Text style={styles.loginLink}>Se connecter</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </View>
   );
 }
@@ -736,10 +833,12 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   stepWrapper: {
-    flexGrow: 1,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xl,
-    paddingBottom: 120,
+  },
+  stepScrollContent: {
+    flexGrow: 1,
+    paddingBottom: SPACING.lg,
   },
   contextLabel: {
     color: COLORS.primary,
@@ -756,7 +855,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl,
   },
   footer: {
+    marginTop: 'auto',
     paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.xl,
     gap: SPACING.sm,
   },
   continueOuter: {},
@@ -920,6 +1021,46 @@ const step = StyleSheet.create({
     fontFamily: FONTS.medium,
     padding: SPACING.sm,
   },
+  mediaCard: {
+    height: 168,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bgCard,
+  },
+  mediaEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.lg,
+    gap: 10,
+  },
+  mediaIconWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.2)',
+  },
+  mediaTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold, textAlign: 'center' },
+  mediaSubtitle: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 20 },
+  mediaBadge: {
+    position: 'absolute',
+    left: 12,
+    bottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  mediaBadgeText: { color: COLORS.white, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
   phoneCodeBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -5,12 +5,13 @@ import { useAuth } from '@/lib/auth';
 import { useDashboardShell } from '@/components/dashboard-shell';
 import {
   LayoutDashboard, Users, Calendar, FileText,
-  LogOut, Hexagon, Settings, ChevronRight, X,
+  LogOut, Hexagon, Settings, ChevronRight, X, CreditCard,
 } from 'lucide-react';
 
 const NAV = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Vue d\'ensemble' },
   { href: '/dashboard/users', icon: Users, label: 'Utilisateurs' },
+  { href: '/dashboard/subscriptions', icon: CreditCard, label: 'Abonnements' },
   { href: '/dashboard/events', icon: Calendar, label: 'Événements' },
   { href: '/dashboard/applications', icon: FileText, label: 'Candidatures' },
   { href: '/dashboard/settings', icon: Settings, label: 'Paramètres' },

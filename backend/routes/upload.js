@@ -26,12 +26,17 @@ const upload = multer({
   },
 });
 
-// POST /api/upload — upload d'une image
-router.post('/', protect, upload.single('file'), (req, res) => {
+function respondWithFileUrl(req, res) {
   if (!req.file) return res.status(400).json({ message: 'Aucun fichier reçu' });
   const host = `${req.protocol}://${req.get('host')}`;
   const url = `${host}/uploads/${req.file.filename}`;
-  res.json({ url, filename: req.file.filename });
-});
+  return res.json({ url, filename: req.file.filename });
+}
+
+// POST /api/upload — upload d'une image
+router.post('/', protect, upload.single('file'), respondWithFileUrl);
+
+// POST /api/upload/public — upload d'image avant authentification
+router.post('/public', upload.single('file'), respondWithFileUrl);
 
 module.exports = router;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -16,12 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { BUSINESS_PLAN_KEYS, BUSINESS_PLANS, getBusinessPlan } from '../../constants/businessPlans';
 import {
-  getRevenueCatCustomerInfo,
-  getSubscriptionOfferings,
-  initializeRevenueCat,
-  isRevenueCatConfigured,
-  purchaseBusinessPlan,
-  restoreBusinessPurchases,
+  openSubscriptionCheckout,
+  openSubscriptionPortal,
 } from '../../services/subscriptions';
 import { useAuth } from '../../context/AuthContext';
 import { subscriptionsAPI } from '../../services/api';
@@ -29,21 +25,24 @@ import { subscriptionsAPI } from '../../services/api';
 const PLAN_FEATURES = {
   [BUSINESS_PLAN_KEYS.STARTER]: [
     '1 établissement',
-    '3 événements simultanés maximum',
+    '1 événement actif par jour',
     '5 créateurs par événement',
+    'Jusqu’à 3 stories + 1 avis Google',
     'Accès créateurs jusqu’à 20k followers',
     'Invitation directe indisponible',
   ],
   [BUSINESS_PLAN_KEYS.PRO]: [
     '3 établissements',
-    'Événements illimités',
+    '3 événements actifs par jour',
     '15 créateurs par événement',
+    'Jusqu’à 5 stories + post feed',
     'Accès créateurs jusqu’à 50k followers',
     'Invitation directe + stats de base',
   ],
   [BUSINESS_PLAN_KEYS.GROUP]: [
     'Établissements illimités',
     'Créateurs illimités par événement',
+    'Jusqu’à 6-7 stories + reel ou TikTok',
     'Tous les profils sans limite de followers',
     'Badge Partenaire Premium',
     'Statistiques complètes + account manager',
@@ -93,68 +92,54 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
   const { user, updateUser, logout } = useAuth();
   const mandatory = Boolean(route?.params?.mandatory);
   const currentPlan = getBusinessPlan(user?.subscriptionPlan);
-  const hasActiveSubscription = user?.subscriptionStatus === 'active';
+  const hasActiveSubscription = ['active', 'trialing', 'grace'].includes(user?.subscriptionStatus);
   const activePlanKey = hasActiveSubscription ? currentPlan.key : null;
-  const [offerings, setOfferings] = useState([]);
-  const [loadingOfferings, setLoadingOfferings] = useState(true);
   const [purchasingPlan, setPurchasingPlan] = useState('');
+  const [managingSubscription, setManagingSubscription] = useState(false);
 
+  // Recharge le statut d'abonnement depuis le backend (le webhook Stripe le met à jour).
+  const refreshStatus = async () => {
+    try {
+      const status = await subscriptionsAPI.status();
+      if (status) {
+        await updateUser({
+          subscriptionPlan: status.subscriptionPlan,
+          subscriptionStatus: status.subscriptionStatus,
+        });
+      }
+      return status;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  // Rafraîchit le statut quand on revient sur l'écran (ex: retour du paiement Stripe).
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      if (!isRevenueCatConfigured()) {
-        if (mounted) setLoadingOfferings(false);
-        return;
-      }
-
-      try {
-        await initializeRevenueCat(user?._id);
-        const nextOfferings = await getSubscriptionOfferings();
-        if (mounted) setOfferings(nextOfferings);
-      } catch (error) {
-        if (mounted) {
-          Alert.alert('RevenueCat', error.message);
-        }
-      } finally {
-        if (mounted) setLoadingOfferings(false);
-      }
-    };
-
-    load();
-    return () => { mounted = false; };
-  }, [user?._id]);
-
-  const offeringsByPlan = useMemo(
-    () => Object.fromEntries(offerings.map((item) => [item.planKey, item])),
-    [offerings]
-  );
+    const unsubscribe = navigation.addListener('focus', () => {
+      refreshStatus();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const handleChoosePlan = async (planKey) => {
     if (planKey === activePlanKey) return;
 
-    if (!isRevenueCatConfigured()) {
-      Alert.alert(
-        'Facturation bientôt active',
-        'RevenueCat n’est pas encore configuré sur cette build. Les packs sont prêts, mais il faut encore brancher les clés et les produits Apple/Google.'
-      );
-      return;
-    }
-
     try {
       setPurchasingPlan(planKey);
-      await purchaseBusinessPlan(planKey);
-      const customerInfo = await getRevenueCatCustomerInfo();
-      const activeEntitlements = Object.keys(customerInfo?.entitlements?.active || {});
-      const syncData = await subscriptionsAPI.syncStatus();
-      await updateUser(syncData?.user || {
-        subscriptionPlan: planKey,
-        subscriptionStatus: activeEntitlements.length > 0 ? 'active' : user?.subscriptionStatus,
-      });
-      Alert.alert(
-        'Achat terminé',
-        `Le pack ${BUSINESS_PLANS[planKey].name} est actif sur cette app.`
-      );
+      await openSubscriptionCheckout(planKey);
+      // Au retour du navigateur, on rafraîchit le statut (le webhook a normalement déjà sync).
+      const status = await refreshStatus();
+      if (status && ['active', 'trialing'].includes(status.subscriptionStatus)) {
+        Alert.alert(
+          'Abonnement actif',
+          `Le pack ${BUSINESS_PLANS[planKey].name} est désormais actif.`
+        );
+      } else {
+        Alert.alert(
+          'Paiement en cours de validation',
+          'Si tu viens de payer, ton accès s’activera dans quelques secondes. Tu peux rafraîchir cet écran.'
+        );
+      }
     } catch (error) {
       Alert.alert('Paiement indisponible', error.message);
     } finally {
@@ -162,21 +147,15 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
     }
   };
 
-  const handleRestore = async () => {
+  const handleManageSubscription = async () => {
     try {
-      const customerInfo = await restoreBusinessPurchases();
-      const syncData = await subscriptionsAPI.syncStatus();
-      if (syncData?.user) {
-        await updateUser(syncData.user);
-      }
-      const activeEntitlements = Object.keys(customerInfo?.entitlements?.active || {});
-      if (activeEntitlements.length > 0) {
-        Alert.alert('Restauration terminée', 'Vos achats ont bien été restaurés.');
-      } else {
-        Alert.alert('Aucun achat trouvé', 'Aucun abonnement actif n’a été restauré pour ce compte.');
-      }
+      setManagingSubscription(true);
+      await openSubscriptionPortal();
+      await refreshStatus();
     } catch (error) {
-      Alert.alert('Restauration indisponible', error.message);
+      Alert.alert('Gestion indisponible', error.message);
+    } finally {
+      setManagingSubscription(false);
     }
   };
 
@@ -236,29 +215,30 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
             </Text>
           </View>
 
-          {loadingOfferings && isRevenueCatConfigured() ? (
-            <View style={s.loadingWrap}>
-              <ActivityIndicator color={COLORS.primary} size="small" />
-              <Text style={s.loadingText}>Chargement des offres RevenueCat...</Text>
-            </View>
-          ) : null}
-
           {Object.values(BUSINESS_PLANS).map((plan) => (
             <PlanCard
               key={plan.key}
               plan={plan}
               isCurrent={plan.key === activePlanKey}
               onPress={handleChoosePlan}
-              disabled={loadingOfferings || purchasingPlan.length > 0}
+              disabled={purchasingPlan.length > 0 || managingSubscription}
               loading={purchasingPlan === plan.key}
-              priceLabel={offeringsByPlan[plan.key]?.priceString || `${plan.priceMonthly}€/mois`}
+              priceLabel={`${plan.priceMonthly}€/mois`}
             />
           ))}
 
-          <TouchableOpacity style={s.secondaryBtn} onPress={handleRestore}>
-            <Ionicons name="refresh-outline" size={18} color={COLORS.white} />
-            <Text style={s.secondaryBtnText}>Restaurer mes achats</Text>
-          </TouchableOpacity>
+          {hasActiveSubscription ? (
+            <TouchableOpacity style={s.secondaryBtn} onPress={handleManageSubscription} disabled={managingSubscription}>
+              {managingSubscription ? (
+                <ActivityIndicator size="small" color={COLORS.white} />
+              ) : (
+                <>
+                  <Ionicons name="settings-outline" size={18} color={COLORS.white} />
+                  <Text style={s.secondaryBtnText}>Gérer mon abonnement</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity style={s.contactBtn} onPress={handleContact}>
             <Text style={s.contactBtnText}>{mandatory ? 'Besoin d’aide pour activer votre accès ?' : 'Contacter ONLIST pour l’activation'}</Text>

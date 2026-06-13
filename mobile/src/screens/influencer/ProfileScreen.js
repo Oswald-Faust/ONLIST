@@ -12,7 +12,6 @@ import { applicationsAPI, usersAPI } from '../../services/api';
 
 const { width: W, height: SCREEN_H } = Dimensions.get('window');
 const PHOTO_H = Math.round(SCREEN_H * 0.66);
-const PLACEHOLDER = 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800';
 
 const buildMoreItems = ({ navigation, logout, shareProfile, inviteCreator, close }) => [
   {
@@ -295,8 +294,9 @@ export default function ProfileScreen({ navigation }) {
   const [recentApps,  setRecentApps]  = useState([]);
   const [scoreData,   setScoreData]   = useState(null);
 
-  const photos      = user?.photos?.length > 0 ? user.photos : [PLACEHOLDER];
+  const photos      = user?.photos?.length > 0 ? user.photos : (user?.avatarUrl ? [user.avatarUrl] : []);
   const totalPhotos = photos.length;
+  const hasMainPhoto = totalPhotos > 0;
 
   useEffect(() => {
     applicationsAPI.myApplications({})
@@ -376,25 +376,45 @@ export default function ProfileScreen({ navigation }) {
         {/* ══════ SECTION PHOTO PLEIN ÉCRAN ══════ */}
         <View style={{ height: PHOTO_H, overflow: 'hidden' }}>
           {/* Carrousel horizontal — swipe natif */}
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            style={StyleSheet.absoluteFill}
-            onMomentumScrollEnd={e =>
-              setPhotoIdx(Math.round(e.nativeEvent.contentOffset.x / W))
-            }
-            scrollEventThrottle={16}
-          >
-            {photos.map((uri, i) => (
-              <Image
-                key={i}
-                source={{ uri }}
-                style={{ width: W, height: PHOTO_H }}
-                resizeMode="cover"
-              />
-            ))}
-          </ScrollView>
+          {hasMainPhoto ? (
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              style={StyleSheet.absoluteFill}
+              onMomentumScrollEnd={e =>
+                setPhotoIdx(Math.round(e.nativeEvent.contentOffset.x / W))
+              }
+              scrollEventThrottle={16}
+            >
+              {photos.map((uri, i) => (
+                <Image
+                  key={i}
+                  source={{ uri }}
+                  style={{ width: W, height: PHOTO_H }}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
+          ) : (
+            <LinearGradient
+              colors={['#151520', '#0d0d14']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[StyleSheet.absoluteFill, S.emptyHero]}
+            >
+              <View style={S.emptyHeroIcon}>
+                <Ionicons name="image-outline" size={42} color={COLORS.primaryLight} />
+              </View>
+              <Text style={S.emptyHeroTitle}>Ajoutez vos premières photos</Text>
+              <Text style={S.emptyHeroText}>
+                Aucune photo n&apos;est visible pour le moment. Complétez votre profil quand vous êtes prêt.
+              </Text>
+              <TouchableOpacity style={S.emptyHeroBtn} onPress={() => navigation.navigate('EditProfile')} activeOpacity={0.85}>
+                <Text style={S.emptyHeroBtnTxt}>Compléter mon profil</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          )}
 
           {/* Dégradé haut */}
           <LinearGradient
@@ -444,7 +464,13 @@ export default function ProfileScreen({ navigation }) {
           {/* ── Bas de photo : avatar + compteur + socials ── */}
           <View style={[S.photoBottom, { zIndex: 10 }]}>
             <View style={S.thumbWrap}>
-              <Image source={{ uri: photos[0] }} style={S.thumbImg} />
+              {hasMainPhoto ? (
+                <Image source={{ uri: photos[0] }} style={S.thumbImg} />
+              ) : (
+                <View style={S.thumbEmpty}>
+                  <Ionicons name="person-outline" size={26} color={COLORS.primaryLight} />
+                </View>
+              )}
             </View>
 
             <View style={S.photoBottomRight}>
@@ -525,11 +551,18 @@ export default function ProfileScreen({ navigation }) {
                     activeOpacity={0.85}
                     onPress={() => navigation.navigate('EventDetail', { event: app.event })}
                   >
-                    <Image
-                      source={{ uri: app.event?.images?.[0] || PLACEHOLDER }}
-                      style={StyleSheet.absoluteFill}
-                      resizeMode="cover"
-                    />
+                    {app.event?.images?.[0] ? (
+                      <Image
+                        source={{ uri: app.event.images[0] }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <LinearGradient
+                        colors={['#1b1b28', '#111119']}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    )}
                     <LinearGradient
                       colors={['transparent', 'rgba(0,0,0,0.88)']}
                       style={StyleSheet.absoluteFill}
@@ -724,11 +757,61 @@ const S = StyleSheet.create({
     borderWidth: 2.5, borderColor: 'rgba(255,255,255,0.28)',
   },
   thumbImg: { width: '100%', height: '100%' },
+  thumbEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.bgCard,
+  },
   photoBottomRight: { alignItems: 'flex-end', gap: 10 },
   photoCountTxt: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: FONTS.sizes.sm,
     fontFamily: FONTS.medium,
+  },
+  emptyHero: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xl,
+    gap: SPACING.md,
+  },
+  emptyHeroIcon: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.24)',
+  },
+  emptyHeroTitle: {
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.lg,
+    fontFamily: FONTS.bold,
+    textAlign: 'center',
+  },
+  emptyHeroText: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.regular,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 300,
+  },
+  emptyHeroBtn: {
+    marginTop: SPACING.xs,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: 12,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(201,169,97,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.24)',
+  },
+  emptyHeroBtnTxt: {
+    color: COLORS.primaryLight,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.semiBold,
   },
   socialIconsRow: { flexDirection: 'row', gap: 8 },
   socialIconBtn: {

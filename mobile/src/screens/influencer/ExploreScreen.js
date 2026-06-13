@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  StatusBar, ScrollView, ActivityIndicator, RefreshControl,
+  StatusBar, ScrollView, ActivityIndicator, RefreshControl, Modal, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -63,6 +63,7 @@ export default function ExploreScreen({ navigation }) {
   const [dateFilter, setDateFilter] = useState('');
   const [customDate, setCustomDate] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [draftDate, setDraftDate] = useState(new Date());
 
   // Ville : par défaut celle de l'utilisateur, sinon "toutes"
   const [city, setCity] = useState(user?.selectedCity || '');
@@ -137,6 +138,7 @@ export default function ExploreScreen({ navigation }) {
 
   const handleSelectDateFilter = (nextDateFilter) => {
     if (nextDateFilter === 'custom') {
+      setDraftDate(customDate || new Date());
       setShowDatePicker(true);
       return;
     }
@@ -439,9 +441,44 @@ export default function ExploreScreen({ navigation }) {
         />
       )}
 
-      {showDatePicker && (
+      {showDatePicker && Platform.OS === 'ios' && (
+        <Modal transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+          <View style={styles.dateOverlay}>
+            <View style={styles.dateSheet}>
+              <View style={styles.dateHeader}>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.dateHeaderAction}>Annuler</Text>
+                </TouchableOpacity>
+                <Text style={styles.dateTitle}>Choisir une date</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setCustomDate(draftDate);
+                    setDateFilter('custom');
+                    setShowDatePicker(false);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.dateHeaderAction}>Valider</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={draftDate}
+                mode="date"
+                display="inline"
+                minimumDate={new Date()}
+                themeVariant="dark"
+                onChange={(_, date) => {
+                  if (date) setDraftDate(date);
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker
-          value={customDate || new Date()}
+          value={draftDate}
           mode="date"
           display="default"
           minimumDate={new Date()}
@@ -450,6 +487,7 @@ export default function ExploreScreen({ navigation }) {
             if (event.type === 'set' && date) {
               setCustomDate(date);
               setDateFilter('custom');
+              setDraftDate(date);
             }
           }}
         />
@@ -657,4 +695,37 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   emptyBtnTxt: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+
+  dateOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  dateSheet: {
+    backgroundColor: COLORS.bgCard,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+    paddingBottom: SPACING.sm,
+  },
+  dateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  dateTitle: {
+    color: COLORS.textPrimary,
+    fontSize: FONTS.sizes.md,
+    fontFamily: FONTS.semiBold,
+  },
+  dateHeaderAction: {
+    color: COLORS.primaryLight,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.semiBold,
+  },
 });

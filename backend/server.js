@@ -23,6 +23,10 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// Webhook Stripe : doit recevoir le body brut, donc monté AVANT express.json()
+app.use('/api/subscriptions/stripe-webhook', require('./routes/stripeWebhook'));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -39,6 +43,7 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/lieux', require('./routes/lieux'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
+app.use('/api/deliverables', require('./routes/deliverables'));
 
 app.get('/health', (_req, res) => res.json({
   status: 'ok',

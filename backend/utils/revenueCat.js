@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const SystemSettings = require('../models/SystemSettings');
 
 const DEFAULT_PRODUCT_IDS = {
   starter: 'onlist_business_starter_monthly',
@@ -138,6 +139,13 @@ async function syncUserSubscriptionFromRevenueCat(user, options = {}) {
     entitlementId: options.entitlementId,
   });
 
+  const settings = await SystemSettings.findOne({ key: 'global' }).lean();
+  const billingDisabled = settings?.subscriptionBillingEnabled === false;
+  if (user.isFoundingPartner && billingDisabled && nextState.subscriptionStatus !== 'active') {
+    nextState.subscriptionStatus = 'grace';
+  }
+
+  user.subscriptionHistory = Array.isArray(user.subscriptionHistory) ? user.subscriptionHistory : [];
   user.subscriptionPlan = nextState.subscriptionPlan;
   user.subscriptionStatus = nextState.subscriptionStatus;
   user.revenueCatCustomerId = nextState.revenueCatCustomerId || user.revenueCatCustomerId || appUserId;
@@ -146,6 +154,18 @@ async function syncUserSubscriptionFromRevenueCat(user, options = {}) {
   user.subscriptionStore = nextState.subscriptionStore;
   user.subscriptionExpiresAt = nextState.subscriptionExpiresAt;
   user.subscriptionUpdatedAt = new Date();
+  user.subscriptionHistory.unshift({
+    action: 'revenuecat_sync',
+    source: 'revenuecat',
+    plan: nextState.subscriptionPlan,
+    status: nextState.subscriptionStatus,
+    productId: nextState.subscriptionProductId,
+    store: nextState.subscriptionStore,
+    expiresAt: nextState.subscriptionExpiresAt,
+    note: options.note || 'Synchronisation RevenueCat',
+    createdAt: new Date(),
+  });
+  user.subscriptionHistory = user.subscriptionHistory.slice(0, 50);
   await user.save();
 
   return user;

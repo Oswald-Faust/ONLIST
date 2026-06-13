@@ -16,6 +16,33 @@ router.get('/mine', protect, async (req, res) => {
   }
 });
 
+router.get('/prefill/first', protect, async (req, res) => {
+  try {
+    if (req.user.type !== 'business' && req.user.type !== 'admin') {
+      return res.status(403).json({ message: 'Réservé aux établissements' });
+    }
+
+    const existingLieu = await Lieu.findOne({ creator: req.user._id }).sort({ createdAt: 1 });
+    if (existingLieu) {
+      return res.json({ prefill: existingLieu.toObject(), existingLieu });
+    }
+
+    res.json({
+      prefill: {
+        name: req.user.businessName || '',
+        category: req.user.businessType || '',
+        address: req.user.businessAddress || '',
+        city: req.user.businessCity || '',
+        description: req.user.businessDescription || '',
+        logo: req.user.businessLogo || '',
+        bannerPhoto: req.user.businessBannerPhoto || '',
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /lieux/:id
 router.get('/:id', protect, async (req, res) => {
   try {
@@ -39,7 +66,14 @@ router.post('/', protect, async (req, res) => {
         });
       }
     }
-    const lieu = await Lieu.create({ ...req.body, creator: req.user._id });
+    const payload = {
+      ...req.body,
+      photos: Array.isArray(req.body.photos) ? req.body.photos : [],
+      logo: req.body.logo || '',
+      bannerPhoto: req.body.bannerPhoto || '',
+      creator: req.user._id,
+    };
+    const lieu = await Lieu.create(payload);
     res.status(201).json({ lieu });
   } catch (err) {
     res.status(400).json({ message: err.message });

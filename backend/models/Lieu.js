@@ -12,6 +12,8 @@ const lieuSchema = new mongoose.Schema({
   city: { type: String, trim: true },
   postalCode: { type: String, trim: true },
   description: { type: String },
+  logo: { type: String },
+  bannerPhoto: { type: String },
   photos: [{ type: String }],
   score: { type: Number, default: 0 },
   reviewsCount: { type: Number, default: 0 },

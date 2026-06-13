@@ -1,0 +1,79 @@
+const Stripe = require('stripe');
+
+let stripeClient = null;
+
+function getStripe() {
+  const secretKey = process.env.STRIPE_SECRET_KEY || '';
+  if (!secretKey) {
+    throw new Error('STRIPE_SECRET_KEY manquant');
+  }
+  if (!stripeClient) {
+    stripeClient = new Stripe(secretKey, { apiVersion: '2024-06-20' });
+  }
+  return stripeClient;
+}
+
+function isStripeConfigured() {
+  return Boolean(process.env.STRIPE_SECRET_KEY);
+}
+
+// Correspondance plan business <-> Stripe Price ID (configurés dans le dashboard Stripe)
+function getPlanPriceMap() {
+  return {
+    starter: process.env.STRIPE_PRICE_STARTER || '',
+    pro: process.env.STRIPE_PRICE_PRO || '',
+    group: process.env.STRIPE_PRICE_GROUP || '',
+  };
+}
+
+function getPriceIdForPlan(planKey) {
+  const map = getPlanPriceMap();
+  return map[planKey] || '';
+}
+
+// Reverse: retrouve le plan business à partir d'un Stripe Price ID
+function getPlanForPriceId(priceId) {
+  if (!priceId) return null;
+  const map = getPlanPriceMap();
+  const found = Object.entries(map).find(([, id]) => id && id === priceId);
+  return found ? found[0] : null;
+}
+
+// Stripe subscription.status -> statut interne ONLIST
+function mapStripeStatusToInternal(stripeStatus) {
+  switch (stripeStatus) {
+    case 'active':
+      return 'active';
+    case 'trialing':
+      return 'trialing';
+    case 'past_due':
+    case 'unpaid':
+      return 'past_due';
+    case 'canceled':
+      return 'cancelled';
+    case 'incomplete':
+    case 'incomplete_expired':
+    case 'paused':
+    default:
+      return 'inactive';
+  }
+}
+
+function getAppUrls() {
+  const base = (process.env.STRIPE_PUBLIC_BASE_URL || process.env.APP_URL || 'https://onlist.club').replace(/\/$/, '');
+  return {
+    success: process.env.STRIPE_SUCCESS_URL || `${base}/abonnement/merci?session_id={CHECKOUT_SESSION_ID}`,
+    cancel: process.env.STRIPE_CANCEL_URL || `${base}/abonnement/annule`,
+    portalReturn: process.env.STRIPE_PORTAL_RETURN_URL || `${base}/abonnement`,
+  };
+}
+
+module.exports = {
+  getStripe,
+  isStripeConfigured,
+  getPlanPriceMap,
+  getPriceIdForPlan,
+  getPlanForPriceId,
+  mapStripeStatusToInternal,
+  getAppUrls,
+};

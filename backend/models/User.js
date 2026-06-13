@@ -1,6 +1,34 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const subscriptionHistorySchema = new mongoose.Schema({
+  action: {
+    type: String,
+    enum: ['created', 'manual_update', 'revenuecat_sync', 'founding_partner_granted', 'founding_partner_revoked'],
+    required: true,
+  },
+  source: {
+    type: String,
+    enum: ['admin', 'revenuecat', 'system'],
+    default: 'system',
+  },
+  plan: {
+    type: String,
+    enum: ['starter', 'pro', 'group'],
+  },
+  status: {
+    type: String,
+    enum: ['inactive', 'trialing', 'active', 'past_due', 'cancelled', 'grace'],
+  },
+  productId: { type: String, trim: true },
+  store: { type: String, trim: true },
+  expiresAt: { type: Date },
+  note: { type: String, trim: true },
+  actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  actorName: { type: String, trim: true },
+  createdAt: { type: Date, default: Date.now },
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
@@ -47,6 +75,8 @@ const userSchema = new mongoose.Schema({
     attitude:    { type: Number, default: 0 },
     content:     { type: Number, default: 0 },
   },
+  warningCount: { type: Number, default: 0 },
+  bannedAt: { type: Date },
 
   // Business fields
   businessName: { type: String },
@@ -59,6 +89,9 @@ const userSchema = new mongoose.Schema({
   businessPostalCode: { type: String },
   businessDescription: { type: String },
   businessLogo: { type: String },
+  businessBannerPhoto: { type: String },
+  isFoundingPartner: { type: Boolean, default: false },
+  foundingPartnerGrantedAt: { type: Date },
   subscriptionPlan: {
     type: String,
     enum: ['starter', 'pro', 'group'],
@@ -66,15 +99,18 @@ const userSchema = new mongoose.Schema({
   },
   subscriptionStatus: {
     type: String,
-    enum: ['inactive', 'trialing', 'active', 'past_due', 'cancelled'],
+    enum: ['inactive', 'trialing', 'active', 'past_due', 'cancelled', 'grace'],
     default: 'inactive',
   },
   revenueCatCustomerId: { type: String, trim: true },
   revenueCatEntitlement: { type: String, trim: true },
+  stripeCustomerId: { type: String, trim: true, index: true },
+  stripeSubscriptionId: { type: String, trim: true },
   subscriptionProductId: { type: String, trim: true },
   subscriptionStore: { type: String, trim: true },
   subscriptionExpiresAt: { type: Date },
   subscriptionUpdatedAt: { type: Date },
+  subscriptionHistory: { type: [subscriptionHistorySchema], default: [] },
 
   // Plasma = currency/points
   plasma: { type: Number, default: 0 },

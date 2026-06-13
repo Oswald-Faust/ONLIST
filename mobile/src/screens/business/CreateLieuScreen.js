@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   StatusBar, Alert, TextInput, Modal, FlatList, Image, ActivityIndicator,
@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { lieuxAPI, uploadAPI } from '../../services/api';
 import LocationAutocompleteFields from '../../components/LocationAutocompleteFields';
+import { useAuth } from '../../context/AuthContext';
 
 const TOTAL_STEPS = 3;
 
@@ -142,6 +143,7 @@ function CategorySelector({ value, onChange }) {
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
 export default function CreateLieuScreen({ navigation, route }) {
+  const { user } = useAuth();
   const lieuToEdit = route.params?.lieu;
   const isEdit = !!lieuToEdit;
 
@@ -157,7 +159,25 @@ export default function CreateLieuScreen({ navigation, route }) {
   const [city, setCity] = useState(lieuToEdit?.city || '');
   const [postalCode, setPostalCode] = useState(lieuToEdit?.postalCode || '');
   const [description, setDescription] = useState(lieuToEdit?.description || '');
-  const [photos, setPhotos] = useState(lieuToEdit?.photos || []);
+  const [logo, setLogo] = useState(lieuToEdit?.logo || lieuToEdit?.photos?.[0] || '');
+  const [bannerPhoto, setBannerPhoto] = useState(lieuToEdit?.bannerPhoto || lieuToEdit?.photos?.[1] || '');
+
+  useEffect(() => {
+    if (isEdit) return;
+    lieuxAPI.prefillFirst()
+      .then((data) => {
+        if (data?.existingLieu) return;
+        const prefill = data?.prefill || {};
+        setName((prev) => prev || prefill.name || user?.businessName || '');
+        setCategory((prev) => prev || prefill.category || user?.businessType || '');
+        setAddress((prev) => prev || prefill.address || user?.businessAddress || '');
+        setCity((prev) => prev || prefill.city || user?.businessCity || '');
+        setDescription((prev) => prev || prefill.description || user?.businessDescription || '');
+        setLogo((prev) => prev || prefill.logo || user?.businessLogo || '');
+        setBannerPhoto((prev) => prev || prefill.bannerPhoto || user?.businessBannerPhoto || '');
+      })
+      .catch(() => {});
+  }, [isEdit, user?.businessAddress, user?.businessBannerPhoto, user?.businessCity, user?.businessDescription, user?.businessLogo, user?.businessName, user?.businessType]);
 
   const stepTitles = ['Informations & photos', 'Localisation', 'Description'];
 
@@ -176,7 +196,7 @@ export default function CreateLieuScreen({ navigation, route }) {
   const next = () => { if (validateStep()) setStep(s => s + 1); };
   const prev = () => setStep(s => s - 1);
 
-  const pickPhotos = async () => {
+  const pickSingleImage = async (field) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert('Permission requise', "Autorisez l'accès à la galerie pour ajouter des photos.");
@@ -185,29 +205,22 @@ export default function CreateLieuScreen({ navigation, route }) {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
       quality: 0.8,
-      selectionLimit: Math.max(1, 6 - photos.length),
+      allowsEditing: field === 'logo',
+      aspect: field === 'logo' ? [1, 1] : [16, 9],
     });
     if (result.canceled) return;
 
     setUploading(true);
     try {
-      const uploaded = [];
-      for (const asset of result.assets) {
-        const data = await uploadAPI.image(asset.uri);
-        uploaded.push(data.url);
-      }
-      setPhotos((prev) => [...prev, ...uploaded].slice(0, 6));
+      const data = await uploadAPI.image(result.assets[0].uri);
+      if (field === 'logo') setLogo(data.url);
+      if (field === 'bannerPhoto') setBannerPhoto(data.url);
     } catch (err) {
-      Alert.alert('Erreur upload', err.message || "Impossible d'ajouter les photos.");
+      Alert.alert('Erreur upload', err.message || "Impossible d'ajouter l'image.");
     } finally {
       setUploading(false);
     }
-  };
-
-  const removePhoto = (index) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const submit = async () => {
@@ -218,7 +231,9 @@ export default function CreateLieuScreen({ navigation, route }) {
         capacity: capacity ? parseInt(capacity, 10) : 0,
         address: address.trim(), city: city.trim(), postalCode: postalCode.trim(),
         description: description.trim(),
-        photos,
+        logo,
+        bannerPhoto,
+        photos: [logo, bannerPhoto].filter(Boolean),
       };
       if (isEdit) {
         await lieuxAPI.update(lieuToEdit._id, payload);
@@ -260,19 +275,19 @@ export default function CreateLieuScreen({ navigation, route }) {
           <View style={styles.card}>
             {step === 1 && (
               <>
-                <Text style={styles.sectionTitle}>Photos du lieu</Text>
-                <TouchableOpacity style={styles.coverUpload} onPress={pickPhotos} disabled={uploading}>
-                  {photos[0] ? (
+                <Text style={styles.sectionTitle}>Logo de l’établissement</Text>
+                <TouchableOpacity style={styles.coverUpload} onPress={() => pickSingleImage('logo')} disabled={uploading}>
+                  {logo ? (
                     <>
-                      <Image source={{ uri: photos[0] }} style={styles.coverUploadImage} resizeMode="cover" />
+                      <Image source={{ uri: logo }} style={styles.coverUploadImage} resizeMode="cover" />
                       <LinearGradient
                         colors={['transparent', 'rgba(10,10,15,0.78)']}
                         style={StyleSheet.absoluteFill}
                       />
                       <View style={styles.coverUploadBadge}>
-                        <Ionicons name="images-outline" size={16} color={COLORS.white} />
+                        <Ionicons name="image-outline" size={16} color={COLORS.white} />
                         <Text style={styles.coverUploadBadgeText}>
-                          {uploading ? 'Upload...' : 'Photo principale'}
+                          {uploading ? 'Upload...' : 'Logo'}
                         </Text>
                       </View>
                     </>
@@ -283,42 +298,55 @@ export default function CreateLieuScreen({ navigation, route }) {
                       ) : (
                         <>
                           <View style={styles.coverUploadIcon}>
-                            <Ionicons name="camera-outline" size={28} color={COLORS.primary} />
+                            <Ionicons name="image-outline" size={28} color={COLORS.primary} />
                           </View>
-                          <Text style={styles.coverUploadTitle}>Ajoute les photos du lieu dès le départ</Text>
-                          <Text style={styles.coverUploadSubtitle}>Choisis une belle photo principale puis complète la galerie.</Text>
+                          <Text style={styles.coverUploadTitle}>Ajoute le logo du lieu</Text>
+                          <Text style={styles.coverUploadSubtitle}>Ce visuel sera repris partout dans l’espace établissement.</Text>
                         </>
                       )}
                     </View>
                   )}
                 </TouchableOpacity>
 
-                <View style={styles.photosHeaderRow}>
-                  <Text style={styles.photosHeaderTitle}>Galerie</Text>
-                  <Text style={styles.photosHeaderMeta}>{photos.length}/6 photos</Text>
-                </View>
-                <View style={styles.photoRail}>
-                  {photos.slice(1).map((uri, index) => (
-                    <View key={`${uri}-${index + 1}`} style={styles.photoRailThumb}>
-                      <Image source={{ uri }} style={styles.photoImg} resizeMode="cover" />
-                      <TouchableOpacity style={styles.removeBtn} onPress={() => removePhoto(index + 1)}>
-                        <Ionicons name="close" size={14} color="#fff" />
-                      </TouchableOpacity>
+                <Text style={[styles.sectionTitle, { marginTop: SPACING.lg }]}>Photo bannière</Text>
+                <TouchableOpacity style={styles.coverUpload} onPress={() => pickSingleImage('bannerPhoto')} disabled={uploading}>
+                  {bannerPhoto ? (
+                    <>
+                      <Image source={{ uri: bannerPhoto }} style={styles.coverUploadImage} resizeMode="cover" />
+                      <LinearGradient
+                        colors={['transparent', 'rgba(10,10,15,0.78)']}
+                        style={StyleSheet.absoluteFill}
+                      />
+                      <View style={styles.coverUploadBadge}>
+                        <Ionicons name="images-outline" size={16} color={COLORS.white} />
+                        <Text style={styles.coverUploadBadgeText}>
+                          {uploading ? 'Upload...' : 'Bannière'}
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.coverUploadEmpty}>
+                      {uploading ? (
+                        <ActivityIndicator color={COLORS.primary} />
+                      ) : (
+                        <>
+                          <View style={styles.coverUploadIcon}>
+                            <Ionicons name="images-outline" size={28} color={COLORS.primary} />
+                          </View>
+                          <Text style={styles.coverUploadTitle}>Ajoute une photo bannière</Text>
+                          <Text style={styles.coverUploadSubtitle}>Elle servira à présenter le lieu sur les événements et le profil.</Text>
+                        </>
+                      )}
                     </View>
-                  ))}
-                  {photos.length < 6 && (
-                    <TouchableOpacity style={styles.photoRailAdd} onPress={pickPhotos} disabled={uploading}>
-                      <Ionicons name="add" size={22} color={COLORS.primary} />
-                    </TouchableOpacity>
                   )}
-                </View>
-                <Text style={styles.photoHint}>La première image sera utilisée comme visuel principal du lieu.</Text>
+                </TouchableOpacity>
+                <Text style={styles.photoHint}>Les photos événementielles seront ajoutées plus tard dans la création d’événement.</Text>
 
                 <Text style={[styles.sectionTitle, { marginTop: SPACING.xl }]}>Informations générales</Text>
                 <Field label="Nom du lieu" required placeholder="Ex: Camus Resto" value={name} onChangeText={setName} />
                 <CategorySelector value={category} onChange={setCategory} />
                 <Field
-                  label="Capacité maximale" icon="people-outline"
+                  label="Capacité d’accueil (personnes)" icon="people-outline"
                   placeholder="4"
                   value={capacity}
                   onChangeText={v => setCapacity(v.replace(/[^0-9]/g, ''))}

@@ -7,7 +7,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, Trash2,
   MapPin, Phone, Mail, Calendar, Users, Star, Zap,
   Building2, Globe, TrendingUp, Clock, Shield, LucideIcon,
-  ExternalLink, RefreshCw, Share2,
+  ExternalLink, RefreshCw, Share2, CreditCard,
 } from 'lucide-react';
 
 interface UserDetail {
@@ -37,6 +37,14 @@ interface UserDetail {
   businessCity?: string;
   businessDescription?: string;
   businessLogo?: string;
+  isFoundingPartner?: boolean;
+  foundingPartnerGrantedAt?: string;
+  subscriptionPlan?: 'starter' | 'pro' | 'group';
+  subscriptionStatus?: 'inactive' | 'trialing' | 'active' | 'past_due' | 'cancelled' | 'grace';
+  subscriptionProductId?: string;
+  subscriptionStore?: string;
+  subscriptionExpiresAt?: string | null;
+  subscriptionUpdatedAt?: string | null;
 }
 
 const STATUS_CONFIG = {
@@ -48,6 +56,21 @@ const STATUS_CONFIG = {
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   restaurant: '🍽️ Restaurant', bar: '🍸 Bar', club: '🎵 Club', spa: '💆 Spa',
   sport: '🏋️ Sport', wellness: '🧘 Bien-être', premium: '💎 Lieu Premium', other: '🏢 Autre',
+};
+
+const PLAN_LABELS: Record<string, string> = {
+  starter: 'APP STARTER',
+  pro: 'APP PRO',
+  group: 'APP GROUP',
+};
+
+const SUBSCRIPTION_STATUS_LABELS: Record<string, string> = {
+  inactive: 'Inactive',
+  trialing: 'Essai',
+  active: 'Active',
+  past_due: 'Impayé',
+  cancelled: 'Annulée',
+  grace: 'Grâce',
 };
 
 function StatCard({ icon: Icon, label, value, color }: { icon: LucideIcon; label: string; value: string | number; color: string }) {
@@ -103,9 +126,9 @@ export default function UserDetailPage() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   const fetchUser = async () => {
-    const res = await api(`/admin/users?limit=200`);
+    const res = await api(`/admin/users/${id}`);
     const data = await res.json();
-    const found = (data.users || []).find((u: UserDetail) => u._id === id);
+    const found = data.user as UserDetail | null;
     setUser(found || null);
     setLoading(false);
   };
@@ -341,6 +364,28 @@ export default function UserDetailPage() {
                 {user.businessType && <InfoRow icon={Globe} label="Type" value={BUSINESS_TYPE_LABELS[user.businessType] || user.businessType} />}
                 {user.businessAddress && <InfoRow icon={MapPin} label="Adresse" value={user.businessAddress} />}
                 {user.businessCity && <InfoRow icon={MapPin} label="Ville" value={user.businessCity} />}
+              </Section>
+            )}
+
+            {!isInfluencer && user.type === 'business' && (
+              <Section title="Abonnement Business">
+                <div className="space-y-4">
+                  <InfoRow icon={CreditCard} label="Pack actuel" value={PLAN_LABELS[user.subscriptionPlan || 'starter'] || 'APP STARTER'} />
+                  <InfoRow icon={Shield} label="Statut abonnement" value={SUBSCRIPTION_STATUS_LABELS[user.subscriptionStatus || 'inactive'] || 'Inactive'} />
+                  <div className="rounded-2xl p-4 surface">
+                    <p className="text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                      La gestion complète de l’abonnement est maintenant séparée dans une fiche dédiée avec historique, actions admin et suivi RevenueCat.
+                    </p>
+                    <Link href={`/dashboard/subscriptions/${user._id}`} className="inline-flex items-center gap-2 mt-3 px-4 py-3 rounded-2xl text-sm font-semibold btn-primary">
+                      <CreditCard size={16} />
+                      Ouvrir le détail abonnement
+                    </Link>
+                  </div>
+                  <div className="text-xs space-y-1" style={{ color: 'var(--text-muted)' }}>
+                    <p>Dernière mise à jour: {user.subscriptionUpdatedAt ? new Date(user.subscriptionUpdatedAt).toLocaleString('fr-FR') : '—'}</p>
+                    <p>RevenueCat / Product: {user.subscriptionProductId || '—'}</p>
+                  </div>
+                </div>
               </Section>
             )}
 

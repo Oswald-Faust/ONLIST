@@ -160,7 +160,7 @@ export default function RootNavigator() {
   const businessNeedsSubscription =
     user?.type === 'business' &&
     user?.status !== 'pending' &&
-    user?.subscriptionStatus !== 'active';
+    !['active', 'trialing', 'grace'].includes(user?.subscriptionStatus);
 
   if (loading) {
     return (

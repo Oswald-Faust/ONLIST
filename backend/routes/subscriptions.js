@@ -1,23 +1,29 @@
 const express = require('express');
 const { protect } = require('../middleware/auth');
 const {
-  mapEventTypeToStatus,
-  resolveUserFromRevenueCatEvent,
-  syncUserSubscriptionFromRevenueCat,
-  validateRevenueCatWebhookAuth,
-} = require('../utils/revenueCat');
+  getStripe,
+  isStripeConfigured,
+  getPriceIdForPlan,
+  getAppUrls,
+} = require('../utils/stripe');
+const { getOrCreateStripeCustomer } = require('../utils/stripeSubscription');
+const { BUSINESS_PLAN_KEYS } = require('../utils/businessPlans');
 
 const router = express.Router();
+
+const VALID_PLANS = Object.values(BUSINESS_PLAN_KEYS);
 
 router.get('/me', protect, async (req, res) => {
   try {
     res.json({
       subscriptionPlan: req.user.subscriptionPlan || 'starter',
       subscriptionStatus: req.user.subscriptionStatus || 'inactive',
+      isFoundingPartner: Boolean(req.user.isFoundingPartner),
       subscriptionProductId: req.user.subscriptionProductId || '',
       subscriptionStore: req.user.subscriptionStore || '',
       subscriptionExpiresAt: req.user.subscriptionExpiresAt || null,
-      revenueCatCustomerId: req.user.revenueCatCustomerId || '',
+      stripeCustomerId: req.user.stripeCustomerId || '',
+      hasActiveStripeSubscription: Boolean(req.user.stripeSubscriptionId),
       updatedAt: req.user.subscriptionUpdatedAt || null,
     });
   } catch (err) {
@@ -25,45 +31,69 @@ router.get('/me', protect, async (req, res) => {
   }
 });
 
-router.post('/sync', protect, async (req, res) => {
+// Crée une session Stripe Checkout pour souscrire/changer de plan
+router.post('/checkout', protect, async (req, res) => {
   try {
-    const user = await syncUserSubscriptionFromRevenueCat(req.user, {
-      appUserId: req.user.revenueCatCustomerId || String(req.user._id),
+    if (!isStripeConfigured()) {
+      return res.status(503).json({ message: 'Paiement Stripe non configuré sur le serveur.' });
+    }
+
+    const plan = String(req.body?.plan || '').toLowerCase();
+    if (!VALID_PLANS.includes(plan)) {
+      return res.status(400).json({ message: 'Plan invalide.' });
+    }
+
+    const priceId = getPriceIdForPlan(plan);
+    if (!priceId) {
+      return res.status(400).json({ message: `Aucun tarif Stripe configuré pour le plan ${plan}.` });
+    }
+
+    const stripe = getStripe();
+    const customerId = await getOrCreateStripeCustomer(req.user);
+    const urls = getAppUrls();
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      client_reference_id: String(req.user._id),
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      subscription_data: {
+        metadata: { userId: String(req.user._id), plan },
+      },
+      metadata: { userId: String(req.user._id), plan },
+      success_url: urls.success,
+      cancel_url: urls.cancel,
     });
-    res.json({ user });
+
+    res.json({ url: session.url, sessionId: session.id });
   } catch (err) {
+    console.error('Stripe checkout error:', err.message);
     res.status(500).json({ message: err.message });
   }
 });
 
-router.post('/webhook', async (req, res) => {
+// Crée une session Customer Portal pour gérer/annuler/changer l'abonnement
+router.post('/portal', protect, async (req, res) => {
   try {
-    if (!validateRevenueCatWebhookAuth(req)) {
-      return res.status(401).json({ message: 'Webhook RevenueCat non autorisé' });
+    if (!isStripeConfigured()) {
+      return res.status(503).json({ message: 'Paiement Stripe non configuré sur le serveur.' });
+    }
+    if (!req.user.stripeCustomerId) {
+      return res.status(400).json({ message: 'Aucun client Stripe associé à ce compte.' });
     }
 
-    const event = req.body?.event || req.body || {};
-    if (event.type === 'TEST') {
-      return res.status(200).json({ received: true, test: true });
-    }
-
-    const { user, appUserId } = await resolveUserFromRevenueCatEvent(event);
-    if (!user) {
-      return res.status(200).json({ received: true, skipped: 'user_not_found' });
-    }
-
-    await syncUserSubscriptionFromRevenueCat(user, {
-      appUserId,
-      status: mapEventTypeToStatus(event.type),
-      productId: event.product_id,
-      store: event.store,
-      entitlementId: Array.isArray(event.entitlement_ids) ? event.entitlement_ids[0] : event.entitlement_id,
+    const stripe = getStripe();
+    const urls = getAppUrls();
+    const session = await stripe.billingPortal.sessions.create({
+      customer: req.user.stripeCustomerId,
+      return_url: urls.portalReturn,
     });
 
-    return res.status(200).json({ received: true });
+    res.json({ url: session.url });
   } catch (err) {
-    console.error('RevenueCat webhook error:', err.message);
-    return res.status(500).json({ message: err.message });
+    console.error('Stripe portal error:', err.message);
+    res.status(500).json({ message: err.message });
   }
 });
 

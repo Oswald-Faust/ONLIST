@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/auth';
 import Header from '@/components/Header';
-import { Users, Clock, Calendar, FileText, TrendingUp, UserCheck, Building2, ArrowUpRight, LucideIcon } from 'lucide-react';
+import { Users, Clock, Calendar, FileText, TrendingUp, UserCheck, Building2, ArrowUpRight, LucideIcon, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 
 interface Stats {
@@ -12,6 +12,14 @@ interface Stats {
   totalApplications: number;
   influencers: number;
   businesses: number;
+  subscriptions?: {
+    active?: number;
+    starter?: number;
+    pro?: number;
+    group?: number;
+    grace?: number;
+    foundingPartners?: number;
+  };
 }
 
 interface RecentUser {
@@ -67,11 +75,12 @@ export default function DashboardPage() {
       <Header title="Vue d'ensemble" subtitle={`${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`} />
 
       <div className="flex-1 overflow-y-auto p-8 space-y-8">
-        <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
           <StatCard label="Utilisateurs" value={stats?.totalUsers ?? 0} icon={Users} color="#d4af77" href="/dashboard/users" />
           <StatCard label="En attente" value={stats?.pendingUsers ?? 0} icon={Clock} color="#d7a74c" sub="À valider" href="/dashboard/users?status=pending" />
           <StatCard label="Influenceurs" value={stats?.influencers ?? 0} icon={TrendingUp} color="#52b788" sub="Validés" />
           <StatCard label="Établissements" value={stats?.businesses ?? 0} icon={Building2} color="#c9a961" sub="Validés" />
+          <StatCard label="Subs actives" value={stats?.subscriptions?.active ?? 0} icon={CreditCard} color="#10b981" sub="Business" href="/dashboard/subscriptions?status=active" />
           <StatCard label="Événements" value={stats?.totalEvents ?? 0} icon={Calendar} color="#7ba2d6" href="/dashboard/events" />
           <StatCard label="Candidatures" value={stats?.totalApplications ?? 0} icon={FileText} color="#b78686" href="/dashboard/applications" />
         </div>

@@ -151,7 +151,7 @@ function EventRow({ event, onDelete }) {
   );
 }
 
-function SubscriptionRow({ user }) {
+function SubscriptionRow({ user, onToggleFoundingPartner }) {
   const planLabels = {
     starter: 'APP STARTER',
     pro: 'APP PRO',
@@ -163,6 +163,7 @@ function SubscriptionRow({ user }) {
     active: 'Active',
     past_due: 'Impayé',
     cancelled: 'Annulée',
+    grace: 'Grâce',
   };
 
   const plan = user.subscriptionPlan || 'starter';
@@ -180,16 +181,20 @@ function SubscriptionRow({ user }) {
         <View style={{ flex: 1 }}>
           <Text style={sub.name}>{user.businessName || user.name || '—'}</Text>
           <Text style={sub.meta}>{user.email || '—'}{user.businessCity ? ` · ${user.businessCity}` : ''}</Text>
-          <Text style={sub.meta}>Exp. {expiresAt}</Text>
-        </View>
+        <Text style={sub.meta}>Exp. {expiresAt}</Text>
+        {user.isFoundingPartner ? <Text style={sub.meta}>Founding Partner</Text> : null}
       </View>
-      <View style={sub.right}>
+    </View>
+    <View style={sub.right}>
         <View style={[sub.planPill, plan === 'group' && sub.planPillGroup, plan === 'pro' && sub.planPillPro]}>
           <Text style={[sub.planText, plan !== 'starter' && sub.planTextDark]}>{planLabels[plan] || plan}</Text>
         </View>
         <Text style={[sub.status, status === 'active' ? sub.statusActive : sub.statusInactive]}>
           {statusLabels[status] || status}
         </Text>
+        <TouchableOpacity style={sub.togglePartnerBtn} onPress={() => onToggleFoundingPartner?.(user)}>
+          <Text style={sub.togglePartnerBtnText}>{user.isFoundingPartner ? 'Retirer FP' : 'Passer FP'}</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -556,6 +561,8 @@ export default function AdminDashboardScreen() {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [flaggedDeliverables, setFlaggedDeliverables] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -565,14 +572,18 @@ export default function AdminDashboardScreen() {
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
-      const [statsData, pendingData, allData] = await Promise.all([
+      const [statsData, pendingData, allData, settingsData, deliverablesData] = await Promise.all([
         adminAPI.stats(),
         adminAPI.users({ status: 'pending' }),
         adminAPI.users({ limit: 50 }),
+        adminAPI.settings(),
+        adminAPI.deliverables(),
       ]);
       setStats(statsData);
       setPendingUsers(pendingData.users || []);
       setAllUsers(allData.users?.filter(u => u.type !== 'admin') || []);
+      setSettings(settingsData.settings || null);
+      setFlaggedDeliverables((deliverablesData.submissions || []).filter((item) => item.status === 'flagged'));
       const subscriptionsData = await adminAPI.subscriptions();
       setSubscriptions(subscriptionsData.subscriptions || []);
     } catch (err) {
@@ -625,6 +636,16 @@ export default function AdminDashboardScreen() {
     } catch (err) {
       Alert.alert('Erreur', err.message);
     }
+  };
+
+  const toggleFoundingPartner = async (businessUser) => {
+    await adminAPI.updateFoundingPartner(businessUser._id, !businessUser.isFoundingPartner);
+    fetchData();
+  };
+
+  const toggleBilling = async (nextValue) => {
+    await adminAPI.updateSettings({ subscriptionBillingEnabled: nextValue });
+    fetchData();
   };
 
   // ── Tabs config ───────────────────────────────────────────────────────────
@@ -692,6 +713,8 @@ export default function AdminDashboardScreen() {
                 { label: 'Starter', value: stats.subscriptions?.starter ?? 0, icon: 'ribbon', color: COLORS.textSecondary },
                 { label: 'Pro', value: stats.subscriptions?.pro ?? 0, icon: 'diamond', color: COLORS.primary },
                 { label: 'Group', value: stats.subscriptions?.group ?? 0, icon: 'sparkles', color: COLORS.warning },
+                { label: 'Grace', value: stats.subscriptions?.grace ?? 0, icon: 'shield-checkmark', color: COLORS.primaryLight },
+                { label: 'Founding', value: stats.subscriptions?.foundingPartners ?? 0, icon: 'medal', color: COLORS.primary },
               ].map((s, i) => (
                 <View key={i} style={styles.statCard}>
                   <Ionicons name={s.icon} size={20} color={s.color} />
@@ -701,6 +724,27 @@ export default function AdminDashboardScreen() {
               ))}
             </View>
           )}
+
+          {settings ? (
+            <View style={styles.settingsCard}>
+              <View style={styles.settingsHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingsTitle}>Facturation business</Text>
+                  <Text style={styles.settingsSub}>Coupe ou réactive la facturation abonnement côté plateforme.</Text>
+                </View>
+                <Switch
+                  value={Boolean(settings.subscriptionBillingEnabled)}
+                  onValueChange={toggleBilling}
+                  trackColor={{ false: COLORS.bgCard2, true: 'rgba(201,169,97,0.4)' }}
+                  thumbColor={settings.subscriptionBillingEnabled ? COLORS.primary : COLORS.textMuted}
+                />
+              </View>
+              <Text style={styles.settingsMeta}>
+                Founding Partner: remise {settings.foundingPartnerDiscountPercent}% · grâce {settings.foundingPartnerGraceMonths} mois
+              </Text>
+              <Text style={styles.settingsMeta}>Signalements livrables ouverts: {flaggedDeliverables.length}</Text>
+            </View>
+          ) : null}
 
           {/* ── Alerte en attente ── */}
           {(stats?.pendingUsers || 0) > 0 && (
@@ -773,7 +817,7 @@ export default function AdminDashboardScreen() {
                     </View>
                   ) : (
                     subscriptions.map((user) => (
-                      <SubscriptionRow key={user._id} user={user} />
+                      <SubscriptionRow key={user._id} user={user} onToggleFoundingPartner={toggleFoundingPartner} />
                     ))
                   )}
                 </>
@@ -869,6 +913,19 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginBottom: SPACING.lg,
   },
+  settingsCard: {
+    marginTop: SPACING.lg,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.lg,
+    gap: 10,
+  },
+  settingsHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  settingsTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  settingsSub: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
+  settingsMeta: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium },
   statCard: {
     width: '30.5%',
     backgroundColor: COLORS.bgCard,
@@ -1001,6 +1058,15 @@ const sub = StyleSheet.create({
   status: { fontSize: FONTS.sizes.xs, fontFamily: FONTS.medium },
   statusActive: { color: COLORS.success },
   statusInactive: { color: COLORS.textMuted },
+  togglePartnerBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(201,169,97,0.08)',
+  },
+  togglePartnerBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
 });
 
 // ─── Styles UserRow ────────────────────────────────────────────────────────────

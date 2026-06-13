@@ -3,7 +3,11 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
-const { sendResetCodeEmail, sendWelcomeInfluencerEmail, sendWelcomeBusinessEmail } = require('../utils/mailer');
+const {
+  sendResetCodeEmail,
+  sendWelcomeInfluencerEmail,
+  sendBusinessPendingValidationEmail,
+} = require('../utils/mailer');
 
 const router = express.Router();
 
@@ -15,7 +19,8 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, phone, password, type, instagram, tiktok, followersCount,
       city, country, nationality, gender, dateOfBirth, photos,
-      businessName, businessType, businessAddress, businessCity, businessDescription } = req.body;
+      businessName, businessType, businessAddress, businessCity, businessDescription,
+      businessLogo, businessBannerPhoto } = req.body;
 
     const orConditions = [];
     if (email) orConditions.push({ email });
@@ -31,6 +36,7 @@ router.post('/register', async (req, res) => {
       nationality, gender, dateOfBirth,
       photos: Array.isArray(photos) ? photos : [],
       businessName, businessType, businessAddress, businessCity, businessDescription,
+      businessLogo, businessBannerPhoto,
       subscriptionPlan: type === 'business' ? 'starter' : undefined,
       subscriptionStatus: type === 'business' ? 'inactive' : undefined,
       status: 'pending',
@@ -38,12 +44,17 @@ router.post('/register', async (req, res) => {
 
     // Email de bienvenue (sans bloquer la réponse)
     if (user.email) {
-      const sendWelcome = user.type === 'business' ? sendWelcomeBusinessEmail : sendWelcomeInfluencerEmail;
-      sendWelcome({
-        to: user.email,
-        name: user.name,
-        businessName: user.businessName,
-      }).catch((err) => console.error('Welcome email failed:', err.message));
+      if (user.type === 'business') {
+        sendBusinessPendingValidationEmail({
+          to: user.email,
+          businessName: user.businessName || user.name,
+        }).catch((err) => console.error('Pending validation email failed:', err.message));
+      } else {
+        sendWelcomeInfluencerEmail({
+          to: user.email,
+          name: user.name,
+        }).catch((err) => console.error('Welcome email failed:', err.message));
+      }
     }
 
     res.status(201).json({
@@ -58,6 +69,10 @@ router.post('/register', async (req, res) => {
         businessName: user.businessName,
         businessType: user.businessType,
         businessCity: user.businessCity,
+        businessAddress: user.businessAddress,
+        businessLogo: user.businessLogo,
+        businessBannerPhoto: user.businessBannerPhoto,
+        isFoundingPartner: user.isFoundingPartner,
         subscriptionPlan: user.subscriptionPlan,
         subscriptionStatus: user.subscriptionStatus,
         subscriptionProductId: user.subscriptionProductId,
@@ -119,6 +134,10 @@ router.post('/login', async (req, res) => {
         businessName: user.businessName,
         businessType: user.businessType,
         businessCity: user.businessCity,
+        businessAddress: user.businessAddress,
+        businessLogo: user.businessLogo,
+        businessBannerPhoto: user.businessBannerPhoto,
+        isFoundingPartner: user.isFoundingPartner,
         subscriptionPlan: user.subscriptionPlan,
         subscriptionStatus: user.subscriptionStatus,
         subscriptionProductId: user.subscriptionProductId,

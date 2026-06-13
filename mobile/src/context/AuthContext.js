@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI, subscriptionsAPI, usersAPI } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/pushNotifications';
-import { initializeRevenueCat, isRevenueCatConfigured } from '../services/subscriptions';
 
 const AuthContext = createContext(null);
 
@@ -22,7 +21,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (!user?._id || !token) return;
-    syncRevenueCatIdentity();
+    syncSubscriptionStatus();
   }, [user?._id, token]);
 
   const restoreSession = async () => {
@@ -102,22 +101,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const syncRevenueCatIdentity = async () => {
+  const syncSubscriptionStatus = async () => {
     try {
-      if (isRevenueCatConfigured()) {
-        await initializeRevenueCat(user._id);
-      }
-
       if (user.type !== 'business') return;
-      if (!user.revenueCatCustomerId && user.subscriptionStatus === 'inactive') return;
 
-      const data = await subscriptionsAPI.syncStatus();
-      if (data?.user) {
-        await AsyncStorage.setItem('user', JSON.stringify(data.user));
-        setUser(data.user);
+      const status = await subscriptionsAPI.status();
+      if (status) {
+        const merged = {
+          ...user,
+          subscriptionPlan: status.subscriptionPlan,
+          subscriptionStatus: status.subscriptionStatus,
+          subscriptionExpiresAt: status.subscriptionExpiresAt,
+          stripeCustomerId: status.stripeCustomerId,
+        };
+        await AsyncStorage.setItem('user', JSON.stringify(merged));
+        setUser(merged);
       }
     } catch (error) {
-      console.log('RevenueCat sync error:', error.message);
+      console.log('Subscription status sync error:', error.message);
     }
   };
 

@@ -62,6 +62,12 @@ export const applicationsAPI = {
   businessPending: (params) => api.get('/applications/business/pending', { params }),
 };
 
+export const deliverablesAPI = {
+  mine: () => api.get('/deliverables/my'),
+  submit: (data) => api.post('/deliverables/submit', data),
+  flag: (id, data) => api.post(`/deliverables/${id}/flag`, data),
+};
+
 export const usersAPI = {
   list: (params) => api.get('/users', { params }),
   get: (id) => api.get(`/users/${id}`),
@@ -75,14 +81,19 @@ export const usersAPI = {
 
 export const subscriptionsAPI = {
   status: () => api.get('/subscriptions/me'),
-  syncStatus: () => api.post('/subscriptions/sync'),
+  checkout: (plan) => api.post('/subscriptions/checkout', { plan }),
+  portal: () => api.post('/subscriptions/portal'),
 };
 
 export const adminAPI = {
   users: (params) => api.get('/admin/users', { params }),
   subscriptions: () => api.get('/admin/subscriptions'),
   updateStatus: (id, status) => api.put(`/admin/users/${id}/status`, { status }),
+  updateFoundingPartner: (id, isFoundingPartner) => api.patch(`/admin/users/${id}/founding-partner`, { isFoundingPartner }),
   stats: () => api.get('/admin/stats'),
+  settings: () => api.get('/admin/settings'),
+  updateSettings: (data) => api.patch('/admin/settings', data),
+  deliverables: () => api.get('/admin/deliverables'),
   events: (params) => api.get('/admin/events', { params }),
   createEvent: (data) => api.post('/admin/events', data),
   updateEvent: (id, data) => api.put(`/admin/events/${id}`, data),
@@ -104,6 +115,7 @@ export const notificationsAPI = {
 
 export const lieuxAPI = {
   mine: () => api.get('/lieux/mine'),
+  prefillFirst: () => api.get('/lieux/prefill/first'),
   get: (id) => api.get(`/lieux/${id}`),
   reviews: (id) => api.get(`/lieux/${id}/reviews`),
   review: (id, data) => api.post(`/lieux/${id}/review`, data),
@@ -114,15 +126,35 @@ export const lieuxAPI = {
 
 export const uploadAPI = {
   image: async (uri, options = {}) => {
-    const { onProgress } = options;
+    const { onProgress, isPublic = false } = options;
     const token = await AsyncStorage.getItem('token');
     const filename = uri.split('/').pop();
     const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
     const type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
     const formData = new FormData();
     formData.append('file', { uri, name: filename, type });
+    const headers = { 'Content-Type': 'multipart/form-data' };
+    if (!isPublic && token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const response = await axios.post(`${BASE_URL}/upload`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` },
+      headers,
+      onUploadProgress: (event) => {
+        if (!onProgress || !event?.total) return;
+        onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      },
+    });
+    return response.data;
+  },
+  publicImage: async (uri, options = {}) => {
+    const { onProgress } = options;
+    const filename = uri.split('/').pop();
+    const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
+    const type = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+    const formData = new FormData();
+    formData.append('file', { uri, name: filename, type });
+    const response = await axios.post(`${BASE_URL}/upload/public`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: (event) => {
         if (!onProgress || !event?.total) return;
         onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));

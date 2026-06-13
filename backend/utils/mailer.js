@@ -376,6 +376,36 @@ async function sendWelcomeBusinessEmail({ to, businessName }) {
   });
 }
 
+async function sendBusinessPendingValidationEmail({ to, businessName }) {
+  const name = businessName || 'votre établissement';
+  const html = buildEmail({
+    title: 'Votre demande a bien été reçue — ONLIST',
+    preheader: 'Notre équipe valide chaque établissement manuellement sous 24h.',
+    body: `
+      <div style="display:inline-block;background:rgba(201,169,97,0.1);border:1px solid rgba(201,169,97,0.25);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;letter-spacing:1px;color:#C9A961;margin-bottom:20px;">DEMANDE REÇUE</div>
+      <h1 style="${H1}">Votre demande a bien été reçue</h1>
+      <p style="${P}">Bonjour,</p>
+      <p style="${P}">
+        Nous avons bien reçu la demande de partenariat pour <strong style="color:#FFFFFF;">${name}</strong>.
+      </p>
+      <p style="${P}">
+        Notre équipe valide chaque établissement manuellement sous <strong style="color:#FFFFFF;">24h</strong>.
+        Vous recevrez un accès complet dès validation.
+      </p>
+      <p style="${P_LAST}">
+        Merci pour votre confiance. Nous revenons vers vous très vite.
+      </p>
+    `,
+  });
+
+  await transporter.sendMail({
+    from: `"ONLIST" <${process.env.SMTP_FROM || 'hello@onlist.club'}>`,
+    to,
+    subject: 'Votre demande a bien été reçue — ONLIST',
+    html,
+  });
+}
+
 module.exports = {
   sendResetCodeEmail,
   sendInfluencerValidatedEmail,
@@ -384,4 +414,5 @@ module.exports = {
   sendBusinessRejectedEmail,
   sendWelcomeInfluencerEmail,
   sendWelcomeBusinessEmail,
+  sendBusinessPendingValidationEmail,
 };

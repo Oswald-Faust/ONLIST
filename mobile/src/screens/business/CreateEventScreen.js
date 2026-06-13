@@ -14,6 +14,12 @@ import { eventsAPI, lieuxAPI, uploadAPI } from '../../services/api';
 import LocationAutocompleteFields from '../../components/LocationAutocompleteFields';
 import { useAuth } from '../../context/AuthContext';
 import { getBusinessPlan } from '../../constants/businessPlans';
+import {
+  APPLICATION_CUTOFF_OPTIONS,
+  BOOST_OPTIONS,
+  DELIVERABLE_OPTIONS,
+  OFFER_TAGS_BY_CATEGORY,
+} from '../../constants/businessEventOptions';
 
 const TOTAL_STEPS = 5;
 const STEP_LABELS = ['Lieu', 'Médias', 'Description', 'Contenu', 'Paramètres'];
@@ -116,6 +122,31 @@ function formatTimeValue(date) {
   return `${h}:${m}`;
 }
 
+function parseDurationMinutes(startTime, endTime) {
+  if (!startTime || !endTime) return null;
+  const [startH, startM] = startTime.split(':').map(Number);
+  const [endH, endM] = endTime.split(':').map(Number);
+  const start = startH * 60 + startM;
+  const end = endH * 60 + endM;
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+  return end - start;
+}
+
+function formatDuration(minutes) {
+  if (!minutes) return '';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours && mins) return `${hours}h${String(mins).padStart(2, '0')}`;
+  if (hours) return `${hours}h`;
+  return `${mins} min`;
+}
+
+const PLAN_ORDER = ['starter', 'pro', 'group'];
+
+function isPlanAllowedForOption(planKey, minPlan) {
+  return PLAN_ORDER.indexOf(planKey) >= PLAN_ORDER.indexOf(minPlan);
+}
+
 function PickerField({ label, value, placeholder, icon, onPress }) {
   return (
     <TouchableOpacity style={s.pickerField} onPress={onPress} activeOpacity={0.85}>
@@ -211,19 +242,25 @@ export default function CreateEventScreen({ route, navigation }) {
     postalCode: '',
     city: lieuPreselected?.city || source?.city || '',
     date: parseDate(source?.date) || '',
-    time: parseTime(source?.date) || '',
-    cutoffDate: parseDate(source?.cutoffTime) || '',
+    startTime: source?.startTime || parseTime(source?.date) || '',
+    endTime: source?.endTime || '',
+    requiredArrivalTime: source?.requiredArrivalTime || '',
+    minimumPresenceDuration: source?.minimumPresenceDuration || '',
+    applicationCutoffOffsetHours: String(source?.applicationCutoffOffsetHours || '2'),
     images: source?.images || [],
     category: source?.category || '',
     moment: source?.moment || 'evening',
     description: source?.description || '',
-    offer: source?.offer || '',
+    offerItems: source?.offerItems || [],
+    otherOffer: source?.otherOffer || '',
     deliverables: source?.deliverables || [],
-    requirements: source?.rules || '',
-    accountsToMention: source?.accountsToMention || [],
+    otherDeliverable: source?.otherDeliverable || '',
+    accountsToMention: source?.accountsToMention?.length ? source.accountsToMention : (user?.instagram ? [`@${String(user.instagram).replace(/^@/, '')}`] : []),
     maxParticipants: String(source?.maxParticipants || '10'),
-    ageRequirement: String(source?.ageRequirement || '18'),
+    plusOneMode: source?.plusOneMode || 'solo',
+    isAdultsOnly: Boolean(source?.isAdultsOnly || (source?.ageRequirement && Number(source.ageRequirement) >= 18)),
     dresscode: source?.dresscode || '',
+    boostDurationDays: String(source?.boostDurationDays || '0'),
     isSponsored: source?.isSponsored || false,
     isActive: source?.isActive !== undefined ? source.isActive : true,
   });
@@ -233,20 +270,24 @@ export default function CreateEventScreen({ route, navigation }) {
   const openPicker = (field) => {
     const initial =
       field === 'time'
-        ? form.time
-          ? new Date(`2025-01-01T${form.time}:00`)
+        ? form.startTime
+          ? new Date(`2025-01-01T${form.startTime}:00`)
           : new Date()
-        : field === 'cutoffDate'
-          ? form.cutoffDate
-            ? new Date(`${form.cutoffDate}T12:00:00`)
+        : field === 'endTime'
+          ? form.endTime
+            ? new Date(`2025-01-01T${form.endTime}:00`)
             : new Date()
+          : field === 'requiredArrivalTime'
+            ? form.requiredArrivalTime
+              ? new Date(`2025-01-01T${form.requiredArrivalTime}:00`)
+              : new Date()
           : form.date
             ? new Date(`${form.date}T12:00:00`)
             : new Date();
 
     setPickerConfig({
       field,
-      mode: field === 'time' ? 'time' : 'date',
+      mode: ['time', 'endTime', 'requiredArrivalTime'].includes(field) ? 'time' : 'date',
       value: initial,
     });
   };
@@ -258,9 +299,10 @@ export default function CreateEventScreen({ route, navigation }) {
         setPickerConfig(null);
         return;
       }
-      if (pickerConfig.field === 'time') upd('time', formatTimeValue(selectedDate));
+      if (pickerConfig.field === 'time') upd('startTime', formatTimeValue(selectedDate));
+      if (pickerConfig.field === 'endTime') upd('endTime', formatTimeValue(selectedDate));
+      if (pickerConfig.field === 'requiredArrivalTime') upd('requiredArrivalTime', formatTimeValue(selectedDate));
       if (pickerConfig.field === 'date') upd('date', formatDateValue(selectedDate));
-      if (pickerConfig.field === 'cutoffDate') upd('cutoffDate', formatDateValue(selectedDate));
       setPickerConfig(null);
       return;
     }
@@ -272,9 +314,10 @@ export default function CreateEventScreen({ route, navigation }) {
 
   const confirmIosPicker = () => {
     if (!pickerConfig) return;
-    if (pickerConfig.field === 'time') upd('time', formatTimeValue(pickerConfig.value));
+    if (pickerConfig.field === 'time') upd('startTime', formatTimeValue(pickerConfig.value));
+    if (pickerConfig.field === 'endTime') upd('endTime', formatTimeValue(pickerConfig.value));
+    if (pickerConfig.field === 'requiredArrivalTime') upd('requiredArrivalTime', formatTimeValue(pickerConfig.value));
     if (pickerConfig.field === 'date') upd('date', formatDateValue(pickerConfig.value));
-    if (pickerConfig.field === 'cutoffDate') upd('cutoffDate', formatDateValue(pickerConfig.value));
     setPickerConfig(null);
   };
 
@@ -283,22 +326,24 @@ export default function CreateEventScreen({ route, navigation }) {
   }, []);
 
   // ─── Image picking ──────────────────────────────────────────────────────────────────────────
-  const pickImage = async (index) => {
+  const addEventImages = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert('Permission refusée', "Accès à la galerie requis."); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsMultipleSelection: true,
+      selectionLimit: Math.max(1, 6 - form.images.length),
+    });
     if (result.canceled) return;
-    const uri = result.assets[0].uri;
     setUploadingImg(true);
     try {
-      const data = await uploadAPI.image(uri);
-      const newImages = [...form.images];
-      if (index !== undefined && index < newImages.length) {
-        newImages[index] = data.url;
-      } else {
-        newImages.push(data.url);
+      const uploaded = [];
+      for (const asset of result.assets) {
+        const data = await uploadAPI.image(asset.uri);
+        uploaded.push(data.url);
       }
-      upd('images', newImages);
+      upd('images', [...form.images, ...uploaded].slice(0, 6));
     } catch (err) {
       Alert.alert('Erreur upload', err.message);
     } finally {
@@ -310,12 +355,42 @@ export default function CreateEventScreen({ route, navigation }) {
     upd('images', form.images.filter((_, i) => i !== index));
   };
 
+  const toggleOfferItem = (value) => {
+    const has = form.offerItems.includes(value);
+    upd('offerItems', has ? form.offerItems.filter((item) => item !== value) : [...form.offerItems, value]);
+  };
+
+  const toggleDeliverableItem = (value, minPlan) => {
+    if (!isPlanAllowedForOption(businessPlan.key, minPlan)) return;
+    const has = form.deliverables.includes(value);
+    let nextDeliverables = has
+      ? form.deliverables.filter((item) => item !== value)
+      : [...form.deliverables, value];
+    if (form.plusOneMode === 'required' && !nextDeliverables.includes('google_review_plus_one_screen')) {
+      nextDeliverables = [...nextDeliverables, 'google_review_plus_one_screen'];
+    }
+    upd('deliverables', nextDeliverables);
+  };
+
+  useEffect(() => {
+    if (form.plusOneMode === 'required' && !form.deliverables.includes('google_review_plus_one_screen')) {
+      upd('deliverables', [...form.deliverables, 'google_review_plus_one_screen']);
+    }
+    if (form.plusOneMode === 'solo' && form.deliverables.includes('google_review_plus_one_screen')) {
+      upd('deliverables', form.deliverables.filter((item) => item !== 'google_review_plus_one_screen'));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.plusOneMode]);
+
   // ─── Validation ───────────────────────────────────────────────────────────────────────────────
   const validateStep = () => {
     if (step === 1) {
       if (!form.title.trim()) { Alert.alert('Titre requis'); return false; }
       if (!form.date.trim()) { Alert.alert('Date requise'); return false; }
       if (!form.city.trim()) { Alert.alert('Ville requise'); return false; }
+      if (!form.startTime.trim()) { Alert.alert('Heure de début requise'); return false; }
+      if (!form.endTime.trim()) { Alert.alert('Heure de fin requise'); return false; }
+      if (!parseDurationMinutes(form.startTime, form.endTime)) { Alert.alert('Heure de fin invalide', "L'heure de fin doit être après l'heure de début."); return false; }
       if (!form.lieuId && !form.venueCustom.trim()) { Alert.alert('Nom du lieu requis'); return false; }
     }
     if (step === 3) {
@@ -337,7 +412,7 @@ export default function CreateEventScreen({ route, navigation }) {
     if (!validateStep()) return;
     setSaving(true);
     try {
-      const dateObj = new Date(`${form.date}T${form.time || '20:00'}:00`);
+      const dateObj = new Date(`${form.date}T${form.startTime || '20:00'}:00`);
       if (isNaN(dateObj.getTime())) throw new Error('Format de date invalide (YYYY-MM-DD)');
       const payload = {
         title: form.title.trim(),
@@ -346,20 +421,29 @@ export default function CreateEventScreen({ route, navigation }) {
         address: form.lieuId ? (lieux.find((item) => item._id === form.lieuId)?.address || '') : form.address.trim(),
         city: form.city.trim(),
         date: dateObj.toISOString(),
-        cutoffTime: form.cutoffDate ? new Date(`${form.cutoffDate}T23:59:00`).toISOString() : undefined,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        requiredArrivalTime: form.requiredArrivalTime || undefined,
+        minimumPresenceDuration: form.minimumPresenceDuration ? Number(form.minimumPresenceDuration) : undefined,
+        applicationCutoffOffsetHours: Number(form.applicationCutoffOffsetHours) || 1,
         images: form.images,
         category: form.category,
         moment: form.moment,
         description: form.description.trim(),
-        offer: form.offer.trim(),
-        deliverables: form.deliverables,
-        rules: form.requirements.trim(),
+        offerItems: form.offerItems,
+        otherOffer: form.otherOffer.trim(),
+        deliverables: form.otherDeliverable.trim()
+          ? [...form.deliverables, form.otherDeliverable.trim()]
+          : form.deliverables,
+        otherDeliverable: form.otherDeliverable.trim(),
         accountsToMention: form.accountsToMention,
         maxParticipants: businessPlan.maxCreatorsPerEvent
           ? Math.min(parseInt(form.maxParticipants) || businessPlan.maxCreatorsPerEvent, businessPlan.maxCreatorsPerEvent)
           : (parseInt(form.maxParticipants) || 10),
-        ageRequirement: parseInt(form.ageRequirement) || 18,
+        plusOneMode: form.plusOneMode,
+        isAdultsOnly: form.isAdultsOnly,
         dresscode: form.dresscode.trim(),
+        boostDurationDays: Number(form.boostDurationDays) || 0,
         isSponsored: form.isSponsored,
         isActive: form.isActive,
       };
@@ -379,6 +463,8 @@ export default function CreateEventScreen({ route, navigation }) {
 
   // ─── Render Steps ────────────────────────────────────────────────────────────────────────────
   const renderStep = () => {
+    const durationMinutes = parseDurationMinutes(form.startTime, form.endTime);
+    const offerTags = OFFER_TAGS_BY_CATEGORY[form.category || lieuPreselected?.category || user?.businessType || 'other'] || OFFER_TAGS_BY_CATEGORY.other;
     switch (step) {
       // ── Step 1 ────────────────────────────────────────────────────────────────────────────────
       case 1:
@@ -451,9 +537,9 @@ export default function CreateEventScreen({ route, navigation }) {
               </View>
               <View style={{ width: SPACING.md }} />
               <View style={{ flex: 1 }}>
-                <InputBlock label="Heure">
+                <InputBlock label="Heure de début" required>
                   <PickerField
-                    value={form.time}
+                    value={form.startTime}
                     placeholder="Sélectionner l'heure"
                     icon="time-outline"
                     onPress={() => openPicker('time')}
@@ -462,13 +548,57 @@ export default function CreateEventScreen({ route, navigation }) {
               </View>
             </View>
 
-            <InputBlock label="Date limite de candidature">
-              <PickerField
-                value={form.cutoffDate}
-                placeholder="Sélectionner une date limite"
-                icon="calendar-clear-outline"
-                onPress={() => openPicker('cutoffDate')}
-              />
+            <View style={s.row}>
+              <View style={{ flex: 1 }}>
+                <InputBlock label="Heure de fin" required>
+                  <PickerField
+                    value={form.endTime}
+                    placeholder="Sélectionner l'heure"
+                    icon="time-outline"
+                    onPress={() => openPicker('endTime')}
+                  />
+                </InputBlock>
+              </View>
+              <View style={{ width: SPACING.md }} />
+              <View style={{ flex: 1 }}>
+                <InputBlock label="Durée">
+                  <View style={s.readOnlyField}>
+                    <Text style={s.readOnlyFieldText}>{formatDuration(durationMinutes) || 'À définir'}</Text>
+                  </View>
+                </InputBlock>
+              </View>
+            </View>
+
+            <View style={s.row}>
+              <View style={{ flex: 1 }}>
+                <InputBlock label="Heure d’arrivée requise">
+                  <PickerField
+                    value={form.requiredArrivalTime}
+                    placeholder="Ex: 18:30"
+                    icon="walk-outline"
+                    onPress={() => openPicker('requiredArrivalTime')}
+                  />
+                </InputBlock>
+              </View>
+              <View style={{ width: SPACING.md }} />
+              <View style={{ flex: 1 }}>
+                <InputBlock label="Présence min. (min)">
+                  <StyledInput value={form.minimumPresenceDuration} onChangeText={(v) => upd('minimumPresenceDuration', v.replace(/[^0-9]/g, ''))} placeholder="120" keyboardType="numeric" />
+                </InputBlock>
+              </View>
+            </View>
+
+            <InputBlock label="Heure limite de candidature">
+              <View style={s.optionRowWrap}>
+                {APPLICATION_CUTOFF_OPTIONS.map((hours) => {
+                  const active = String(hours) === String(form.applicationCutoffOffsetHours);
+                  return (
+                    <TouchableOpacity key={hours} style={[s.optionChip, active && s.optionChipActive]} onPress={() => upd('applicationCutoffOffsetHours', String(hours))}>
+                      <Text style={[s.optionChipText, active && s.optionChipTextActive]}>{hours}h avant</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </InputBlock>
           </View>
         );
@@ -478,7 +608,7 @@ export default function CreateEventScreen({ route, navigation }) {
         return (
           <View style={s.stepContent}>
             <Text style={s.stepSectionTitle}>Photo de couverture</Text>
-            <TouchableOpacity style={s.coverPicker} onPress={() => pickImage(0)} disabled={uploadingImg}>
+            <TouchableOpacity style={s.coverPicker} onPress={addEventImages} disabled={uploadingImg}>
               {form.images[0] ? (
                 <>
                   <Image source={{ uri: form.images[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -503,21 +633,21 @@ export default function CreateEventScreen({ route, navigation }) {
 
             <Text style={[s.stepSectionTitle, { marginTop: SPACING.lg }]}>Photos supplémentaires</Text>
             <View style={s.extraImagesRow}>
-              {[1, 2, 3].map(i => (
-                <TouchableOpacity key={i} style={s.extraImageSlot} onPress={() => pickImage(i)} disabled={uploadingImg}>
-                  {form.images[i] ? (
-                    <>
-                      <Image source={{ uri: form.images[i] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                      <TouchableOpacity style={s.removeImgBtn} onPress={() => removeImage(i)}>
-                        <Ionicons name="close-circle" size={18} color={COLORS.error} />
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <Ionicons name="add" size={24} color={COLORS.textMuted} />
-                  )}
-                </TouchableOpacity>
+              {form.images.slice(1).map((uri, index) => (
+                <View key={`${uri}-${index}`} style={s.extraImageSlot}>
+                  <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  <TouchableOpacity style={s.removeImgBtn} onPress={() => removeImage(index + 1)}>
+                    <Ionicons name="close-circle" size={18} color={COLORS.error} />
+                  </TouchableOpacity>
+                </View>
               ))}
+              {form.images.length < 6 ? (
+                <TouchableOpacity style={s.extraImageSlot} onPress={addEventImages} disabled={uploadingImg}>
+                  <Ionicons name="add" size={24} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              ) : null}
             </View>
+            <Text style={s.inputHint}>Ajoute plusieurs visuels d’un coup pour présenter le lieu et l’ambiance de l’événement.</Text>
           </View>
         );
 
@@ -565,20 +695,39 @@ export default function CreateEventScreen({ route, navigation }) {
         return (
           <View style={s.stepContent}>
             <InputBlock label="Ce que vous offrez">
-              <StyledInput value={form.offer} onChangeText={v => upd('offer', v)} placeholder="Dîner gastronomique pour 2, accès VIP, table privée..." multiline numberOfLines={3} />
+              <View style={s.tagsWrap}>
+                {offerTags.map((tag) => {
+                  const active = form.offerItems.includes(tag);
+                  return (
+                    <TouchableOpacity key={tag} style={[s.tagChip, active && s.tagChipActive]} onPress={() => toggleOfferItem(tag)}>
+                      <Text style={[s.tagChipText, active && s.tagChipTextActive]}>{tag}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <StyledInput value={form.otherOffer} onChangeText={v => upd('otherOffer', v)} placeholder="Autre avantage à préciser..." />
             </InputBlock>
 
-            <InputBlock label="Livrables attendus" hint="Ex: Story Instagram, Reel, Post Feed">
-              <TagInput
-                values={form.deliverables}
-                onAdd={v => upd('deliverables', [...form.deliverables, v])}
-                onRemove={i => upd('deliverables', form.deliverables.filter((_, idx) => idx !== i))}
-                placeholder="Ajouter un livrable..."
-              />
-            </InputBlock>
-
-            <InputBlock label="Profil recherché / Exigences">
-              <StyledInput value={form.requirements} onChangeText={v => upd('requirements', v)} placeholder="Minimum 10k followers, contenu lifestyle, engagement > 3%..." multiline numberOfLines={3} />
+            <InputBlock label="Livrables attendus" hint="Les options non incluses dans votre pack restent visibles mais verrouillées.">
+              <View style={s.tagsWrap}>
+                {DELIVERABLE_OPTIONS.map((option) => {
+                  const active = form.deliverables.includes(option.key);
+                  const allowed = isPlanAllowedForOption(businessPlan.key, option.minPlan);
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[s.tagChip, active && s.tagChipActive, !allowed && s.lockedChip]}
+                      onPress={() => toggleDeliverableItem(option.key, option.minPlan)}
+                      disabled={!allowed}
+                    >
+                      {!allowed ? <Ionicons name="lock-closed" size={12} color={COLORS.textMuted} /> : null}
+                      <Text style={[s.tagChipText, active && s.tagChipTextActive, !allowed && s.lockedChipText]}>{option.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={s.planHint}>Disponible à partir du pack correspondant. Upgrade pour déverrouiller les livrables premium.</Text>
+              <StyledInput value={form.otherDeliverable} onChangeText={v => upd('otherDeliverable', v)} placeholder="Autre livrable spécifique..." />
             </InputBlock>
 
             <InputBlock label="Comptes à mentionner">
@@ -604,8 +753,20 @@ export default function CreateEventScreen({ route, navigation }) {
               </View>
               <View style={{ width: SPACING.md }} />
               <View style={{ flex: 1 }}>
-                <InputBlock label="Âge minimum">
-                  <StyledInput value={form.ageRequirement} onChangeText={v => upd('ageRequirement', v)} placeholder="18" keyboardType="numeric" />
+                <InputBlock label="Mode invité">
+                  <View style={s.optionRowWrap}>
+                    {[
+                      { key: 'solo', label: 'Solo' },
+                      { key: 'required', label: '+1 Required' },
+                    ].map((option) => {
+                      const active = form.plusOneMode === option.key;
+                      return (
+                        <TouchableOpacity key={option.key} style={[s.optionChip, active && s.optionChipActive]} onPress={() => upd('plusOneMode', option.key)}>
+                          <Text style={[s.optionChipText, active && s.optionChipTextActive]}>{option.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </InputBlock>
               </View>
             </View>
@@ -616,9 +777,27 @@ export default function CreateEventScreen({ route, navigation }) {
                 : `Votre pack ${businessPlan.name} autorise un nombre illimité de créateurs par événement.`}
             </Text>
 
+            {form.plusOneMode === 'required' ? (
+              <View style={s.inlineInfoCard}>
+                <Ionicons name="information-circle-outline" size={18} color={COLORS.primary} />
+                <Text style={s.inlineInfoText}>Le livrable “Avis Google + screen du +1” sera ajouté automatiquement.</Text>
+              </View>
+            ) : null}
+
             <InputBlock label="Dress code">
               <StyledInput value={form.dresscode} onChangeText={v => upd('dresscode', v)} placeholder="Smart casual, tenue de soirée..." />
             </InputBlock>
+
+            <View style={s.toggleRow}>
+              <View style={s.toggleInfo}>
+                <Ionicons name="warning-outline" size={20} color={COLORS.primary} />
+                <View>
+                  <Text style={s.toggleTitle}>+18 requis</Text>
+                  <Text style={s.toggleSub}>Activez si l’événement est réservé aux majeurs</Text>
+                </View>
+              </View>
+              <Switch value={form.isAdultsOnly} onValueChange={v => upd('isAdultsOnly', v)} trackColor={{ false: COLORS.bgCard2, true: 'rgba(201,169,97,0.4)' }} thumbColor={form.isAdultsOnly ? COLORS.primary : COLORS.textMuted} />
+            </View>
 
             <View style={s.toggleRow}>
               <View style={s.toggleInfo}>
@@ -635,12 +814,27 @@ export default function CreateEventScreen({ route, navigation }) {
               <View style={s.toggleInfo}>
                 <Ionicons name="star-outline" size={20} color={COLORS.primary} />
                 <View>
-                  <Text style={s.toggleTitle}>Premium</Text>
-                  <Text style={s.toggleSub}>Mise en avant dans le feed</Text>
+                  <Text style={s.toggleTitle}>BOOST Premium</Text>
+                  <Text style={s.toggleSub}>Met en avant ton événement (option payante)</Text>
                 </View>
               </View>
               <Switch value={form.isSponsored} onValueChange={v => upd('isSponsored', v)} trackColor={{ false: COLORS.bgCard2, true: 'rgba(201,169,97,0.4)' }} thumbColor={form.isSponsored ? COLORS.primary : COLORS.textMuted} />
             </View>
+
+            {form.isSponsored ? (
+              <InputBlock label="Durée du boost">
+                <View style={s.optionRowWrap}>
+                  {BOOST_OPTIONS.map((option) => {
+                    const active = String(option.days) === String(form.boostDurationDays);
+                    return (
+                      <TouchableOpacity key={option.days} style={[s.optionChip, active && s.optionChipActive]} onPress={() => upd('boostDurationDays', String(option.days))}>
+                        <Text style={[s.optionChipText, active && s.optionChipTextActive]}>{option.days}j · {option.price}€</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </InputBlock>
+            ) : null}
           </View>
         );
 
@@ -745,7 +939,7 @@ export default function CreateEventScreen({ route, navigation }) {
                   <Text style={s.pickerSheetCancel}>Annuler</Text>
                 </TouchableOpacity>
                 <Text style={s.pickerSheetTitle}>
-                  {pickerConfig.field === 'time' ? "Sélectionner l'heure" : 'Sélectionner une date'}
+                  {['time', 'endTime', 'requiredArrivalTime'].includes(pickerConfig.field) ? "Sélectionner l'heure" : 'Sélectionner une date'}
                 </Text>
                 <TouchableOpacity onPress={confirmIosPicker}>
                   <Text style={s.pickerSheetConfirm}>Valider</Text>
@@ -885,7 +1079,32 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(201,169,97,0.08)', borderRadius: RADIUS.full,
     borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 10, paddingVertical: 5,
   },
+  tagChipActive: { backgroundColor: 'rgba(201,169,97,0.14)', borderColor: 'rgba(201,169,97,0.38)' },
   tagChipText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.medium },
+  tagChipTextActive: { color: COLORS.primary },
+  lockedChip: { opacity: 0.52 },
+  lockedChipText: { color: COLORS.textMuted },
+  readOnlyField: {
+    backgroundColor: COLORS.bgInput,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+  },
+  readOnlyFieldText: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.medium },
+  optionRowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  optionChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  optionChipActive: { backgroundColor: 'rgba(201,169,97,0.12)', borderColor: 'rgba(201,169,97,0.4)' },
+  optionChipText: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium },
+  optionChipTextActive: { color: COLORS.primary },
 
   lieuPickBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -959,6 +1178,17 @@ const s = StyleSheet.create({
   toggleInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   toggleTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
   toggleSub: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  inlineInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(201,169,97,0.08)',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.2)',
+    padding: SPACING.md,
+  },
+  inlineInfoText: { flex: 1, color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
 
   footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
