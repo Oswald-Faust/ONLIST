@@ -11,35 +11,55 @@ import { useAuth } from '../../context/AuthContext';
 import { metaAPI } from '../../services/api';
 
 const { height: SCREEN_H } = Dimensions.get('window');
+const REGION_FILTERS = ['Tous', 'Europe', 'Afrique', 'Monde'];
 
 // ─── Villes populaires ─────────────────────────────────────────────────────────
 
 const POPULAR = [
-  { city: 'Paris', country: 'France', flag: '🇫🇷' },
-  { city: 'Lyon', country: 'France', flag: '🇫🇷' },
-  { city: 'Marseille', country: 'France', flag: '🇫🇷' },
-  { city: 'Nice', country: 'France', flag: '🇫🇷' },
-  { city: 'Bordeaux', country: 'France', flag: '🇫🇷' },
-  { city: 'Cannes', country: 'France', flag: '🇫🇷' },
-  { city: 'Monaco', country: 'Monaco', flag: '🇲🇨' },
-  { city: 'Abidjan', country: "Côte d'Ivoire", flag: '🇨🇮' },
-  { city: 'Dakar', country: 'Sénégal', flag: '🇸🇳' },
-  { city: 'Casablanca', country: 'Maroc', flag: '🇲🇦' },
-  { city: 'Marrakech', country: 'Maroc', flag: '🇲🇦' },
-  { city: 'Tunis', country: 'Tunisie', flag: '🇹🇳' },
-  { city: 'Bruxelles', country: 'Belgique', flag: '🇧🇪' },
-  { city: 'Genève', country: 'Suisse', flag: '🇨🇭' },
-  { city: 'Montréal', country: 'Canada', flag: '🇨🇦' },
-  { city: 'Douala', country: 'Cameroun', flag: '🇨🇲' },
-  { city: 'Libreville', country: 'Gabon', flag: '🇬🇦' },
-  { city: 'Lomé', country: 'Togo', flag: '🇹🇬' },
-  { city: 'Toulouse', country: 'France', flag: '🇫🇷' },
-  { city: 'Nantes', country: 'France', flag: '🇫🇷' },
-  { city: 'Strasbourg', country: 'France', flag: '🇫🇷' },
-  { city: 'Montpellier', country: 'France', flag: '🇫🇷' },
-  { city: 'Lille', country: 'France', flag: '🇫🇷' },
-  { city: 'Alger', country: 'Algérie', flag: '🇩🇿' },
+  { city: 'Paris', country: 'France', flag: '🇫🇷', region: 'Paris' },
+  { city: 'Cannes', country: 'France', flag: '🇫🇷', region: 'Europe' },
+  { city: 'Nice', country: 'France', flag: '🇫🇷', region: 'Europe' },
+  { city: 'Saint-Tropez', country: 'France', flag: '🇫🇷', region: 'Europe' },
+  { city: 'Monaco', country: 'Monaco', flag: '🇲🇨', region: 'Europe' },
+  { city: 'Marbella', country: 'Espagne', flag: '🇪🇸', region: 'Europe' },
+  { city: 'Ibiza', country: 'Espagne', flag: '🇪🇸', region: 'Europe' },
+  { city: 'Barcelone', country: 'Espagne', flag: '🇪🇸', region: 'Europe' },
+  { city: 'Madrid', country: 'Espagne', flag: '🇪🇸', region: 'Europe' },
+  { city: 'Londres', country: 'Royaume-Uni', flag: '🇬🇧', region: 'Europe' },
+  { city: 'Abidjan', country: "Côte d'Ivoire", flag: '🇨🇮', region: 'Afrique' },
+  { city: 'Kinshasa', country: 'République démocratique du Congo', flag: '🇨🇩', region: 'Afrique' },
+  { city: 'Dakar', country: 'Sénégal', flag: '🇸🇳', region: 'Afrique' },
+  { city: 'Lagos', country: 'Nigeria', flag: '🇳🇬', region: 'Afrique' },
+  { city: 'Nairobi', country: 'Kenya', flag: '🇰🇪', region: 'Afrique' },
+  { city: 'Casablanca', country: 'Maroc', flag: '🇲🇦', region: 'Afrique' },
+  { city: 'Marrakech', country: 'Maroc', flag: '🇲🇦', region: 'Afrique' },
+  { city: 'Tanger', country: 'Maroc', flag: '🇲🇦', region: 'Afrique' },
+  { city: 'Accra', country: 'Ghana', flag: '🇬🇭', region: 'Afrique' },
+  { city: 'Bruxelles', country: 'Belgique', flag: '🇧🇪', region: 'Europe' },
+  { city: 'Genève', country: 'Suisse', flag: '🇨🇭', region: 'Europe' },
+  { city: 'Amsterdam', country: 'Pays-Bas', flag: '🇳🇱', region: 'Europe' },
+  { city: 'Milan', country: 'Italie', flag: '🇮🇹', region: 'Europe' },
+  { city: 'Rome', country: 'Italie', flag: '🇮🇹', region: 'Europe' },
+  { city: 'Mykonos', country: 'Grèce', flag: '🇬🇷', region: 'Europe' },
+  { city: 'Douala', country: 'Cameroun', flag: '🇨🇲', region: 'Afrique' },
+  { city: 'Montréal', country: 'Canada', flag: '🇨🇦', region: 'Monde' },
+  { city: 'Tunis', country: 'Tunisie', flag: '🇹🇳', region: 'Afrique' },
+  { city: 'Maurice', country: 'Île Maurice', flag: '🇲🇺', region: 'Afrique' },
+  { city: 'Miami', country: 'États-Unis', flag: '🇺🇸', region: 'Monde' },
+  { city: 'New York', country: 'États-Unis', flag: '🇺🇸', region: 'Monde' },
+  { city: 'Los Angeles', country: 'États-Unis', flag: '🇺🇸', region: 'Monde' },
+  { city: 'Sao Paulo', country: 'Brésil', flag: '🇧🇷', region: 'Monde' },
+  { city: 'Tokyo', country: 'Japon', flag: '🇯🇵', region: 'Monde' },
+  { city: 'Singapour', country: 'Singapour', flag: '🇸🇬', region: 'Monde' },
+  { city: 'Dubai', country: 'Émirats arabes unis', flag: '🇦🇪', region: 'Monde' },
 ];
+
+const SECTION_META = {
+  Paris: { title: 'Paris', accent: COLORS.primary, subtitle: 'Priorité créateurs et événements phares' },
+  Europe: { title: 'Europe', accent: 'rgba(123, 182, 255, 0.95)', subtitle: 'Villes européennes par pays' },
+  Afrique: { title: 'Afrique', accent: '#10D9A0', subtitle: 'Villes africaines par pays' },
+  Monde: { title: 'Monde', accent: 'rgba(255,255,255,0.78)', subtitle: 'Autres villes internationales' },
+};
 
 // ─── Item ville ────────────────────────────────────────────────────────────────
 
@@ -95,11 +115,25 @@ export default function CityPickerSheet({
   const [selected, setSelected] = useState('');
   const [saving, setSaving] = useState(false);
   const [eventCities, setEventCities] = useState([]);
+  const [regionFilter, setRegionFilter] = useState('Tous');
+  const [collapsedSections, setCollapsedSections] = useState({
+    Paris: false,
+    Europe: false,
+    Afrique: false,
+    Monde: false,
+  });
 
   // Charger les villes qui ont des événements actifs
   useEffect(() => {
     if (visible) {
       setSelected((selectedCityProp ?? user?.selectedCity) || '');
+      setRegionFilter('Tous');
+      setCollapsedSections({
+        Paris: false,
+        Europe: false,
+        Afrique: false,
+        Monde: false,
+      });
       metaAPI.eventCities()
         .then(data => {
           if (data?.cities?.length) {
@@ -118,25 +152,54 @@ export default function CityPickerSheet({
     // Villes avec events qui ne sont pas dans POPULAR
     const onlyInEvents = eventCities
       .filter(c => !POPULAR.some(p => p.city.toLowerCase() === c.toLowerCase()))
-      .map(c => ({ city: c, country: '', flag: '📍', hasEvent: true }));
+      .map(c => ({ city: c, country: '', flag: '📍', hasEvent: true, region: 'Monde' }));
     // Reste de POPULAR
     const others = POPULAR.filter(c => !eventSet.has(c.city.toLowerCase()));
     return [
       ...withEvents.map(c => ({ ...c, hasEvent: true })),
       ...onlyInEvents,
-      ...others,
+      ...others.map(c => ({ ...c, hasEvent: !!c.hasEvent })),
     ];
   }, [eventCities]);
 
-  const filtered = useMemo(() =>
-    query.trim()
-      ? allCities.filter(c =>
-          c.city.toLowerCase().includes(query.toLowerCase()) ||
-          c.country.toLowerCase().includes(query.toLowerCase())
-        )
-      : allCities,
-    [query, allCities]
-  );
+  const filtered = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return allCities.filter(c => {
+      const matchesQuery = !normalizedQuery
+        || c.city.toLowerCase().includes(normalizedQuery)
+        || c.country.toLowerCase().includes(normalizedQuery);
+      const matchesRegion = regionFilter === 'Tous'
+        || c.region === regionFilter
+        || (regionFilter === 'Europe' && c.region === 'Paris');
+      return matchesQuery && matchesRegion;
+    });
+  }, [query, allCities, regionFilter]);
+
+  const listData = useMemo(() => {
+    const sections = [
+      { key: 'Paris', items: filtered.filter(c => c.region === 'Paris') },
+      { key: 'Europe', items: filtered.filter(c => c.region === 'Europe') },
+      { key: 'Afrique', items: filtered.filter(c => c.region === 'Afrique') },
+      { key: 'Monde', items: filtered.filter(c => c.region === 'Monde') },
+    ];
+
+    return sections.flatMap(section => {
+      if (!section.items.length) return [];
+      const isCollapsed = collapsedSections[section.key];
+      return [
+        {
+          type: 'section',
+          key: `section-${section.key}`,
+          section: section.key,
+          count: section.items.length,
+          collapsed: isCollapsed,
+        },
+        ...(!isCollapsed || query.trim()
+          ? section.items.map(item => ({ type: 'city', key: `city-${item.city}`, item }))
+          : []),
+      ];
+    });
+  }, [collapsedSections, filtered, query]);
 
   const handleConfirm = async () => {
     if (!selected || saving) return;
@@ -162,6 +225,7 @@ export default function CityPickerSheet({
 
   const handleClose = () => {
     setQuery('');
+    setRegionFilter('Tous');
     setSelected((selectedCityProp ?? user?.selectedCity) || '');
     onClose();
   };
@@ -185,6 +249,13 @@ export default function CityPickerSheet({
     } catch {
       setSaving(false);
     }
+  };
+
+  const toggleSection = (sectionKey) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey],
+    }));
   };
 
   return (
@@ -242,27 +313,79 @@ export default function CityPickerSheet({
             )}
           </View>
 
+          <FlatList
+            horizontal
+            data={REGION_FILTERS}
+            keyExtractor={item => item}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+            style={styles.filterList}
+            renderItem={({ item }) => {
+              const active = item === regionFilter;
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setRegionFilter(item)}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                >
+                  <Text style={[styles.filterChipTxt, active && styles.filterChipTxtActive]}>{item}</Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+
           {/* Label liste */}
           {!query && (
             <Text style={styles.listLabel}>
-              {eventCities.length > 0 ? `${eventCities.length} ville${eventCities.length > 1 ? 's' : ''} avec events • Populaires` : 'Villes populaires'}
+              {eventCities.length > 0 ? `${eventCities.length} ville${eventCities.length > 1 ? 's' : ''} avec events` : 'Sélection par zone'}
             </Text>
           )}
 
           {/* Liste — hauteur contrainte */}
           <FlatList
-            data={filtered}
-            keyExtractor={item => item.city}
+            data={listData}
+            keyExtractor={item => item.key}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <CityItem item={item} selected={selected} onSelect={setSelected} />
-            )}
+            renderItem={({ item }) => {
+              if (item.type === 'section') {
+                const meta = SECTION_META[item.section];
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => toggleSection(item.section)}
+                    style={[styles.sectionHeaderRow, item.section === 'Afrique' && styles.sectionHeaderAfrica]}
+                  >
+                    <View style={[styles.sectionAccent, { backgroundColor: meta.accent }]} />
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.sectionTitleRow}>
+                        <Text style={styles.sectionTitle}>{meta.title}</Text>
+                        <View style={styles.sectionCountPill}>
+                          <Text style={styles.sectionCountText}>{item.count}</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.sectionSubtitle, item.section === 'Afrique' && styles.sectionSubtitleAfrica]}>
+                        {meta.subtitle}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={item.collapsed && !query.trim() ? 'chevron-forward' : 'chevron-down'}
+                      size={18}
+                      color={item.section === 'Afrique' ? '#10D9A0' : COLORS.textMuted}
+                    />
+                  </TouchableOpacity>
+                );
+              }
+
+              return <CityItem item={item.item} selected={selected} onSelect={setSelected} />;
+            }}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
             style={styles.list}
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>Aucune ville pour "{query}"</Text>
+                <Text style={styles.emptyText}>
+                  {query ? `Aucune ville pour "${query}"` : 'Aucune ville pour ce filtre'}
+                </Text>
               </View>
             }
           />
@@ -406,6 +529,35 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.base,
     fontFamily: FONTS.regular,
   },
+  filterList: { maxHeight: 42 },
+  filterRow: {
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  filterChip: {
+    height: 34,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.bgCard2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterChipActive: {
+    backgroundColor: 'rgba(201,169,97,0.14)',
+    borderColor: 'rgba(201,169,97,0.4)',
+  },
+  filterChipTxt: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.medium,
+  },
+  filterChipTxtActive: {
+    color: COLORS.white,
+    fontFamily: FONTS.semiBold,
+  },
 
   listLabel: {
     color: COLORS.textMuted,
@@ -421,6 +573,63 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.sm,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+    marginBottom: 4,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  sectionHeaderAfrica: {
+    backgroundColor: 'rgba(16,217,160,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,217,160,0.14)',
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  sectionAccent: {
+    width: 4,
+    alignSelf: 'stretch',
+    borderRadius: RADIUS.full,
+  },
+  sectionTitle: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.semiBold,
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontFamily: FONTS.regular,
+  },
+  sectionCountPill: {
+    minWidth: 24,
+    height: 20,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  sectionCountText: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontFamily: FONTS.semiBold,
+  },
+  sectionSubtitleAfrica: {
+    color: 'rgba(16,217,160,0.85)',
   },
 
   // City row

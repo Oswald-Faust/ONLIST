@@ -8,12 +8,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_LABELS, CATEGORY_OPTIONS } from '../../constants/categories';
 import { adminAPI, eventsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 
-const EVENT_TYPES = ['Club', 'Restaurant', 'Bar', 'Spa', 'VIP', 'Sport', 'Autre'];
+const EVENT_TYPES = CATEGORY_OPTIONS.map((category) => category.label);
 const GENDER_OPTIONS = [
   { value: 'all', label: 'Tous' },
   { value: 'female', label: 'Femmes' },
@@ -54,7 +55,7 @@ function UserRow({ user, onValidate, onReject }) {
           </View>
           <Text style={u.email}>{user.email || user.phone}</Text>
           {user.type === 'business' && user.businessName && (
-            <Text style={u.sub}>{user.businessName} · {user.businessType}</Text>
+            <Text style={u.sub}>{user.businessName} · {CATEGORY_LABELS[user.businessType] || user.businessType}</Text>
           )}
           {user.type === 'influencer' && user.instagram && (
             <Text style={u.sub}>@{user.instagram.replace('@', '')} · {user.followersCount?.toLocaleString() || 0} followers</Text>

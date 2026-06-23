@@ -54,7 +54,14 @@ const STATUS_CONFIG = {
 };
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
+  gastronomie: '🍽️ Gastronomie',
   restaurant: '🍽️ Restaurant', bar: '🍸 Bar', club: '🎵 Club', spa: '💆 Spa',
+  lounge: '🥂 Lounge',
+  bien_etre_spa: '🧘 Bien-être & Spa',
+  fitness: '🏋️ Fitness',
+  staycation: '🛏️ Staycation',
+  experiences: '✨ Experiences',
+  vip: '💎 VIP',
   sport: '🏋️ Sport', wellness: '🧘 Bien-être', premium: '💎 Lieu Premium', other: '🏢 Autre',
 };
 

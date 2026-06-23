@@ -65,6 +65,13 @@ interface EventApplication {
 }
 
 const CAT_COLORS: Record<string, string> = {
+  gastronomie: '#D4AF77',
+  lounge: '#B98956',
+  bien_etre_spa: '#34D399',
+  fitness: '#60A5FA',
+  staycation: '#7C8AA5',
+  experiences: '#D46A9A',
+  vip: '#FCD34D',
   'restaurant-gastronomique': '#C9A961',
   'restaurant-tendance': '#D8B679',
   'bar-cocktail': '#B98956',
@@ -86,6 +93,13 @@ const CAT_COLORS: Record<string, string> = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
+  gastronomie: 'Gastronomie',
+  lounge: 'Lounge',
+  bien_etre_spa: 'Bien-être & Spa',
+  fitness: 'Fitness',
+  staycation: 'Staycation',
+  experiences: 'Experiences',
+  vip: 'VIP',
   'restaurant-gastronomique': 'Restaurant gastronomique',
   'restaurant-tendance': 'Restaurant tendance',
   'bar-cocktail': 'Bar à cocktails',
@@ -257,13 +271,21 @@ function EventDetailContent() {
   const pendingApplications = applications.filter((application) => application.status === 'pending');
   const acceptedApplications = applications.filter((application) => application.status === 'accepted');
   const rejectedApplications = applications.filter((application) => application.status === 'rejected');
+  const hasSidebarDetails = Boolean(event.deliverables?.length);
+  const bottomCardCount = [event.offerItems?.length, event.accountsToMention?.length, event.tags?.length].filter(Boolean).length;
+  const bottomGridClassName =
+    bottomCardCount <= 1
+      ? 'grid grid-cols-1 gap-6'
+      : bottomCardCount === 2
+        ? 'grid grid-cols-1 gap-6 xl:grid-cols-2'
+        : 'grid grid-cols-1 gap-6 xl:grid-cols-3';
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <Header title={event.title} subtitle={shortLocation} />
 
       <div className="flex-1 overflow-y-auto p-8">
-        <div className="mx-auto w-full max-w-[1460px] space-y-8">
+        <div className="w-full space-y-8">
 
           {/* Top bar actions */}
           <div className="flex items-center gap-3 flex-wrap">
@@ -455,7 +477,7 @@ function EventDetailContent() {
             </div>
           </section>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
+          <div className={hasSidebarDetails ? 'grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6' : 'grid grid-cols-1 gap-6'}>
             <div className="space-y-6">
 
               {event.description && (
@@ -605,8 +627,8 @@ function EventDetailContent() {
               </Section>
             </div>
 
-            <div className="space-y-6">
-              {event.deliverables && event.deliverables.length > 0 && (
+            {hasSidebarDetails && (
+              <div className="space-y-6">
                 <Section title="Livrables">
                   <div className="space-y-2">
                     {event.deliverables.map((d, i) => (
@@ -618,12 +640,12 @@ function EventDetailContent() {
                     ))}
                   </div>
                 </Section>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {(event.offerItems?.length || event.accountsToMention?.length || event.tags?.length) ? (
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className={bottomGridClassName}>
               {event.offerItems && event.offerItems.length > 0 && (
                 <Section title="Offre proposée">
                   <div className="flex flex-wrap gap-2">

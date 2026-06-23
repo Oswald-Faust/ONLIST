@@ -7,11 +7,17 @@ const deliverableSubmissionSchema = new mongoose.Schema({
   business: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   deliverableType: { type: String, required: true, trim: true },
   assetUrl: { type: String, trim: true },
+  assetUrls: [{ type: String, trim: true }],
   note: { type: String, trim: true },
   status: { type: String, enum: ['submitted', 'flagged'], default: 'submitted' },
   submittedAt: { type: Date, default: Date.now },
   flaggedAt: { type: Date },
   flaggedReason: { type: String, trim: true },
 });
+
+deliverableSubmissionSchema.index(
+  { application: 1, deliverableType: 1 },
+  { unique: true }
+);
 
 module.exports = mongoose.model('DeliverableSubmission', deliverableSubmissionSchema);

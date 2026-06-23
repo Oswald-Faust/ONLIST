@@ -238,9 +238,12 @@ const HS = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    justifyContent: 'center',
   },
   dimCard: {
-    width: (W - SPACING.lg * 2 - SPACING.md * 2 - 12) / 2,
+    width: '47%',
+    minWidth: 132,
+    maxWidth: 168,
     backgroundColor: 'rgba(255,255,255,0.035)',
     borderRadius: 18,
     borderWidth: 1,
@@ -657,6 +660,11 @@ export default function ProfileScreen({ navigation }) {
               </View>
             </View>
           ) : null}
+
+          <TouchableOpacity style={S.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
+            <Ionicons name="log-out-outline" size={18} color="#F87171" />
+            <Text style={S.logoutBtnText}>Se déconnecter</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -961,6 +969,24 @@ const S = StyleSheet.create({
   scoreTitleTxt: { color: COLORS.textPrimary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold, marginBottom: 4 },
   starsRow:      { flexDirection: 'row', gap: 2, marginBottom: 4 },
   scoreReviews:  { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  logoutBtn: {
+    height: 54,
+    borderRadius: RADIUS.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(248,113,113,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.22)',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  logoutBtnText: {
+    color: '#F87171',
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.semiBold,
+  },
 
   // ── Bottom sheet "Plus" ──
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },

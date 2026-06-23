@@ -16,7 +16,11 @@ function LieuCard({ lieu, onEdit, onDelete, navigation, isActive, onSetActive })
   const catColor = CATEGORY_COLORS[lieu.category] || COLORS.primary;
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.9}
+      onPress={() => navigation.navigate('BusinessLieuDetail', { lieuId: lieu._id, lieu })}
+    >
       {/* Image / Gradient header */}
       <View style={styles.cardImage}>
         {lieu.photos && lieu.photos.length > 0 ? (
@@ -103,7 +107,7 @@ function LieuCard({ lieu, onEdit, onDelete, navigation, isActive, onSetActive })
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

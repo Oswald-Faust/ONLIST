@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { eventsAPI, applicationsAPI, lieuxAPI } from '../../services/api';
+import { getDeliverableLabel } from '../../constants/businessEventOptions';
 import { useAuth } from '../../context/AuthContext';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -127,8 +128,9 @@ export default function EventDetailScreen({ route, navigation }) {
   const [event, setEvent] = useState(eventParam);
   const [loading, setLoading] = useState(!eventParam);
   const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState(null);
   const [liked, setLiked] = useState(false);
+  const [likeSaving, setLikeSaving] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [showLieuRating, setShowLieuRating] = useState(false);
   const [ratingSaving, setRatingSaving] = useState(false);
@@ -140,8 +142,35 @@ export default function EventDetailScreen({ route, navigation }) {
     if (eventParam?._id) {
       loadEvent(eventParam._id);
       checkIfApplied(eventParam._id);
+      checkIfFavorited(eventParam._id);
     }
   }, [eventParam?._id]);
+
+  const checkIfFavorited = async (id) => {
+    try {
+      const data = await eventsAPI.favorites();
+      const isFav = data.events?.some((ev) => ev?._id === id);
+      setLiked(!!isFav);
+    } catch (err) {
+      console.log('checkIfFavorited error:', err.message);
+    }
+  };
+
+  const toggleFavorite = async () => {
+    if (likeSaving) return;
+    const previous = liked;
+    setLiked(!previous); // optimiste
+    setLikeSaving(true);
+    try {
+      const data = await eventsAPI.toggleFavorite(event._id);
+      setLiked(!!data.favorited);
+    } catch (err) {
+      setLiked(previous); // rollback
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setLikeSaving(false);
+    }
+  };
 
   const loadEvent = async (id) => {
     try {
@@ -157,19 +186,19 @@ export default function EventDetailScreen({ route, navigation }) {
   const checkIfApplied = async (id) => {
     try {
       const data = await applicationsAPI.myApplications();
-      const hasApplied = data.applications?.some(a => a.event?._id === id);
-      if (hasApplied) setApplied(true);
+      const existingApplication = data.applications?.find(a => a.event?._id === id);
+      setApplicationStatus(existingApplication?.status || null);
     } catch (err) {
       console.log('checkIfApplied error:', err.message);
     }
   };
 
   const handleApply = async () => {
-    if (applied) return;
+    if (applicationStatus) return;
     setApplying(true);
     try {
       await applicationsAPI.apply({ eventId: event._id });
-      setApplied(true);
+      setApplicationStatus('pending');
       Alert.alert('Demande envoyée !', "L'établissement examinera votre profil.");
     } catch (err) {
       Alert.alert('Erreur', err.message);
@@ -194,6 +223,10 @@ export default function EventDetailScreen({ route, navigation }) {
   }
 
   const imgUri = event.images?.[0] || PLACEHOLDER;
+  const hasApplied = Boolean(applicationStatus);
+  const applyLabel = applicationStatus === 'accepted'
+    ? 'Vous participerez à cet évènement'
+    : 'Demande envoyée';
 
   const dateObj = event.date ? new Date(event.date) : null;
   const dateFormatted = dateObj
@@ -322,7 +355,7 @@ export default function EventDetailScreen({ route, navigation }) {
             {/* Titre + bouton cœur */}
             <View style={S.titleRow}>
               <Text style={S.heroTitle}>{event.title}</Text>
-              <TouchableOpacity onPress={() => setLiked(v => !v)} style={S.heartBtn}>
+              <TouchableOpacity onPress={toggleFavorite} style={S.heartBtn}>
                 <Ionicons
                   name={liked ? 'heart' : 'heart-outline'}
                   size={20}
@@ -384,7 +417,11 @@ export default function EventDetailScreen({ route, navigation }) {
 
           {lieu && (
             <View style={S.lieuScoreCard}>
-              <View style={S.lieuScoreTop}>
+              <TouchableOpacity
+                style={S.lieuScoreTop}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('LieuDetail', { lieuId: lieu._id, lieu })}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={S.lieuScoreLabel}>Lieu</Text>
                   <Text style={S.lieuScoreName}>{lieu.name}</Text>
@@ -393,7 +430,8 @@ export default function EventDetailScreen({ route, navigation }) {
                   <Ionicons name="star" size={14} color={COLORS.primary} />
                   <Text style={S.lieuScoreValue}>{lieu.score > 0 ? lieu.score.toFixed(1) : 'Nouveau'}</Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
               <Text style={S.lieuScoreMeta}>{lieu.reviewsCount || 0} avis influenceurs</Text>
               <TouchableOpacity style={S.rateLieuBtn} onPress={() => setShowLieuRating(true)}>
                 <Ionicons name="create-outline" size={16} color={COLORS.primary} />
@@ -461,7 +499,7 @@ export default function EventDetailScreen({ route, navigation }) {
             <CollapsibleSection title="Livrables">
               <View style={{ gap: SPACING.md }}>
                 {event.deliverables.map((d, i) => (
-                  <CheckItem key={i} text={d} showInfo />
+                  <CheckItem key={i} text={getDeliverableLabel(d)} showInfo />
                 ))}
               </View>
             </CollapsibleSection>
@@ -602,14 +640,14 @@ export default function EventDetailScreen({ route, navigation }) {
           />
           <TouchableOpacity
             onPress={() => setShowPopup(true)}
-            disabled={applying || applied || event.isFull}
+            disabled={applying || hasApplied || event.isFull}
             activeOpacity={0.85}
             style={{ zIndex: 1 }}
           >
-            {applied ? (
+            {hasApplied ? (
               <View style={S.applyApplied}>
                 <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
-                <Text style={[S.applyTxt, { color: COLORS.success }]}>Demande envoyée</Text>
+                <Text style={[S.applyTxt, { color: COLORS.success }]}>{applyLabel}</Text>
               </View>
             ) : event.isFull ? (
               <View style={S.applyDisabled}>

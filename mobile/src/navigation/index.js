@@ -31,6 +31,7 @@ import SearchScreen from '../screens/influencer/SearchScreen';
 import NotificationsScreen from '../screens/influencer/NotificationsScreen';
 import AttendanceConfirmedScreen from '../screens/influencer/AttendanceConfirmedScreen';
 import AccessPassScreen from '../screens/influencer/AccessPassScreen';
+import DeliverablesScreen from '../screens/influencer/DeliverablesScreen';
 
 // Business screens
 import BusinessDashboardScreen from '../screens/business/BusinessDashboardScreen';
@@ -43,9 +44,11 @@ import BusinessEditProfileScreen from '../screens/business/BusinessEditProfileSc
 import BusinessSettingsScreen from '../screens/business/BusinessSettingsScreen';
 import BusinessSubscriptionScreen from '../screens/business/BusinessSubscriptionScreen';
 import CreateLieuScreen from '../screens/business/CreateLieuScreen';
+import BusinessLieuDetailScreen from '../screens/business/BusinessLieuDetailScreen';
 import CreateEventScreen from '../screens/business/CreateEventScreen';
 import BusinessEventDetailScreen from '../screens/business/BusinessEventDetailScreen';
 import EventCheckInScannerScreen from '../screens/business/EventCheckInScannerScreen';
+import BusinessApplicationAssetsScreen from '../screens/business/BusinessApplicationAssetsScreen';
 
 // Admin screens
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -104,6 +107,7 @@ function InfluencerStack() {
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="AttendanceConfirmed" component={AttendanceConfirmedScreen} />
       <Stack.Screen name="AccessPass" component={AccessPassScreen} />
+      <Stack.Screen name="Deliverables" component={DeliverablesScreen} />
     </Stack.Navigator>
   );
 }
@@ -133,10 +137,12 @@ function BusinessStack() {
       <Stack.Screen name="BusinessSettings" component={BusinessSettingsScreen} />
       <Stack.Screen name="BusinessSubscription" component={BusinessSubscriptionScreen} />
       <Stack.Screen name="CreateLieu" component={CreateLieuScreen} />
+      <Stack.Screen name="BusinessLieuDetail" component={BusinessLieuDetailScreen} />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
       <Stack.Screen name="BusinessEventDetail" component={BusinessEventDetailScreen} />
       <Stack.Screen name="BusinessInfluencerProfile" component={BusinessInfluencerProfileScreen} />
       <Stack.Screen name="EventCheckInScanner" component={EventCheckInScannerScreen} />
+      <Stack.Screen name="BusinessApplicationAssets" component={BusinessApplicationAssetsScreen} />
     </Stack.Navigator>
   );
 }

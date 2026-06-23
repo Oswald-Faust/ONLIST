@@ -17,10 +17,9 @@ const lieuReviewSchema = new mongoose.Schema({
 
 lieuReviewSchema.index({ influencer: 1, lieu: 1, event: 1 }, { unique: true, sparse: true });
 
-lieuReviewSchema.pre('save', function (next) {
+lieuReviewSchema.pre('save', function () {
   const { ambience, service, value } = this.scores;
   this.globalScore = Math.round((((ambience + service + value) / 3) * 10)) / 10;
-  next();
 });
 
 module.exports = mongoose.model('LieuReview', lieuReviewSchema);

@@ -8,15 +8,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_LABELS } from '../../constants/categories';
 import { eventsAPI, lieuxAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getBusinessPlan } from '../../constants/businessPlans';
-
-const CATEGORY_LABELS = {
-  restaurant: 'Restaurant', bar: 'Bar', club: 'Club', spa: 'Spa',
-  sport: 'Sport', wellness: 'Bien-être', hotel: 'Hôtel', cafe: 'Café',
-  beauty: 'Beauté', shop: 'Boutique', premium: 'Lieu Premium', other: 'Autre',
-};
 
 export default function BusinessProfileScreen({ navigation }) {
   const { user, logout } = useAuth();

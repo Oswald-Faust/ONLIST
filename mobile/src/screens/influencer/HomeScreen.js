@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, StyleSheet, TouchableOpacity, RefreshControl,
   StatusBar, ScrollView, Image, ActivityIndicator,
@@ -10,24 +11,24 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_OPTIONS } from '../../constants/categories';
 import { eventsAPI, notificationsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import CityPickerSheet from './CityPickerScreen';
 
 const { width: W, height: H } = Dimensions.get('window');
 const SLIDER_H = Math.min(H * 0.62, 520);
+const HOME_CITY_PICKER_SEEN_KEY = 'home_city_picker_seen';
 
 // ─── Filtres ───────────────────────────────────────────────────────────────────
 
 const FILTERS = [
-  { key: 'all',       label: 'Tous',       icon: 'grid-outline' },
-  { key: 'club',      label: 'Club',       icon: 'musical-notes-outline' },
-  { key: 'restaurant',label: 'Restaurant', icon: 'restaurant-outline' },
-  { key: 'bar',       label: 'Bar',        icon: 'wine-outline' },
-  { key: 'spa',       label: 'Spa',        icon: 'leaf-outline' },
-  { key: 'premium',   label: 'VIP',        icon: 'diamond-outline' },
-  { key: 'sport',     label: 'Sport',      icon: 'fitness-outline' },
-  { key: 'wellness',  label: 'Bien-être',  icon: 'flower-outline' },
+  { key: 'all', label: 'Tous', icon: 'grid-outline' },
+  ...CATEGORY_OPTIONS.map((category) => ({
+    key: category.value,
+    label: category.label,
+    icon: category.icon,
+  })),
 ];
 
 // ─── EventCard pleine largeur ──────────────────────────────────────────────────
@@ -127,8 +128,35 @@ export default function HomeScreen({ navigation }) {
     }, [fetchUnreadNotifications])
   );
 
-  // Ouvre le picker si pas de ville
-  useEffect(() => { if (!city) setShowCityPicker(true); }, []);
+  // Ouvre le picker une seule fois si aucune ville n'est encore définie.
+  useEffect(() => {
+    let isMounted = true;
+
+    const maybeOpenCityPicker = async () => {
+      if (city) return;
+
+      try {
+        const storageKey = `${HOME_CITY_PICKER_SEEN_KEY}:${user?._id || 'anonymous'}`;
+        const hasSeenPicker = await AsyncStorage.getItem(storageKey);
+
+        if (!hasSeenPicker && isMounted) {
+          setShowCityPicker(true);
+          await AsyncStorage.setItem(storageKey, 'true');
+        }
+      } catch (error) {
+        console.log('City picker seen state error:', error.message);
+        if (isMounted) {
+          setShowCityPicker(true);
+        }
+      }
+    };
+
+    maybeOpenCityPicker();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [city, user?._id]);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchEvents = useCallback(async () => {
@@ -283,7 +311,7 @@ export default function HomeScreen({ navigation }) {
 
             {/* Greeting */}
             <View style={styles.greetingWrap}>
-              <Text style={styles.welcomeBack}>Welcome back</Text>
+              <Text style={styles.welcomeBack}>Bienvenue,</Text>
               <Text style={styles.hiName}>Hi, {displayName}</Text>
             </View>
 
@@ -360,7 +388,7 @@ export default function HomeScreen({ navigation }) {
                     )}
                     {/* Arrow CTA */}
                     <View style={styles.arrowBtn}>
-                      <Ionicons name="arrow-up-forward" size={15} color={COLORS.white} />
+                      <Ionicons name="arrow-forward" size={15} color={COLORS.white} />
                     </View>
                   </View>
 

@@ -4,21 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_OPTIONS } from '../../constants/categories';
 import GradientButton from '../../components/GradientButton';
 import InputField from '../../components/InputField';
 import KeyboardDismissScrollView from '../../components/KeyboardDismissScrollView';
 import { useAuth } from '../../context/AuthContext';
 
-const BUSINESS_TYPES = [
-  { id: 'restaurant', label: 'Restaurant', icon: 'restaurant' },
-  { id: 'bar', label: 'Bar', icon: 'wine' },
-  { id: 'club', label: 'Club', icon: 'musical-notes' },
-  { id: 'spa', label: 'Spa', icon: 'flower' },
-  { id: 'sport', label: 'Sport', icon: 'fitness' },
-  { id: 'wellness', label: 'Bien-être', icon: 'heart' },
-  { id: 'premium', label: 'Lieu Premium', icon: 'diamond' },
-  { id: 'other', label: 'Autre', icon: 'ellipsis-horizontal' },
-];
+const BUSINESS_TYPES = CATEGORY_OPTIONS.map((category) => ({
+  id: category.value,
+  label: category.label,
+  icon: category.icon.replace('-outline', ''),
+}));
 
 export default function RegisterBusinessScreen({ navigation }) {
   const { register } = useAuth();

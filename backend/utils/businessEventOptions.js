@@ -1,7 +1,16 @@
 const OFFER_TAGS_BY_CATEGORY = {
+  gastronomie: ['Menu dégustation', 'Chef table', 'Accord mets & vins', 'Expérience signature'],
   restaurant: ['Dîner offert', 'Déjeuner offert', 'Menu découverte', 'Consommations offertes', 'Table privée', 'Accès événement'],
+  lounge: ['Cocktails signature', 'Table lounge', 'Accès réservé', 'Service premium'],
   bar: ['Consommations offertes', 'Accès VIP', 'Table réservée', 'Bouteille offerte', 'Entrée gratuite'],
   club: ['Entrée gratuite', 'Table VIP', 'Bouteille offerte', 'Accès backstage'],
+  bien_etre_spa: ['Soin offert', 'Accès espace détente', 'Massage offert', 'Journée découverte'],
+  fitness: ['Séance offerte', 'Abonnement découverte', 'Cours privé', 'Accès premium'],
+  staycation: ['Nuitée offerte', 'Petit-déjeuner inclus', 'Accès rooftop', 'Surclassement'],
+  experiences: ['Accès exclusif', 'Invitation privée', 'Expérience immersive', 'Conciergerie'],
+  vip: ['Accès VIP', 'Invitation privée', 'Conciergerie'],
+
+  // Legacy categories
   spa: ['Soin offert', 'Accès espace détente', 'Massage offert', 'Journée découverte'],
   wellness: ['Soin offert', 'Accès espace détente', 'Massage offert', 'Journée découverte'],
   sport: ['Séance offerte', 'Abonnement découverte', 'Cours privé', 'Accès premium'],

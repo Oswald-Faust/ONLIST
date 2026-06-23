@@ -99,9 +99,6 @@ function sanitizeInfluencerForBusiness(influencer, businessUser) {
     delete raw.reviewsCount;
     delete raw.scoreDetails;
     delete raw.city;
-  } else if (plan.creatorStatsLevel === 'basic') {
-    delete raw.scoreDetails;
-    delete raw.reviewsCount;
   }
 
   return raw;

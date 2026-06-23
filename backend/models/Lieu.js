@@ -4,7 +4,10 @@ const lieuSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   category: {
     type: String,
-    enum: ['restaurant', 'bar', 'club', 'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other'],
+    enum: [
+      'gastronomie', 'restaurant', 'lounge', 'bar', 'club', 'bien_etre_spa', 'fitness', 'staycation', 'experiences', 'vip',
+      'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other',
+    ],
     required: true,
   },
   capacity: { type: Number, default: 0 },

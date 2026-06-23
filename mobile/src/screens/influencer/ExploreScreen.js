@@ -8,19 +8,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_OPTIONS } from '../../constants/categories';
 import EventCard from '../../components/EventCard';
 import { eventsAPI, metaAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const CATEGORIES = [
   { id: '', label: 'Tout', icon: 'grid-outline' },
-  { id: 'restaurant', label: 'Restaurant', icon: 'restaurant-outline' },
-  { id: 'bar', label: 'Bar', icon: 'wine-outline' },
-  { id: 'club', label: 'Club', icon: 'musical-notes-outline' },
-  { id: 'spa', label: 'Spa', icon: 'flower-outline' },
-  { id: 'sport', label: 'Sport', icon: 'fitness-outline' },
-  { id: 'wellness', label: 'Bien-être', icon: 'heart-outline' },
-  { id: 'premium', label: 'VIP', icon: 'diamond-outline' },
+  ...CATEGORY_OPTIONS.map((category) => ({
+    id: category.value,
+    label: category.label,
+    icon: category.icon,
+  })),
 ];
 
 const MOMENTS = [
@@ -64,6 +63,7 @@ export default function ExploreScreen({ navigation }) {
   const [customDate, setCustomDate] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [draftDate, setDraftDate] = useState(new Date());
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   // Ville : par défaut celle de l'utilisateur, sinon "toutes"
   const [city, setCity] = useState(user?.selectedCity || '');
@@ -220,8 +220,16 @@ export default function ExploreScreen({ navigation }) {
               {city ? `Événements à ${city}` : 'Tous les événements'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.filterBtn}>
-            <Ionicons name="options-outline" size={18} color={COLORS.white} />
+          <TouchableOpacity
+            style={[styles.filterBtn, filtersExpanded && styles.filterBtnActive]}
+            onPress={() => setFiltersExpanded((prev) => !prev)}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={filtersExpanded ? 'close-outline' : 'options-outline'}
+              size={18}
+              color={filtersExpanded ? COLORS.bg : COLORS.white}
+            />
           </TouchableOpacity>
         </View>
 
@@ -242,6 +250,7 @@ export default function ExploreScreen({ navigation }) {
           )}
         </View>
 
+        {filtersExpanded && (
         <View style={styles.filtersSection}>
           {/* Filtres ville */}
           {cityOptions.length > 1 && (
@@ -335,44 +344,47 @@ export default function ExploreScreen({ navigation }) {
             })}
           </ScrollView>
         </View>
+        )}
       </SafeAreaView>
 
       {/* Catégories */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.catRow}
-        contentContainerStyle={styles.chipsContent}
-      >
-        {CATEGORIES.map(cat => {
-          const active = category === cat.id;
-          return (
-            <TouchableOpacity
-              key={cat.id}
-              onPress={() => handleSelectCategory(cat.id)}
-              activeOpacity={0.75}
-              style={styles.chipWrap}
-            >
-              {active ? (
-                <LinearGradient
-                  colors={COLORS.gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.catChipActive}
-                >
-                  <Ionicons name={cat.icon} size={13} color={COLORS.bg} />
-                  <Text style={styles.catChipTxtActive}>{cat.label}</Text>
-                </LinearGradient>
-              ) : (
-                <View style={styles.catChip}>
-                  <Ionicons name={cat.icon} size={13} color={COLORS.textMuted} />
-                  <Text style={styles.catChipTxt}>{cat.label}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {filtersExpanded && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.catRow}
+          contentContainerStyle={styles.chipsContent}
+        >
+          {CATEGORIES.map(cat => {
+            const active = category === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => handleSelectCategory(cat.id)}
+                activeOpacity={0.75}
+                style={styles.chipWrap}
+              >
+                {active ? (
+                  <LinearGradient
+                    colors={COLORS.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.catChipActive}
+                  >
+                    <Ionicons name={cat.icon} size={13} color={COLORS.bg} />
+                    <Text style={styles.catChipTxtActive}>{cat.label}</Text>
+                  </LinearGradient>
+                ) : (
+                  <View style={styles.catChip}>
+                    <Ionicons name={cat.icon} size={13} color={COLORS.textMuted} />
+                    <Text style={styles.catChipTxt}>{cat.label}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
 
       {/* Compteur résultats */}
       <View style={styles.resultsHeader}>
@@ -527,6 +539,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  filterBtnActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primaryLight,
   },
 
   searchContainer: {

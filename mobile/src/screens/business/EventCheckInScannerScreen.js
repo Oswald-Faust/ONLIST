@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, ActivityIndicator, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -13,16 +13,18 @@ export default function EventCheckInScannerScreen({ navigation }) {
   const [scanning, setScanning] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null); // { type: 'success'|'already'|'error', message, guest }
+  const [manualCode, setManualCode] = useState('');
 
-  const handleScanned = async ({ data }) => {
-    if (!scanning || loading) return;
+  const submitCode = async (rawCode) => {
+    const code = String(rawCode || '').trim();
+    if (!code || loading) return;
     setScanning(false);
     setLoading(true);
     try {
-      const res = await applicationsAPI.checkin(data);
+      const res = await applicationsAPI.checkin(code);
       setResult({ type: 'success', guest: res.guest, message: 'Entrée validée' });
+      setManualCode('');
     } catch (err) {
-      // 409 = déjà check-in (le message back l'indique)
       const msg = err.message || 'Pass invalide';
       const already = /déjà/i.test(msg);
       setResult({ type: already ? 'already' : 'error', message: msg });
@@ -31,9 +33,15 @@ export default function EventCheckInScannerScreen({ navigation }) {
     }
   };
 
+  const handleScanned = async ({ data }) => {
+    if (!scanning || loading) return;
+    submitCode(data);
+  };
+
   const scanNext = () => {
     setResult(null);
     setScanning(true);
+    setManualCode('');
   };
 
   if (!permission) {
@@ -81,6 +89,28 @@ export default function EventCheckInScannerScreen({ navigation }) {
           <View style={s.scanArea}>
             <View style={s.frame} />
             <Text style={s.hint}>Aligne le QR code du participant dans le cadre</Text>
+            <View style={s.manualCard}>
+              <Text style={s.manualTitle}>Le QR ne fonctionne pas ?</Text>
+              <Text style={s.manualText}>Saisis le code manuel de l’influenceur pour le faire entrer.</Text>
+              <TextInput
+                value={manualCode}
+                onChangeText={setManualCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                placeholder="Code manuel"
+                placeholderTextColor="rgba(255,255,255,0.35)"
+                style={s.manualInput}
+              />
+              <TouchableOpacity
+                style={[s.manualBtn, !manualCode.trim() && s.manualBtnDisabled]}
+                onPress={() => submitCode(manualCode.toUpperCase())}
+                activeOpacity={0.9}
+                disabled={!manualCode.trim() || loading}
+              >
+                <Ionicons name="key-outline" size={18} color="#0A0A0F" />
+                <Text style={s.manualBtnText}>Valider le code</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : null}
 
@@ -140,6 +170,42 @@ const s = StyleSheet.create({
   scanArea: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.lg },
   frame: { width: 240, height: 240, borderRadius: 24, borderWidth: 3, borderColor: 'rgba(255,255,255,0.85)' },
   hint: { color: 'rgba(255,255,255,0.9)', fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold, textAlign: 'center', paddingHorizontal: SPACING.xl },
+  manualCard: {
+    alignSelf: 'stretch',
+    marginHorizontal: SPACING.lg,
+    padding: SPACING.lg,
+    borderRadius: RADIUS.xl,
+    backgroundColor: 'rgba(10,10,15,0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    gap: SPACING.sm,
+  },
+  manualTitle: { color: '#FFF', fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  manualText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
+  manualInput: {
+    height: 52,
+    borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    color: '#FFF',
+    paddingHorizontal: 14,
+    fontSize: FONTS.sizes.base,
+    fontFamily: FONTS.semiBold,
+    letterSpacing: 1.5,
+  },
+  manualBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primary,
+    marginTop: 4,
+  },
+  manualBtnDisabled: { opacity: 0.5 },
+  manualBtnText: { color: '#0A0A0F', fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold },
   resultWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.lg, backgroundColor: 'rgba(0,0,0,0.85)' },
   resultCard: {
     alignSelf: 'stretch', backgroundColor: COLORS.bgCard, borderRadius: RADIUS.xl, borderWidth: 2,

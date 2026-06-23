@@ -39,6 +39,15 @@ function ScoreBar({ label, value }) {
   );
 }
 
+function MiniStatCard({ label, value, tone = 'default' }) {
+  return (
+    <View style={[s.miniStatCard, tone === 'accent' && s.miniStatCardAccent]}>
+      <Text style={[s.miniStatValue, tone === 'accent' && s.miniStatValueAccent]}>{value}</Text>
+      <Text style={s.miniStatLabel}>{label}</Text>
+    </View>
+  );
+}
+
 // ─── Card wrapper ──────────────────────────────────────────────────────────────
 function Card({ title, children, style }) {
   return (
@@ -58,10 +67,19 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [imgErrors, setImgErrors] = useState({});
+  const [myReviews, setMyReviews] = useState([]);
+  const [recentReviews, setRecentReviews] = useState([]);
+
+  const markError = (key) => setImgErrors(prev => ({ ...prev, [key]: true }));
 
   useEffect(() => {
     usersAPI.get(userId)
-      .then(data => setUser(data.user || data))
+      .then(data => {
+        setUser(data.user || data);
+        setMyReviews(data.myReviews || []);
+        setRecentReviews(data.recentReviews || []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [userId]);
@@ -87,14 +105,18 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
   const mainImage = photos[0] || avatarUrl;      // meilleure image disponible
   const score = user.score || 0;
   const sd = user.scoreDetails || {};
+  const strongestMetric = [
+    { label: 'Ponctualité', value: sd.punctuality || 0 },
+    { label: 'Style', value: sd.style || 0 },
+    { label: 'Attitude', value: sd.attitude || 0 },
+    { label: 'Contenu', value: sd.content || 0 },
+  ].sort((a, b) => b.value - a.value)[0];
   const initials = (user.name || '?').slice(0, 2).toUpperCase();
   const handle = user.instagram
     ? `@${user.instagram.replace('@', '')}`
     : user.tiktok
     ? `@${user.tiktok.replace('@', '')}`
     : null;
-  const [imgErrors, setImgErrors] = useState({});
-  const markError = (key) => setImgErrors(prev => ({ ...prev, [key]: true }));
 
   return (
     <View style={s.container}>
@@ -256,9 +278,20 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
                 <Text style={s.globalScoreUnit}>/10</Text>
               </View>
             </View>
-            <Text style={s.reviewsNote}>
-              Vue synthétique disponible avec votre abonnement {plan.name}
-            </Text>
+            <View style={s.miniStatsGrid}>
+              <MiniStatCard label="Ponctualité" value={sd.punctuality ? `${sd.punctuality.toFixed(1)}/10` : '—'} />
+              <MiniStatCard label="Style" value={sd.style ? `${sd.style.toFixed(1)}/10` : '—'} />
+              <MiniStatCard label="Attitude" value={sd.attitude ? `${sd.attitude.toFixed(1)}/10` : '—'} />
+              <MiniStatCard label="Contenu" value={sd.content ? `${sd.content.toFixed(1)}/10` : '—'} />
+            </View>
+            <View style={s.summaryBand}>
+              <Ionicons name="sparkles-outline" size={16} color={COLORS.primaryLight} />
+              <Text style={s.summaryBandText}>
+                {user.reviewsCount > 0
+                  ? `Point fort principal: ${strongestMetric.label.toLowerCase()}`
+                  : `Pas encore assez d'avis pour dégager une tendance.`}
+              </Text>
+            </View>
           </Card>
         )}
 
@@ -282,6 +315,34 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
                 Basé sur {user.reviewsCount} avis d'établissements
               </Text>
             )}
+          </Card>
+        )}
+
+        {myReviews.length > 0 && (
+          <Card title="Votre avis sur ce créateur" style={s.cardMx}>
+            {myReviews.map((review) => (
+              <View key={review._id} style={s.reviewItem}>
+                <View style={s.reviewTopRow}>
+                  <View style={s.reviewEventMeta}>
+                    <Text style={s.reviewEventTitle}>{review.event?.title || 'Événement'}</Text>
+                    <Text style={s.reviewEventDate}>
+                      {review.event?.date ? new Date(review.event.date).toLocaleDateString('fr-FR') : 'Date indisponible'}
+                    </Text>
+                  </View>
+                  <View style={s.reviewScorePill}>
+                    <Text style={s.reviewScoreValue}>{typeof review.globalScore === 'number' ? review.globalScore.toFixed(1) : '—'}</Text>
+                    <Text style={s.reviewScoreUnit}>/10</Text>
+                  </View>
+                </View>
+                <View style={s.reviewScoresRow}>
+                  <Text style={s.reviewScoreChip}>Ponctualité {review.scores?.punctuality ?? '—'}</Text>
+                  <Text style={s.reviewScoreChip}>Style {review.scores?.style ?? '—'}</Text>
+                  <Text style={s.reviewScoreChip}>Attitude {review.scores?.attitude ?? '—'}</Text>
+                  <Text style={s.reviewScoreChip}>Contenu {review.scores?.content ?? '—'}</Text>
+                </View>
+                {review.comment ? <Text style={s.reviewComment}>{review.comment}</Text> : null}
+              </View>
+            ))}
           </Card>
         )}
 
@@ -409,6 +470,73 @@ const s = StyleSheet.create({
   scoreBarFill: { height: '100%', borderRadius: 3 },
   scoreBarValue: { width: 28, textAlign: 'right', color: COLORS.textPrimary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
   reviewsNote: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, textAlign: 'center' },
+  miniStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  miniStatCard: {
+    width: '48%',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    gap: 6,
+  },
+  miniStatCardAccent: {
+    backgroundColor: 'rgba(201,169,97,0.08)',
+    borderColor: 'rgba(201,169,97,0.2)',
+  },
+  miniStatValue: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  miniStatValueAccent: { color: COLORS.primary },
+  miniStatLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.medium, textTransform: 'uppercase', letterSpacing: 0.4 },
+  summaryBand: {
+    marginTop: SPACING.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    backgroundColor: 'rgba(201,169,97,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.18)',
+  },
+  summaryBandText: { flex: 1, color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium, lineHeight: 20 },
+  reviewItem: {
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    gap: SPACING.sm,
+  },
+  reviewTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACING.md },
+  reviewEventMeta: { flex: 1, gap: 2 },
+  reviewEventTitle: { color: COLORS.textPrimary, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  reviewEventDate: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  reviewScorePill: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(201,169,97,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.2)',
+  },
+  reviewScoreValue: { color: COLORS.primary, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  reviewScoreUnit: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, paddingBottom: 2 },
+  reviewScoresRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  reviewScoreChip: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.semiBold,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  reviewComment: { color: COLORS.textPrimary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
   noPhotoHint: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   noPhotoHintText: { color: 'rgba(255,255,255,0.4)', fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
   thumbError: { backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },

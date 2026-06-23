@@ -23,6 +23,7 @@ router.get('/my', protect, requireValidated, async (req, res) => {
 
     const submissions = await DeliverableSubmission.find(filter)
       .populate('event', 'title date city')
+      .populate('application', '_id checkedIn checkedInAt')
       .populate('influencer', 'name instagram')
       .sort({ submittedAt: -1, createdAt: -1 });
 
@@ -38,7 +39,7 @@ router.post('/submit', protect, requireValidated, async (req, res) => {
       return res.status(403).json({ message: 'Réservé aux créateurs' });
     }
 
-    const { applicationId, deliverableType, assetUrl, note } = req.body;
+    const { applicationId, deliverableType, assetUrl, assetUrls, note } = req.body;
     const application = await Application.findById(applicationId).populate('event');
     if (!application || application.user.toString() !== req.user._id.toString()) {
       return res.status(404).json({ message: 'Participation introuvable' });
@@ -46,23 +47,50 @@ router.post('/submit', protect, requireValidated, async (req, res) => {
     if (application.status !== 'accepted') {
       return res.status(400).json({ message: 'La participation doit être acceptée' });
     }
+    if (!application.checkedIn) {
+      return res.status(400).json({ message: 'Le badge doit être scanné avant de soumettre un livrable' });
+    }
 
     const event = application.event;
+    const eventDeliverables = Array.isArray(event.deliverables) ? event.deliverables.filter(Boolean) : [];
+    if (!deliverableType || !eventDeliverables.includes(deliverableType)) {
+      return res.status(400).json({ message: 'Livrable invalide pour cet événement' });
+    }
+
+    const normalizedAssetUrls = (Array.isArray(assetUrls) ? assetUrls : [assetUrl])
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (normalizedAssetUrls.length === 0) {
+      return res.status(400).json({ message: 'Au moins une preuve est requise' });
+    }
+
     const deadline = getDeliverableDeadline(event.date);
     const now = new Date();
-    const status = now <= deadline ? 'approved' : 'pending';
+    const existingSubmission = await DeliverableSubmission.findOne({
+      application: application._id,
+      deliverableType,
+    });
 
-    const submission = await DeliverableSubmission.create({
+    const payload = {
       event: event._id,
       application: application._id,
       influencer: req.user._id,
       business: event.creator,
       deliverableType,
-      assetUrl,
+      assetUrl: normalizedAssetUrls[0],
+      assetUrls: normalizedAssetUrls,
       note,
-      status,
+      status: 'submitted',
       submittedAt: now,
-    });
+      flaggedAt: undefined,
+      flaggedReason: '',
+    };
+
+    const submission = existingSubmission
+      ? await DeliverableSubmission.findByIdAndUpdate(existingSubmission._id, payload, { new: true })
+      : await DeliverableSubmission.create(payload);
 
     await createNotification({
       userId: event.creator,
@@ -73,7 +101,12 @@ router.post('/submit', protect, requireValidated, async (req, res) => {
       body: `${req.user.name || 'Un créateur'} a soumis un livrable pour ${event.title}.`,
       entityType: 'deliverable',
       entityId: submission._id,
-      data: { eventId: `${event._id}`, applicationId: `${application._id}`, status },
+      data: {
+        eventId: `${event._id}`,
+        applicationId: `${application._id}`,
+        deliverableType,
+        submittedBeforeDeadline: now <= deadline,
+      },
     });
 
     res.status(201).json({ submission });

@@ -9,6 +9,7 @@ const {
   isInfluencerVisibleToBusiness,
   sanitizeInfluencerForBusiness,
 } = require('../utils/businessPlans');
+const { sendIncompleteProfileNotification } = require('../utils/profileCompletion');
 
 const router = express.Router();
 
@@ -102,7 +103,19 @@ router.get('/:id', protect, async (req, res) => {
       if (!allowed) {
         return res.status(403).json({ message: 'Ce profil créateur n’est pas inclus dans votre abonnement actuel' });
       }
-      return res.json({ user: sanitizeInfluencerForBusiness(user, req.user) });
+      const sanitized = sanitizeInfluencerForBusiness(user, req.user);
+      const [myReviews, recentReviews] = await Promise.all([
+        Review.find({ influencer: user._id, business: req.user._id })
+          .populate('event', 'title date venue city')
+          .sort({ createdAt: -1 })
+          .limit(5),
+        Review.find({ influencer: user._id })
+          .populate('business', 'businessName name')
+          .populate('event', 'title date')
+          .sort({ createdAt: -1 })
+          .limit(5),
+      ]);
+      return res.json({ user: sanitized, myReviews, recentReviews });
     }
     res.json({ user });
   } catch (err) {
@@ -121,6 +134,7 @@ router.put('/me', protect, async (req, res) => {
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
+    await sendIncompleteProfileNotification(user);
     res.json({ user });
   } catch (err) {
     res.status(500).json({ message: err.message });

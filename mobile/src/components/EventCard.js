@@ -3,21 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOW } from '../constants/theme';
-
-const CATEGORY_ICONS = {
-  restaurant: 'restaurant',
-  bar: 'wine',
-  club: 'musical-notes',
-  spa: 'flower',
-  sport: 'fitness',
-  wellness: 'heart',
-  hotel: 'bed',
-  cafe: 'cafe',
-  beauty: 'color-palette',
-  shop: 'cart',
-  premium: 'diamond',
-  other: 'star',
-};
+import { CATEGORY_ICONS, CATEGORY_LABELS } from '../constants/categories';
 
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600',
@@ -56,11 +42,11 @@ export default function EventCard({ event, onPress, style }) {
         <View style={styles.categoryRow}>
           <View style={styles.categoryBadge}>
             <Ionicons name={iconName} size={11} color={COLORS.gold} />
-            <Text style={styles.categoryText}>{event.category || 'event'}</Text>
+            <Text style={styles.categoryText}>{CATEGORY_LABELS[event.category] || event.category || 'event'}</Text>
           </View>
           {dateStr && (
             <View style={styles.dateBadge}>
-              <Ionicons name="calendar-outline" size={10} color={COLORS.textSecondary} />
+              <Ionicons name="calendar-outline" size={10} color={COLORS.textPrimary} />
               <Text style={styles.dateText}>{dateStr}</Text>
             </View>
           )}
@@ -155,12 +141,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(10,10,15,0.5)',
     borderRadius: RADIUS.full,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
   },
-  dateText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontFamily: 'Poppins_400Regular' },
+  dateText: { color: COLORS.textPrimary, fontSize: FONTS.sizes.xs, fontFamily: 'Poppins_600SemiBold' },
   title: {
     color: COLORS.white,
     fontSize: FONTS.sizes.lg,
@@ -192,5 +180,5 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
   },
   smallTitle: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: 'Poppins_600SemiBold', marginBottom: 2 },
-  smallSub: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontFamily: 'Poppins_400Regular' },
+  smallSub: { color: COLORS.textPrimary, fontSize: FONTS.sizes.xs, fontFamily: 'Poppins_500Medium' },
 });

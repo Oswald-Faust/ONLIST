@@ -29,14 +29,28 @@ interface Event {
 }
 
 const CAT_COLORS: Record<string, string> = {
+  gastronomie: '#D4AF77',
   restaurant: '#C9A961', bar: '#A78BFA', club: '#F472B6', spa: '#34D399',
+  lounge: '#B98956',
+  bien_etre_spa: '#34D399',
+  fitness: '#60A5FA',
+  staycation: '#7C8AA5',
+  experiences: '#D46A9A',
+  vip: '#FCD34D',
   sport: '#60A5FA', wellness: '#86EFAC', premium: '#FCD34D', other: '#9CA3AF',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
+  gastronomie: 'Gastronomie',
   restaurant: 'Restaurant',
+  lounge: 'Lounge',
   bar: 'Bar',
   club: 'Club',
+  bien_etre_spa: 'Bien-être & Spa',
+  fitness: 'Fitness',
+  staycation: 'Staycation',
+  experiences: 'Experiences',
+  vip: 'VIP',
   spa: 'Spa',
   sport: 'Sport',
   wellness: 'Bien-être',

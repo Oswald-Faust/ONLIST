@@ -15,10 +15,9 @@ const reviewSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-reviewSchema.pre('save', function (next) {
+reviewSchema.pre('save', function () {
   const { style, punctuality, attitude, content } = this.scores;
-  this.globalScore = ((style + punctuality + attitude + content) / 4).toFixed(1);
-  next();
+  this.globalScore = Number(((style + punctuality + attitude + content) / 4).toFixed(1));
 });
 
 module.exports = mongoose.model('Review', reviewSchema);

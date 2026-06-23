@@ -1,9 +1,18 @@
 import { BUSINESS_PLAN_KEYS } from './businessPlans';
 
 export const OFFER_TAGS_BY_CATEGORY = {
+  gastronomie: ['Menu dégustation', 'Chef table', 'Accord mets & vins', 'Expérience signature'],
   restaurant: ['Dîner', 'Déjeuner', 'Brunch', 'Cocktail offert', 'Menu dégustation', 'Table premium'],
+  lounge: ['Cocktails signature', 'Table lounge', 'Accès réservé', 'Service premium'],
   bar: ['Cocktails offerts', 'Bouteille', 'Happy hour VIP', 'Table réservée', 'Tapas'],
   club: ['Entrée offerte', 'Table VIP', 'Bouteille', 'Accès backstage', 'Carré privé'],
+  bien_etre_spa: ['Soin offert', 'Massage', 'Accès spa', 'Brunch bien-être'],
+  fitness: ['Séance offerte', 'Coaching privé', 'Accès premium', 'Pack récupération'],
+  staycation: ['Nuitée', 'Petit-déjeuner', 'Accès rooftop', 'Surclassement'],
+  experiences: ['Invitation privée', 'Accès exclusif', 'Expérience immersive', 'Conciergerie'],
+  vip: ['Expérience sur-mesure', 'Invitation privée', 'Conciergerie'],
+
+  // Legacy categories
   spa: ['Soin offert', 'Massage', 'Accès spa', 'Brunch bien-être'],
   sport: ['Séance offerte', 'Coaching privé', 'Accès premium', 'Pack récupération'],
   wellness: ['Atelier offert', 'Soin bien-être', 'Accès premium'],
@@ -25,6 +34,14 @@ export const DELIVERABLE_OPTIONS = [
   { key: 'reel_or_tiktok', label: 'Reel ou TikTok', minPlan: BUSINESS_PLAN_KEYS.GROUP },
   { key: 'google_review_plus_one_screen', label: 'Avis Google + screen du +1', minPlan: BUSINESS_PLAN_KEYS.STARTER },
 ];
+
+// Map clé technique -> libellé lisible (ex: 'instagram_story_5' -> 'Jusqu’à 5 stories')
+export const DELIVERABLE_LABELS = DELIVERABLE_OPTIONS.reduce((acc, opt) => {
+  acc[opt.key] = opt.label;
+  return acc;
+}, {});
+
+export const getDeliverableLabel = (key) => DELIVERABLE_LABELS[key] || key;
 
 export const APPLICATION_CUTOFF_OPTIONS = [1, 2, 3, 4];
 

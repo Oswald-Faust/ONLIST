@@ -1,0 +1,82 @@
+export const CATEGORY_OPTIONS = [
+  { value: 'gastronomie', label: 'Gastronomie', icon: 'restaurant-outline' },
+  { value: 'restaurant', label: 'Restaurant', icon: 'restaurant-outline' },
+  { value: 'lounge', label: 'Lounge', icon: 'wine-outline' },
+  { value: 'bar', label: 'Bar', icon: 'wine-outline' },
+  { value: 'club', label: 'Club', icon: 'musical-notes-outline' },
+  { value: 'bien_etre_spa', label: 'Bien-être & Spa', icon: 'leaf-outline' },
+  { value: 'fitness', label: 'Fitness', icon: 'fitness-outline' },
+  { value: 'staycation', label: 'Staycation', icon: 'bed-outline' },
+  { value: 'experiences', label: 'Experiences', icon: 'sparkles-outline' },
+  { value: 'vip', label: 'VIP', icon: 'diamond-outline' },
+];
+
+export const CATEGORY_LABELS = {
+  gastronomie: 'Gastronomie',
+  restaurant: 'Restaurant',
+  lounge: 'Lounge',
+  bar: 'Bar',
+  club: 'Club',
+  bien_etre_spa: 'Bien-être & Spa',
+  fitness: 'Fitness',
+  staycation: 'Staycation',
+  experiences: 'Experiences',
+  vip: 'VIP',
+
+  // Legacy categories kept readable for existing records.
+  spa: 'Spa',
+  sport: 'Sport',
+  wellness: 'Wellness',
+  hotel: 'Hôtel',
+  cafe: 'Café',
+  beauty: 'Beauté',
+  shop: 'Boutique',
+  premium: 'Premium',
+  other: 'Autre',
+};
+
+export const CATEGORY_ICONS = {
+  gastronomie: 'restaurant',
+  restaurant: 'restaurant',
+  lounge: 'wine',
+  bar: 'wine',
+  club: 'musical-notes',
+  bien_etre_spa: 'leaf',
+  fitness: 'fitness',
+  staycation: 'bed',
+  experiences: 'sparkles',
+  vip: 'diamond',
+
+  spa: 'flower',
+  sport: 'fitness',
+  wellness: 'heart',
+  hotel: 'bed',
+  cafe: 'cafe',
+  beauty: 'color-palette',
+  shop: 'cart',
+  premium: 'diamond',
+  other: 'star',
+};
+
+export const CATEGORY_COLORS = {
+  gastronomie: '#D4AF77',
+  restaurant: '#C9A961',
+  lounge: '#B98956',
+  bar: '#A77B5A',
+  club: '#C06AA8',
+  bien_etre_spa: '#4CAF8A',
+  fitness: '#4A9EE0',
+  staycation: '#7C8AA5',
+  experiences: '#D46A9A',
+  vip: '#C9A961',
+
+  spa: '#4CAF8A',
+  sport: '#E05252',
+  wellness: '#4A9EE0',
+  hotel: '#7C8AA5',
+  cafe: '#A67C52',
+  beauty: '#D46A9A',
+  shop: '#6FAF8F',
+  premium: '#C9A961',
+  other: '#7A7A7A',
+};

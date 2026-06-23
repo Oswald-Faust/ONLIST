@@ -14,6 +14,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, Easing,
 } from 'react-native-reanimated';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_OPTIONS } from '../../constants/categories';
 import { PHONE_CODES } from '../../constants/phoneCodes';
 import { useAuth } from '../../context/AuthContext';
 import { uploadAPI } from '../../services/api';
@@ -22,20 +23,11 @@ const { width } = Dimensions.get('window');
 
 // ─── Types d'établissement ─────────────────────────────────────────────────────
 
-const BUSINESS_TYPES = [
-  { id: 'restaurant', label: 'Restaurant', icon: 'restaurant' },
-  { id: 'bar',        label: 'Bar',        icon: 'wine' },
-  { id: 'club',       label: 'Club',       icon: 'musical-notes' },
-  { id: 'spa',        label: 'Spa',        icon: 'flower' },
-  { id: 'sport',      label: 'Sport',      icon: 'fitness' },
-  { id: 'wellness',   label: 'Bien-être',  icon: 'heart' },
-  { id: 'hotel',      label: 'Hôtel',      icon: 'bed' },
-  { id: 'cafe',       label: 'Café',       icon: 'cafe' },
-  { id: 'beauty',     label: 'Beauté',     icon: 'color-palette' },
-  { id: 'shop',       label: 'Boutique',   icon: 'cart' },
-  { id: 'premium',    label: 'Lieu Premium', icon: 'diamond' },
-  { id: 'other',      label: 'Autre',      icon: 'ellipsis-horizontal' },
-];
+const BUSINESS_TYPES = CATEGORY_OPTIONS.map((category) => ({
+  id: category.value,
+  label: category.label,
+  icon: category.icon.replace('-outline', ''),
+}));
 
 // ─── Config des étapes ─────────────────────────────────────────────────────────
 

@@ -3,6 +3,7 @@ const express = require('express');
 const Application = require('../models/Application');
 const Event = require('../models/Event');
 const Review = require('../models/Review');
+const LieuReview = require('../models/LieuReview');
 const User = require('../models/User');
 const { protect, requireValidated } = require('../middleware/auth');
 const { createNotification } = require('../utils/notifications');
@@ -92,11 +93,45 @@ router.get('/my', protect, requireValidated, async (req, res) => {
     if (status) filter.status = status;
 
     const applications = await Application.find(filter)
-      .populate('event', 'title images date city venue category moment offer creator')
+      .populate('event', 'title description images date city venue address country category moment offer offerItems creator deliverables lieu rules dresscode startTime endTime plusOneMode guestsRequired')
       .populate({ path: 'event', populate: { path: 'creator', select: 'businessName businessLogo' } })
+      .populate({ path: 'event', populate: { path: 'lieu', select: 'name city score reviewsCount' } })
       .sort({ appliedAt: -1 });
+    const applicationIds = applications.map((application) => application._id);
+    const eventIds = applications.map((application) => application.event?._id).filter(Boolean);
+    const lieuIds = applications.map((application) => application.event?.lieu?._id).filter(Boolean);
 
-    res.json({ applications });
+    const [businessReviews, lieuReviews] = await Promise.all([
+      Review.find({ influencer: req.user._id, event: { $in: eventIds } }).select('event business createdAt globalScore scores comment'),
+      LieuReview.find({ influencer: req.user._id, event: { $in: eventIds }, lieu: { $in: lieuIds } }).select('event lieu createdAt globalScore scores comment'),
+    ]);
+
+    const businessReviewByEvent = new Map(
+      businessReviews.map((review) => [String(review.event), review])
+    );
+    const lieuReviewByEvent = new Map(
+      lieuReviews.map((review) => [String(review.event), review])
+    );
+
+    const enrichedApplications = applications.map((application) => {
+      const eventId = application.event?._id ? String(application.event._id) : '';
+      const businessReview = businessReviewByEvent.get(eventId) || null;
+      const lieuReview = lieuReviewByEvent.get(eventId) || null;
+      const nextApplication = application.toObject();
+      nextApplication.reviewStatus = {
+        byBusiness: !!businessReview,
+        byInfluencer: !!lieuReview,
+        businessReviewAt: businessReview?.createdAt || null,
+        influencerReviewAt: lieuReview?.createdAt || null,
+        businessScore: businessReview?.globalScore ?? null,
+        influencerScore: lieuReview?.globalScore ?? null,
+      };
+      nextApplication.businessReview = businessReview;
+      nextApplication.influencerReview = lieuReview;
+      return nextApplication;
+    });
+
+    res.json({ applications: enrichedApplications });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -113,14 +148,55 @@ router.get('/event/:eventId', protect, requireValidated, async (req, res) => {
     const applications = await Application.find({ event: req.params.eventId })
       .populate('user', 'name photos instagram tiktok followersCount score city bio')
       .sort({ appliedAt: -1 });
+    const influencerIds = applications.map((application) => application.user?._id).filter(Boolean);
+    const lieu = event.lieu || null;
+    const [businessReviews, lieuReviews] = await Promise.all([
+      Review.find({
+        event: event._id,
+        influencer: { $in: influencerIds },
+        business: req.user._id,
+      }).select('event influencer createdAt globalScore scores comment'),
+      lieu
+        ? LieuReview.find({
+            event: event._id,
+            lieu,
+            influencer: { $in: influencerIds },
+          }).select('event lieu influencer createdAt globalScore scores comment')
+        : [],
+    ]);
 
-    res.json({ applications });
+    const lieuReviewByInfluencer = new Map(
+      lieuReviews.map((review) => [`${review.influencer}`, review])
+    );
+    const businessReviewByInfluencer = new Map(
+      businessReviews.map((review) => [`${review.influencer}`, review])
+    );
+
+    const enrichedApplications = applications.map((application) => {
+      const nextApplication = application.toObject();
+      const influencerReview = lieuReviewByInfluencer.get(String(application.user?._id)) || null;
+      const businessReview = businessReviewByInfluencer.get(String(application.user?._id)) || null;
+      nextApplication.reviewStatus = {
+        ...(nextApplication.reviewStatus || {}),
+        byInfluencer: !!influencerReview,
+        influencerReviewAt: influencerReview?.createdAt || null,
+        influencerScore: influencerReview?.globalScore ?? null,
+        byBusiness: !!businessReview,
+        businessReviewAt: businessReview?.createdAt || null,
+        businessScore: businessReview?.globalScore ?? null,
+      };
+      nextApplication.influencerReview = influencerReview;
+      nextApplication.businessReview = businessReview;
+      return nextApplication;
+    });
+
+    res.json({ applications: enrichedApplications });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// PUT /applications/:id — accepter ou refuser (business)
+// PUT /applications/:id — gérer le statut d'une candidature (business)
 router.put('/:id', protect, requireValidated, async (req, res) => {
   try {
     const application = await Application.findById(req.params.id).populate('event');
@@ -131,7 +207,7 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
       return res.status(403).json({ message: 'Non autorisé' });
 
     const { status } = req.body;
-    if (!['accepted', 'rejected'].includes(status))
+    if (!['pending', 'accepted', 'rejected'].includes(status))
       return res.status(400).json({ message: 'Statut invalide' });
 
     const previousStatus = application.status;
@@ -146,28 +222,48 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
 
     application.status = status;
     application.respondedAt = new Date();
-    // Génère l'access pass (QR) dès l'acceptation
+
     if (status === 'accepted' && !application.accessCode) {
       application.accessCode = generateAccessCode();
       application.accessCodeShort = generateShortCode();
+    }
+    if (status === 'pending') {
+      application.confirmed = false;
+      application.confirmedAt = undefined;
+      application.checkedIn = false;
+      application.checkedInAt = undefined;
+      application.accessCode = undefined;
+      application.accessCodeShort = undefined;
+      application.reminderSentAt = undefined;
+      application.warningIssuedAt = undefined;
     }
     await application.save();
 
     if (status === 'accepted' && previousStatus !== 'accepted') {
       await Event.findByIdAndUpdate(event._id, { $inc: { acceptedCount: 1 } });
-    } else if (status === 'rejected' && previousStatus === 'accepted') {
+    } else if (previousStatus === 'accepted' && status !== 'accepted') {
       await Event.findByIdAndUpdate(event._id, { $inc: { acceptedCount: -1 } });
     }
 
     await createNotification({
       userId: application.user,
       actorId: req.user._id,
-      type: status === 'accepted' ? 'application_accepted' : 'application_rejected',
+      type: status === 'accepted'
+        ? 'application_accepted'
+        : status === 'pending'
+          ? 'application_reopened'
+          : 'application_rejected',
       category: 'events',
-      title: status === 'accepted' ? 'Candidature confirmée' : 'Candidature refusée',
+      title: status === 'accepted'
+        ? 'Candidature confirmée'
+        : status === 'pending'
+          ? 'Candidature à relancer'
+          : 'Candidature refusée',
       body: status === 'accepted'
         ? `Bonne nouvelle, ${event.title} a confirmé votre participation.`
-        : `${event.title} n’a pas retenu votre candidature.`,
+        : status === 'pending'
+          ? `${event.title} vous demande de renvoyer votre candidature.`
+          : `${event.title} n’a pas retenu votre candidature.`,
       entityType: 'event',
       entityId: event._id,
       data: {
@@ -245,7 +341,7 @@ router.post('/checkin', protect, requireValidated, async (req, res) => {
 router.post('/:id/confirm', protect, requireValidated, async (req, res) => {
   try {
     const application = await Application.findById(req.params.id)
-      .populate('event', 'title city date startTime endTime images venue plusOneMode guestsRequired');
+      .populate('event', 'title description city date startTime endTime images venue address country offer offerItems rules dresscode deliverables plusOneMode guestsRequired');
     if (!application) return res.status(404).json({ message: 'Candidature introuvable' });
     if (application.user.toString() !== req.user._id.toString())
       return res.status(403).json({ message: 'Non autorisé' });
@@ -310,6 +406,23 @@ router.post('/:id/review', protect, requireValidated, async (req, res) => {
     const globalScore = parseFloat(((scoreDetails.punctuality + scoreDetails.style + scoreDetails.attitude + scoreDetails.content) / 4).toFixed(1));
 
     await User.findByIdAndUpdate(application.user, { score: globalScore, reviewsCount: count, scoreDetails });
+
+    await createNotification({
+      userId: application.user,
+      actorId: req.user._id,
+      type: 'influencer_review_received',
+      category: 'events',
+      title: 'Nouvelle note reçue',
+      body: `${req.user.businessName || req.user.name || 'Un établissement'} a évalué votre participation à ${event.title}.`,
+      entityType: 'event',
+      entityId: event._id,
+      data: {
+        eventId: `${event._id}`,
+        eventTitle: event.title,
+        applicationId: `${application._id}`,
+        score: review.globalScore,
+      },
+    });
 
     res.json({ review });
   } catch (err) {

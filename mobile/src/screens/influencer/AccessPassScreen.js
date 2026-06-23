@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 
-const PURPLE = ['#7C3AED', '#5B21B6'];
+const PASS_BG = ['#0A0A0F', '#12110D', '#1A1710'];
 
 export default function AccessPassScreen({ route, navigation }) {
   const application = route.params?.application || {};
@@ -22,7 +22,7 @@ export default function AccessPassScreen({ route, navigation }) {
   return (
     <View style={s.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <LinearGradient colors={PURPLE} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={PASS_BG} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={{ flex: 1 }}>
         <View style={s.header}>
@@ -43,9 +43,11 @@ export default function AccessPassScreen({ route, navigation }) {
             <Text style={s.eventTitle} numberOfLines={2}>{event.title || 'Événement'}</Text>
 
             <View style={s.divider}>
-              <View style={[s.notch, { left: -16 }]} />
-              <View style={s.dashed} />
-              <View style={[s.notch, { right: -16 }]} />
+              <View style={s.perforationRow}>
+                {Array.from({ length: 30 }).map((_, index) => (
+                  <View key={index} style={s.perforationDot} />
+                ))}
+              </View>
             </View>
 
             <View style={s.qrWrap}>
@@ -77,14 +79,16 @@ export default function AccessPassScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#5B21B6' },
+  container: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md,
   },
   backBtn: {
     width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(201,169,97,0.12)',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
   headerTitle: { flex: 1, color: '#FFF', fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.lg },
@@ -94,13 +98,24 @@ const s = StyleSheet.create({
   eventImg: { width: 90, height: 90, borderRadius: 45, marginTop: 8 },
   eventTitle: { color: '#0A0A0F', fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold, textAlign: 'center', marginTop: SPACING.md },
   divider: { width: '100%', height: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: SPACING.lg },
-  notch: { position: 'absolute', width: 32, height: 32, borderRadius: 16, backgroundColor: '#5B21B6' },
-  dashed: { flex: 1, borderBottomWidth: 2, borderColor: '#E5E0EC', borderStyle: 'dashed' },
+  perforationRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
+  perforationDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E8DEC8',
+  },
   qrWrap: { padding: SPACING.md, alignItems: 'center', justifyContent: 'center' },
   codeBox: { marginTop: SPACING.md, alignItems: 'center' },
-  codeLabel: { color: '#999', fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  codeLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
   codeValue: { color: '#0A0A0F', fontSize: FONTS.sizes.xl, fontFamily: FONTS.bold, letterSpacing: 3, marginTop: 4 },
   helpRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: SPACING.xl },
-  helpText: { color: 'rgba(255,255,255,0.8)', fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular },
-  helpLink: { color: '#FFF', fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold, textDecorationLine: 'underline' },
+  helpText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular },
+  helpLink: { color: COLORS.primaryLight, fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold, textDecorationLine: 'underline' },
 });

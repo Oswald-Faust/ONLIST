@@ -8,22 +8,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
+import { CATEGORY_OPTIONS } from '../../constants/categories';
 import { lieuxAPI, uploadAPI } from '../../services/api';
 import LocationAutocompleteFields from '../../components/LocationAutocompleteFields';
 import { useAuth } from '../../context/AuthContext';
 
 const TOTAL_STEPS = 3;
 
-const CATEGORIES = [
-  { value: 'restaurant', label: 'Restaurant', icon: 'restaurant-outline' },
-  { value: 'bar',        label: 'Bar',        icon: 'wine-outline' },
-  { value: 'club',       label: 'Club',       icon: 'musical-notes-outline' },
-  { value: 'spa',        label: 'Spa',        icon: 'leaf-outline' },
-  { value: 'sport',      label: 'Sport',      icon: 'fitness-outline' },
-  { value: 'wellness',   label: 'Wellness',   icon: 'sparkles-outline' },
-  { value: 'premium',    label: 'Premium',    icon: 'star-outline' },
-  { value: 'other',      label: 'Autre',      icon: 'ellipsis-horizontal-outline' },
-];
+const CATEGORIES = CATEGORY_OPTIONS;
 
 // ─── Stepper ──────────────────────────────────────────────────────────────────
 function Stepper({ currentStep }) {

@@ -86,6 +86,9 @@ function StatusCard({ item, count, active, onPress }) {
 function EventCard({ item, onPress }) {
   const ev  = item.event;
   const img = ev?.images?.[0] || PLACEHOLDER;
+  const isCheckedIn = item.status === 'accepted' && !!item.checkedIn;
+  const hasBusinessReview = !!item.reviewStatus?.byBusiness;
+  const hasInfluencerReview = !!item.reviewStatus?.byInfluencer;
 
   const date = ev?.date ? new Date(ev.date) : null;
   const dateStr = date
@@ -115,8 +118,13 @@ function EventCard({ item, onPress }) {
 
   return (
     <TouchableOpacity style={S.card} onPress={onPress} activeOpacity={0.88}>
-      {/* Image carrée gauche */}
-      <Image source={{ uri: img }} style={S.cardImg} />
+      <View style={S.cardImgWrap}>
+        <Image source={{ uri: img }} style={S.cardImg} resizeMode="cover" />
+        <LinearGradient
+          colors={['rgba(255,255,255,0.08)', 'transparent', 'rgba(10,10,15,0.18)']}
+          style={S.cardImgGlow}
+        />
+      </View>
 
       {/* Contenu droite */}
       <View style={S.cardContent}>
@@ -169,9 +177,25 @@ function EventCard({ item, onPress }) {
             </View>
           )}
           {item.status === 'accepted' && (
-            <TouchableOpacity style={S.btnConfirmed} activeOpacity={0.8}>
-              <Ionicons name="checkmark-circle-outline" size={15} color={COLORS.success} />
-              <Text style={S.btnConfirmedTxt}>Confirmé</Text>
+            <TouchableOpacity
+              style={[S.btnConfirmed, isCheckedIn && S.btnCheckedIn]}
+              activeOpacity={0.8}
+              onPress={onPress}
+            >
+              <Ionicons
+                name={isCheckedIn ? 'sparkles-outline' : 'checkmark-circle-outline'}
+                size={15}
+                color={isCheckedIn ? COLORS.primaryLight : COLORS.success}
+              />
+              <Text style={[S.btnConfirmedTxt, isCheckedIn && S.btnCheckedInTxt]}>
+                {!isCheckedIn
+                  ? 'Confirmé'
+                  : hasBusinessReview
+                    ? 'Note reçue'
+                    : hasInfluencerReview
+                      ? 'Livrables envoyés'
+                      : 'Noter / livrables'}
+              </Text>
             </TouchableOpacity>
           )}
           {item.status === 'rejected' && (
@@ -384,10 +408,11 @@ export default function MyEventsScreen({ navigation }) {
   // Rafraîchit les favoris au retour sur l'écran (ex: après un toggle depuis le détail)
   useFocusEffect(
     useCallback(() => {
+      fetchApplications();
       eventsAPI.favorites()
         .then((data) => setFavorites((data.events || []).map((ev) => ({ _id: ev._id, event: ev, status: 'favorite' }))))
         .catch(() => {});
-    }, [])
+    }, [fetchApplications])
   );
 
   const onRefresh = () => { setRefreshing(true); fetchApplications(); };
@@ -492,7 +517,9 @@ export default function MyEventsScreen({ navigation }) {
             <EventCard
               item={item}
               onPress={() => item.status === 'accepted'
-                ? navigation.navigate('AttendanceConfirmed', { application: item })
+                ? (item.checkedIn
+                  ? navigation.navigate('Deliverables', { application: item })
+                  : navigation.navigate('AttendanceConfirmed', { application: item }))
                 : navigation.navigate('EventDetail', { event: item.event })}
             />
           )}
@@ -672,25 +699,36 @@ const S = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: COLORS.bgCard,
-    borderRadius: 18,
-    overflow: 'hidden',
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: COLORS.border,
-    minHeight: 138,
+    minHeight: 176,
+    height: 176,
+    padding: 10,
+    gap: 14,
+  },
+  cardImgWrap: {
+    width: 132,
+    height: 154,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: COLORS.bgCard2,
+    position: 'relative',
   },
   cardImg: {
-    width: 112,
-    height: undefined,
-    aspectRatio: undefined,
-    // On laisse l'image s'étirer sur la hauteur de la carte
-    alignSelf: 'stretch',
+    width: '100%',
+    height: '100%',
+  },
+  cardImgGlow: {
+    ...StyleSheet.absoluteFillObject,
   },
   cardContent: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 13,
+    minHeight: 154,
+    paddingVertical: 4,
+    paddingRight: 4,
     gap: 4,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
   inviteBadge: {
     flexDirection: 'row',
@@ -712,10 +750,10 @@ const S = StyleSheet.create({
   },
   cardTitle: {
     color: COLORS.white,
-    fontSize: FONTS.sizes.md,
+    fontSize: FONTS.sizes.lg,
     fontFamily: FONTS.bold,
-    lineHeight: 20,
-    marginBottom: 1,
+    lineHeight: 22,
+    marginBottom: 0,
   },
   cardMeta: {
     flexDirection: 'row',
@@ -733,7 +771,7 @@ const S = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
     flexWrap: 'wrap',
-    marginTop: 1,
+    marginTop: 2,
   },
   durationPill: {
     backgroundColor: COLORS.bgCard2,
@@ -751,7 +789,7 @@ const S = StyleSheet.create({
   cardActions: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
+    marginTop: 6,
   },
   btnPending: {
     flexDirection: 'row',
@@ -807,7 +845,7 @@ const S = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 16,
-    height: 38,
+    height: 34,
     borderRadius: RADIUS.full,
     backgroundColor: 'rgba(16,217,160,0.08)',
     borderWidth: 1.5,
@@ -818,6 +856,13 @@ const S = StyleSheet.create({
     color: COLORS.success,
     fontSize: FONTS.sizes.sm,
     fontFamily: FONTS.semiBold,
+  },
+  btnCheckedIn: {
+    backgroundColor: 'rgba(201,169,97,0.12)',
+    borderColor: 'rgba(201,169,97,0.38)',
+  },
+  btnCheckedInTxt: {
+    color: COLORS.primaryLight,
   },
   btnFull: {
     paddingHorizontal: 20,

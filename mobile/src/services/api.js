@@ -64,6 +64,7 @@ export const applicationsAPI = {
   businessPending: (params) => api.get('/applications/business/pending', { params }),
   confirm: (id) => api.post(`/applications/${id}/confirm`),
   checkin: (code) => api.post('/applications/checkin', { code }),
+  review: (id, data) => api.post(`/applications/${id}/review`, data),
 };
 
 export const deliverablesAPI = {

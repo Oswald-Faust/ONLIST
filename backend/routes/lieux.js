@@ -4,6 +4,7 @@ const LieuReview = require('../models/LieuReview');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const { getBusinessPlan } = require('../utils/businessPlans');
+const { createNotification } = require('../utils/notifications');
 
 const router = express.Router();
 
@@ -157,7 +158,7 @@ router.post('/:id/review', protect, async (req, res) => {
     const lieu = await Lieu.findById(req.params.id);
     if (!lieu) return res.status(404).json({ message: 'Lieu introuvable' });
 
-    const { eventId, scores, comment } = req.body;
+    const { eventId, scores, score, comment } = req.body;
     let review = await LieuReview.findOne({
       influencer: req.user._id,
       lieu: req.params.id,
@@ -173,7 +174,16 @@ router.post('/:id/review', protect, async (req, res) => {
       });
     }
 
-    review.scores = scores;
+    if (typeof score === 'number') {
+      const normalizedScore = Math.max(0, Math.min(10, Number(score)));
+      review.scores = {
+        ambience: normalizedScore,
+        service: normalizedScore,
+        value: normalizedScore,
+      };
+    } else {
+      review.scores = scores;
+    }
     review.comment = comment;
     await review.save();
 
@@ -187,6 +197,24 @@ router.post('/:id/review', protect, async (req, res) => {
       'scoreDetails.ambience': avg(reviews, 'ambience'),
       'scoreDetails.service': avg(reviews, 'service'),
       'scoreDetails.value': avg(reviews, 'value'),
+    });
+
+    await createNotification({
+      userId: lieu.creator,
+      actorId: req.user._id,
+      type: 'business_review_received',
+      category: 'events',
+      title: 'Nouvelle note reçue',
+      body: `${req.user.name || 'Un influenceur'} a noté votre établissement${eventId ? ' après l’événement' : ''}.`,
+      entityType: 'event',
+      entityId: eventId || undefined,
+      data: {
+        eventId: eventId ? `${eventId}` : undefined,
+        lieuId: `${lieu._id}`,
+        lieuName: lieu.name,
+        influencerId: `${req.user._id}`,
+        score: review.globalScore,
+      },
     });
 
     const updatedLieu = await Lieu.findById(req.params.id).select('score reviewsCount scoreDetails');
