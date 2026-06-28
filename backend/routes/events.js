@@ -107,7 +107,7 @@ router.get('/', protect, requireValidated, async (req, res) => {
       Event.find(filter)
         .populate('creator', 'name businessName businessType businessLogo city')
         .populate('lieu', 'name city photos score reviewsCount scoreDetails')
-        .sort({ isSponsored: -1, date: 1 })
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
       Event.countDocuments(filter),
