@@ -27,8 +27,7 @@ const DELIVERABLE_OPTIONS = [
   { key: 'story_7', label: '7 stories Instagram', minPlan: 'group' },
   { key: 'feed_post', label: 'Post Feed Instagram', minPlan: 'pro' },
   { key: 'reel_or_tiktok', label: 'Reel ou TikTok', minPlan: 'group' },
-  { key: 'google_review', label: 'Avis Google + screen', minPlan: 'starter' },
-  { key: 'plus_one_google_review', label: 'Avis Google du +1 + screen', minPlan: 'starter' },
+  { key: 'google_review', label: 'Avis Google ', minPlan: 'starter' },
 ];
 
 const APPLICATION_CUTOFF_OPTIONS = [1, 2, 3, 4];

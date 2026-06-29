@@ -16,27 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS, FONTS, RADIUS, SPACING } from '../../constants/theme';
 import { getDeliverableLabel } from '../../constants/businessEventOptions';
-import { deliverablesAPI, lieuxAPI, uploadAPI } from '../../services/api';
-
-function ScorePicker({ value, onChange }) {
-  return (
-    <View style={S.scoreGrid}>
-      {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => {
-        const active = score === value;
-        return (
-          <TouchableOpacity
-            key={score}
-            style={[S.scoreChip, active && S.scoreChipActive]}
-            onPress={() => onChange(score)}
-            activeOpacity={0.85}
-          >
-            <Text style={[S.scoreChipText, active && S.scoreChipTextActive]}>{score}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
+import { deliverablesAPI, uploadAPI } from '../../services/api';
 
 function DeliverableCard({
   label,
@@ -129,8 +109,6 @@ function DeliverableCard({
 export default function DeliverablesScreen({ route, navigation }) {
   const application = route.params?.application || {};
   const event = application.event || {};
-  const lieu = event.lieu || {};
-
   const deliverableTypes = useMemo(
     () => (Array.isArray(event.deliverables) ? event.deliverables.filter(Boolean) : []),
     [event.deliverables]
@@ -140,14 +118,6 @@ export default function DeliverablesScreen({ route, navigation }) {
   const [savingKey, setSavingKey] = useState('');
   const [pickingKey, setPickingKey] = useState('');
   const [submissions, setSubmissions] = useState([]);
-  const [ratingScores, setRatingScores] = useState({
-    ambience: application.influencerReview?.scores?.ambience || 8,
-    service: application.influencerReview?.scores?.service || 8,
-    value: application.influencerReview?.scores?.value || 8,
-  });
-  const [ratingComment, setRatingComment] = useState(application.influencerReview?.comment || '');
-  const [ratingSaving, setRatingSaving] = useState(false);
-  const [hasSubmittedRating, setHasSubmittedRating] = useState(!!application.reviewStatus?.byInfluencer);
   const [forms, setForms] = useState(() => (
     deliverableTypes.reduce((acc, key) => {
       acc[key] = { assets: [], note: '' };
@@ -260,28 +230,6 @@ export default function DeliverablesScreen({ route, navigation }) {
     }
   };
 
-  const submitRating = async () => {
-    if (!lieu?._id) {
-      Alert.alert('Lieu introuvable', 'Aucun établissement n’est lié à cet événement.');
-      return;
-    }
-
-    try {
-      setRatingSaving(true);
-      await lieuxAPI.review(lieu._id, {
-        eventId: event._id,
-        scores: ratingScores,
-        comment: ratingComment.trim(),
-      });
-      Alert.alert('Merci', 'La note de l’établissement a été enregistrée.');
-      setHasSubmittedRating(true);
-    } catch (err) {
-      Alert.alert('Erreur', err.message);
-    } finally {
-      setRatingSaving(false);
-    }
-  };
-
   if (!application.checkedIn) {
     return (
       <View style={S.root}>
@@ -326,7 +274,7 @@ export default function DeliverablesScreen({ route, navigation }) {
               <Text style={S.heroEyebrow}>Événement validé</Text>
               <Text style={S.heroTitle}>{event.title || 'Événement'}</Text>
               <Text style={S.heroText}>
-                Envoie les captures, photos ou preuves demandées puis note l’établissement sur 10.
+                Envoie les captures, photos ou preuves demandées pour valider ta participation.
               </Text>
             </View>
 
@@ -365,71 +313,6 @@ export default function DeliverablesScreen({ route, navigation }) {
               ))
             )}
 
-            <View style={S.card}>
-              <Text style={S.cardTitle}>Note l’établissement</Text>
-              <Text style={S.cardSubtitle}>
-                {lieu?.name || event.venue || 'Établissement'} · note par critère sur 10
-              </Text>
-              {hasSubmittedRating ? (
-                <View style={S.lockedBox}>
-                  <View style={S.lockedRow}>
-                    <Ionicons name="create-outline" size={16} color={COLORS.primaryLight} />
-                    <Text style={[S.lockedTitle, { color: COLORS.primaryLight }]}>Note modifiable</Text>
-                  </View>
-                  <Text style={S.lockedText}>
-                    Votre avis a déjà été enregistré. Vous pouvez encore l’ajuster.
-                  </Text>
-                </View>
-              ) : null}
-
-              <View style={S.ratingSection}>
-                <Text style={S.ratingLabel}>Ambiance</Text>
-                <ScorePicker
-                  value={ratingScores.ambience}
-                  onChange={(value) => setRatingScores((prev) => ({ ...prev, ambience: value }))}
-                />
-              </View>
-
-              <View style={S.ratingSection}>
-                <Text style={S.ratingLabel}>Service</Text>
-                <ScorePicker
-                  value={ratingScores.service}
-                  onChange={(value) => setRatingScores((prev) => ({ ...prev, service: value }))}
-                />
-              </View>
-
-              <View style={S.ratingSection}>
-                <Text style={S.ratingLabel}>Valeur</Text>
-                <ScorePicker
-                  value={ratingScores.value}
-                  onChange={(value) => setRatingScores((prev) => ({ ...prev, value: value }))}
-                />
-              </View>
-
-              <TextInput
-                value={ratingComment}
-                onChangeText={setRatingComment}
-                placeholder="Ton avis en quelques mots"
-                placeholderTextColor={COLORS.textMuted}
-                style={S.input}
-                multiline
-              />
-
-              <TouchableOpacity
-                style={[S.primaryBtn, ratingSaving && S.primaryBtnDisabled]}
-                onPress={submitRating}
-                activeOpacity={0.9}
-                disabled={ratingSaving}
-              >
-                {ratingSaving ? (
-                  <ActivityIndicator color={COLORS.bg} />
-                ) : (
-                  <Text style={S.primaryBtnText}>
-                    {hasSubmittedRating ? 'Mettre à jour la note' : 'Envoyer la note'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
           </ScrollView>
         )}
       </SafeAreaView>
@@ -520,14 +403,6 @@ const S = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     fontFamily: FONTS.regular,
     marginTop: 4,
-  },
-  ratingSection: {
-    gap: SPACING.sm,
-  },
-  ratingLabel: {
-    color: COLORS.textPrimary,
-    fontSize: FONTS.sizes.sm,
-    fontFamily: FONTS.bold,
   },
   statusBadge: {
     borderRadius: RADIUS.full,
@@ -625,33 +500,6 @@ const S = StyleSheet.create({
     color: COLORS.bg,
     fontSize: FONTS.sizes.base,
     fontFamily: FONTS.bold,
-  },
-  scoreGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  scoreChip: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.bgInput,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  scoreChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primaryLight,
-  },
-  scoreChipText: {
-    color: COLORS.textPrimary,
-    fontSize: FONTS.sizes.sm,
-    fontFamily: FONTS.bold,
-  },
-  scoreChipTextActive: {
-    color: COLORS.bg,
   },
   centerState: {
     flex: 1,

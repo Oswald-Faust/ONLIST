@@ -1,11 +1,13 @@
 const express = require('express');
 const { getStripe, getPlanLabel, formatStripeAmount } = require('../utils/stripe');
+const Event = require('../models/Event');
 const {
   resolveUserFromStripe,
   applyStripeSubscriptionToUser,
   markStripeSubscriptionEnded,
 } = require('../utils/stripeSubscription');
 const { createNotification } = require('../utils/notifications');
+const { applyBoostFromSession } = require('../utils/eventBoost');
 
 const router = express.Router();
 
@@ -61,6 +63,29 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
                 planLabel,
                 status: user.subscriptionStatus,
                 expiresAt: user.subscriptionExpiresAt || null,
+              },
+            });
+          }
+        }
+        if (session.mode === 'payment' && session.metadata?.type === 'event_boost') {
+          const eventId = session.metadata?.eventId;
+          const boostDays = Number(session.metadata?.boostDays || 0);
+          const boostedEvent = await Event.findById(eventId);
+          const applied = await applyBoostFromSession(boostedEvent, session);
+          if (applied) {
+            await createNotification({
+              userId: boostedEvent.creator,
+              type: 'payment_confirmed',
+              category: 'system',
+              title: 'Boost activé',
+              body: `Le boost de votre événement est actif pendant ${boostDays} jour${boostDays > 1 ? 's' : ''}.`,
+              entityType: 'event',
+              entityId: boostedEvent._id,
+              data: {
+                eventId: String(boostedEvent._id),
+                boostDays,
+                boostExpiresAt: boostedEvent.boostExpiresAt,
+                amountPaid: boostedEvent.boostAmountPaid,
               },
             });
           }

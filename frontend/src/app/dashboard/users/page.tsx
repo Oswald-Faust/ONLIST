@@ -21,6 +21,9 @@ interface User {
   businessType?: string;
   plasma?: number;
   score?: number;
+  photos?: string[];
+  avatarUrl?: string;
+  businessLogo?: string;
 }
 
 const STATUS_MAP = {
@@ -84,6 +87,8 @@ function UsersContent() {
     await api(`/admin/users/${userId}/status`, { method: 'PUT', body: JSON.stringify({ status: newStatus }) });
     fetchUsers();
   };
+
+  const getAvatar = (user: User) => user.photos?.[0] || user.avatarUrl || user.businessLogo || '';
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -150,7 +155,11 @@ function UsersContent() {
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
                           style={{ background: u.type === 'influencer' ? 'var(--gradient-primary)' : 'linear-gradient(135deg, #a89060, #d4af77)', color: '#16130d' }}>
-                          {u.name?.charAt(0)}
+                          {getAvatar(u) ? (
+                            <img src={getAvatar(u)} alt={u.name} className="w-full h-full object-cover rounded-full" />
+                          ) : (
+                            u.name?.charAt(0)
+                          )}
                         </div>
                         <div>
                           <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{u.name}</p>

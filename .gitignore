@@ -23,6 +23,9 @@ mobile/android/
 **/.env*.local
 !**/.env.example
 
+# Uploads runtime (backend) — ne pas versionner les fichiers téléversés
+backend/uploads/
+
 # Logs and debug
 **/npm-debug.log*
 **/yarn-debug.log*

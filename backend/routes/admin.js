@@ -4,6 +4,7 @@ const Event = require('../models/Event');
 const Application = require('../models/Application');
 const DeliverableSubmission = require('../models/DeliverableSubmission');
 const SystemSettings = require('../models/SystemSettings');
+const Lieu = require('../models/Lieu');
 const { protect, requireAdmin } = require('../middleware/auth');
 const { createNotification } = require('../utils/notifications');
 const { getStripe, isStripeConfigured } = require('../utils/stripe');
@@ -60,7 +61,11 @@ router.get('/users/:id', protect, requireAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
-    res.json({ user });
+    let lieux = [];
+    if (user.type === 'business') {
+      lieux = await Lieu.find({ creator: user._id }).sort({ createdAt: -1 });
+    }
+    res.json({ user, lieux });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

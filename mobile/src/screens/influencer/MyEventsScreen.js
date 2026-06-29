@@ -12,6 +12,7 @@ import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { applicationsAPI, eventsAPI } from '../../services/api';
 import CityPickerSheet from './CityPickerScreen';
 import { useAuth } from '../../context/AuthContext';
+import { filterUpcomingApplications, filterUpcomingEvents } from '../../utils/events';
 
 const PLACEHOLDER = 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=400';
 
@@ -173,7 +174,9 @@ function EventCard({ item, onPress }) {
           {item.status === 'pending' && (
             <View style={S.btnPending}>
               <Ionicons name="time-outline" size={15} color={COLORS.primaryLight} />
-              <Text style={S.btnPendingTxt}>En attente de confirmation</Text>
+              <Text style={S.btnPendingTxt}>
+                {item.isInvitation ? 'Invitation à accepter' : 'En attente de confirmation'}
+              </Text>
             </View>
           )}
           {item.status === 'accepted' && (
@@ -392,9 +395,11 @@ export default function MyEventsScreen({ navigation }) {
         applicationsAPI.myApplications({}),
         eventsAPI.favorites().catch(() => ({ events: [] })),
       ]);
-      setApplications(appsData.applications || []);
+      setApplications(filterUpcomingApplications(appsData.applications || []));
       // On normalise les favoris au même format que les candidatures (item.event)
-      setFavorites((favData.events || []).map((ev) => ({ _id: ev._id, event: ev, status: 'favorite' })));
+      setFavorites(
+        filterUpcomingEvents(favData.events || []).map((ev) => ({ _id: ev._id, event: ev, status: 'favorite' }))
+      );
     } catch (err) {
       console.log('MyEvents error:', err.message);
     } finally {
@@ -410,7 +415,9 @@ export default function MyEventsScreen({ navigation }) {
     useCallback(() => {
       fetchApplications();
       eventsAPI.favorites()
-        .then((data) => setFavorites((data.events || []).map((ev) => ({ _id: ev._id, event: ev, status: 'favorite' }))))
+        .then((data) => setFavorites(
+          filterUpcomingEvents(data.events || []).map((ev) => ({ _id: ev._id, event: ev, status: 'favorite' }))
+        ))
         .catch(() => {});
     }, [fetchApplications])
   );
@@ -520,7 +527,7 @@ export default function MyEventsScreen({ navigation }) {
                 ? (item.checkedIn
                   ? navigation.navigate('Deliverables', { application: item })
                   : navigation.navigate('AttendanceConfirmed', { application: item }))
-                : navigation.navigate('EventDetail', { event: item.event })}
+                : navigation.navigate('EventDetail', { event: item.event, application: item })}
             />
           )}
           contentContainerStyle={S.listContent}
@@ -703,9 +710,9 @@ const S = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     minHeight: 176,
-    height: 176,
     padding: 10,
     gap: 14,
+    alignItems: 'stretch',
   },
   cardImgWrap: {
     width: 132,
@@ -728,7 +735,7 @@ const S = StyleSheet.create({
     paddingVertical: 4,
     paddingRight: 4,
     gap: 4,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   inviteBadge: {
     flexDirection: 'row',
@@ -789,7 +796,9 @@ const S = StyleSheet.create({
   cardActions: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 6,
+    marginTop: 10,
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
   },
   btnPending: {
     flexDirection: 'row',
@@ -844,18 +853,20 @@ const S = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingHorizontal: 16,
-    height: 34,
+    paddingHorizontal: 14,
+    minHeight: 34,
     borderRadius: RADIUS.full,
     backgroundColor: 'rgba(16,217,160,0.08)',
     borderWidth: 1.5,
     borderColor: 'rgba(16,217,160,0.35)',
     alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   btnConfirmedTxt: {
     color: COLORS.success,
     fontSize: FONTS.sizes.sm,
     fontFamily: FONTS.semiBold,
+    flexShrink: 1,
   },
   btnCheckedIn: {
     backgroundColor: 'rgba(201,169,97,0.12)',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, StatusBar, Dimensions,
+  Image, ActivityIndicator, StatusBar, Dimensions, Linking, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +19,31 @@ function formatFollowers(n) {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
   if (n >= 1000) return `${Math.round(n / 1000)}k`;
   return `${n}`;
+}
+
+function getSocialUrl(platform, account) {
+  const value = String(account || '').trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const handle = value.replace(/^@/, '').replace(/^\/+|\/+$/g, '');
+  if (!handle) return null;
+
+  if (platform === 'instagram') return `https://www.instagram.com/${encodeURIComponent(handle)}/`;
+  if (platform === 'tiktok') return `https://www.tiktok.com/@${encodeURIComponent(handle)}`;
+  if (platform === 'youtube') return `https://www.youtube.com/@${encodeURIComponent(handle)}`;
+  return null;
+}
+
+async function openSocialProfile(platform, account) {
+  const url = getSocialUrl(platform, account);
+  if (!url) return;
+
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert('Lien indisponible', "Impossible d’ouvrir ce profil pour le moment.");
+  }
 }
 
 // ─── Barre de score ────────────────────────────────────────────────────────────
@@ -235,28 +260,58 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
         {(user.instagram || user.tiktok || user.youtube) && (
           <Card title="Réseaux sociaux" style={s.cardMx}>
             {user.instagram && (
-              <View style={s.socialRow}>
-                <View style={[s.socialIcon, { backgroundColor: 'rgba(225,48,108,0.1)', borderColor: 'rgba(225,48,108,0.22)' }]}>
+              <TouchableOpacity
+                style={s.socialRow}
+                onPress={() => openSocialProfile('instagram', user.instagram)}
+                activeOpacity={0.72}
+                accessibilityRole="link"
+                accessibilityLabel={`Ouvrir le profil Instagram de ${user.name}`}
+              >
+                <View style={[s.socialIcon, {
+                  backgroundColor: 'rgba(225,48,108,0.1)',
+                  borderColor: 'rgba(225,48,108,0.22)',
+                }]}>
                   <Ionicons name="logo-instagram" size={16} color="#E1306C" />
                 </View>
                 <Text style={s.socialHandle}>@{user.instagram.replace('@', '')}</Text>
-              </View>
+                <Ionicons name="open-outline" size={16} color={COLORS.textMuted} />
+              </TouchableOpacity>
             )}
             {user.tiktok && (
-              <View style={s.socialRow}>
-                <View style={[s.socialIcon, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.14)' }]}>
+              <TouchableOpacity
+                style={s.socialRow}
+                onPress={() => openSocialProfile('tiktok', user.tiktok)}
+                activeOpacity={0.72}
+                accessibilityRole="link"
+                accessibilityLabel={`Ouvrir le profil TikTok de ${user.name}`}
+              >
+                <View style={[s.socialIcon, {
+                  backgroundColor: 'rgba(255,255,255,0.06)',
+                  borderColor: 'rgba(255,255,255,0.14)',
+                }]}>
                   <Ionicons name="musical-notes-outline" size={16} color={COLORS.white} />
                 </View>
                 <Text style={s.socialHandle}>@{user.tiktok.replace('@', '')}</Text>
-              </View>
+                <Ionicons name="open-outline" size={16} color={COLORS.textMuted} />
+              </TouchableOpacity>
             )}
             {user.youtube && (
-              <View style={s.socialRow}>
-                <View style={[s.socialIcon, { backgroundColor: 'rgba(255,70,70,0.1)', borderColor: 'rgba(255,70,70,0.22)' }]}>
+              <TouchableOpacity
+                style={s.socialRow}
+                onPress={() => openSocialProfile('youtube', user.youtube)}
+                activeOpacity={0.72}
+                accessibilityRole="link"
+                accessibilityLabel={`Ouvrir la chaîne YouTube de ${user.name}`}
+              >
+                <View style={[s.socialIcon, {
+                  backgroundColor: 'rgba(255,70,70,0.1)',
+                  borderColor: 'rgba(255,70,70,0.22)',
+                }]}>
                   <Ionicons name="logo-youtube" size={16} color="#FF4646" />
                 </View>
                 <Text style={s.socialHandle}>{user.youtube}</Text>
-              </View>
+                <Ionicons name="open-outline" size={16} color={COLORS.textMuted} />
+              </TouchableOpacity>
             )}
           </Card>
         )}
@@ -440,12 +495,12 @@ const s = StyleSheet.create({
   cardTitle: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold, textTransform: 'uppercase', letterSpacing: 0.8 },
 
   // Social
-  socialRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  socialRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12 },
   socialIcon: {
     width: 36, height: 36, borderRadius: 10, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  socialHandle: { color: COLORS.textPrimary, fontSize: FONTS.sizes.base, fontFamily: FONTS.medium },
+  socialHandle: { flex: 1, color: COLORS.textPrimary, fontSize: FONTS.sizes.base, fontFamily: FONTS.medium },
 
   // Bio
   bioText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.base, fontFamily: FONTS.regular, lineHeight: 24 },

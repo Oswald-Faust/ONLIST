@@ -363,6 +363,65 @@ router.post('/:id/confirm', protect, requireValidated, async (req, res) => {
   }
 });
 
+// POST /applications/:id/accept-invite — l'influenceur accepte une invitation reçue
+router.post('/:id/accept-invite', protect, requireValidated, async (req, res) => {
+  try {
+    if (req.user.type !== 'influencer' && req.user.type !== 'admin')
+      return res.status(403).json({ message: 'Réservé aux influenceurs' });
+
+    const application = await Application.findById(req.params.id).populate('event');
+    if (!application) return res.status(404).json({ message: 'Invitation introuvable' });
+    if (req.user.type !== 'admin' && String(application.user) !== String(req.user._id))
+      return res.status(403).json({ message: 'Non autorisé' });
+    if (!application.isInvitation)
+      return res.status(400).json({ message: 'Cette candidature n’est pas une invitation' });
+    if (application.status !== 'pending')
+      return res.status(400).json({ message: 'Cette invitation ne peut plus être acceptée' });
+
+    const event = application.event;
+    if (event.date && new Date(event.date) < new Date()) {
+      return res.status(400).json({ message: 'Cette invitation concerne un événement déjà passé' });
+    }
+    const business = await User.findById(event.creator).select('subscriptionPlan businessName name');
+    const plan = getBusinessPlan(business);
+    if (plan.maxCreatorsPerEvent && (event.acceptedCount || 0) >= plan.maxCreatorsPerEvent) {
+      return res.status(400).json({
+        message: `L’établissement a atteint la limite de ${plan.maxCreatorsPerEvent} créateurs pour cet événement`,
+      });
+    }
+
+    application.status = 'accepted';
+    application.respondedAt = new Date();
+    if (!application.accessCode) {
+      application.accessCode = generateAccessCode();
+      application.accessCodeShort = generateShortCode();
+    }
+    await application.save();
+
+    await Event.findByIdAndUpdate(event._id, { $inc: { acceptedCount: 1 } });
+
+    await createNotification({
+      userId: event.creator,
+      actorId: req.user._id,
+      type: 'invitation_accepted',
+      category: 'events',
+      title: 'Invitation acceptée',
+      body: `${req.user.name || 'Un influenceur'} a accepté votre invitation pour ${event.title}.`,
+      entityType: 'application',
+      entityId: application._id,
+      data: {
+        eventId: `${event._id}`,
+        eventTitle: event.title,
+        city: event.city,
+      },
+    });
+
+    res.json({ application });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // POST /applications/:id/review — noter un influenceur après l'événement (business ou admin)
 router.post('/:id/review', protect, requireValidated, async (req, res) => {
   try {
@@ -451,6 +510,9 @@ router.post('/invite', protect, requireValidated, async (req, res) => {
     if (!event) return res.status(404).json({ message: 'Événement introuvable' });
     if (event.creator.toString() !== req.user._id.toString() && req.user.type !== 'admin')
       return res.status(403).json({ message: 'Non autorisé' });
+    if (event.date && new Date(event.date) < new Date()) {
+      return res.status(400).json({ message: 'Impossible d’inviter sur un événement passé' });
+    }
     if (!influencer || influencer.type !== 'influencer' || influencer.status !== 'validated') {
       return res.status(404).json({ message: 'Créateur introuvable' });
     }

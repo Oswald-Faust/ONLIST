@@ -50,6 +50,11 @@ export const eventsAPI = {
   create: (data) => api.post('/events', data),
   update: (id, data) => api.put(`/events/${id}`, data),
   delete: (id) => api.delete(`/events/${id}`),
+  boostCheckout: (id, days) => api.post(`/events/${id}/boost/checkout`, { days }),
+  boostConfirm: (id, sessionId) => api.post(`/events/${id}/boost/confirm`, { sessionId }),
+  stats: (id) => api.get(`/events/${id}/stats`),
+  recordView: (id) => api.post(`/events/${id}/view`),
+  updateView: (id, viewId, durationMs) => api.patch(`/events/${id}/view/${viewId}`, { durationMs }),
   myEvents: (lieuId) => api.get('/events/business/mine', { params: lieuId ? { lieu: lieuId } : {} }),
   favorites: () => api.get('/events/favorites/mine'),
   toggleFavorite: (id) => api.post(`/events/${id}/favorite`),
@@ -63,6 +68,7 @@ export const applicationsAPI = {
   invite: (data) => api.post('/applications/invite', data),
   businessPending: (params) => api.get('/applications/business/pending', { params }),
   confirm: (id) => api.post(`/applications/${id}/confirm`),
+  acceptInvite: (id) => api.post(`/applications/${id}/accept-invite`),
   checkin: (code) => api.post('/applications/checkin', { code }),
   review: (id, data) => api.post(`/applications/${id}/review`, data),
 };
@@ -88,6 +94,7 @@ export const subscriptionsAPI = {
   status: () => api.get('/subscriptions/me'),
   checkout: (plan) => api.post('/subscriptions/checkout', { plan }),
   portal: () => api.post('/subscriptions/portal'),
+  billingHistory: () => api.get('/subscriptions/billing-history'),
 };
 
 export const adminAPI = {

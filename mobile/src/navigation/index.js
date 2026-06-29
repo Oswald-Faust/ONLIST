@@ -43,6 +43,7 @@ import BusinessProfileScreen from '../screens/business/BusinessProfileScreen';
 import BusinessEditProfileScreen from '../screens/business/BusinessEditProfileScreen';
 import BusinessSettingsScreen from '../screens/business/BusinessSettingsScreen';
 import BusinessSubscriptionScreen from '../screens/business/BusinessSubscriptionScreen';
+import BusinessBillingScreen from '../screens/business/BusinessBillingScreen';
 import CreateLieuScreen from '../screens/business/CreateLieuScreen';
 import BusinessLieuDetailScreen from '../screens/business/BusinessLieuDetailScreen';
 import CreateEventScreen from '../screens/business/CreateEventScreen';
@@ -136,6 +137,7 @@ function BusinessStack() {
       <Stack.Screen name="BusinessEditProfile" component={BusinessEditProfileScreen} />
       <Stack.Screen name="BusinessSettings" component={BusinessSettingsScreen} />
       <Stack.Screen name="BusinessSubscription" component={BusinessSubscriptionScreen} />
+      <Stack.Screen name="BusinessBilling" component={BusinessBillingScreen} />
       <Stack.Screen name="CreateLieu" component={CreateLieuScreen} />
       <Stack.Screen name="BusinessLieuDetail" component={BusinessLieuDetailScreen} />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />

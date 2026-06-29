@@ -4,7 +4,6 @@ const LieuReview = require('../models/LieuReview');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const { getBusinessPlan } = require('../utils/businessPlans');
-const { createNotification } = require('../utils/notifications');
 
 const router = express.Router();
 
@@ -152,73 +151,7 @@ router.get('/:id/reviews', protect, async (req, res) => {
 
 router.post('/:id/review', protect, async (req, res) => {
   try {
-    if (req.user.type !== 'influencer' && req.user.type !== 'admin')
-      return res.status(403).json({ message: 'Réservé aux influenceurs' });
-
-    const lieu = await Lieu.findById(req.params.id);
-    if (!lieu) return res.status(404).json({ message: 'Lieu introuvable' });
-
-    const { eventId, scores, score, comment } = req.body;
-    let review = await LieuReview.findOne({
-      influencer: req.user._id,
-      lieu: req.params.id,
-      event: eventId || null,
-    });
-
-    if (!review) {
-      review = new LieuReview({
-        influencer: req.user._id,
-        business: lieu.creator,
-        lieu: req.params.id,
-        event: eventId || undefined,
-      });
-    }
-
-    if (typeof score === 'number') {
-      const normalizedScore = Math.max(0, Math.min(10, Number(score)));
-      review.scores = {
-        ambience: normalizedScore,
-        service: normalizedScore,
-        value: normalizedScore,
-      };
-    } else {
-      review.scores = scores;
-    }
-    review.comment = comment;
-    await review.save();
-
-    const reviews = await LieuReview.find({ lieu: req.params.id });
-    const n = reviews.length;
-    const globalAvg = n ? reviews.reduce((sum, item) => sum + (item.globalScore || 0), 0) / n : 0;
-
-    await Lieu.findByIdAndUpdate(req.params.id, {
-      score: Math.round(globalAvg * 10) / 10,
-      reviewsCount: n,
-      'scoreDetails.ambience': avg(reviews, 'ambience'),
-      'scoreDetails.service': avg(reviews, 'service'),
-      'scoreDetails.value': avg(reviews, 'value'),
-    });
-
-    await createNotification({
-      userId: lieu.creator,
-      actorId: req.user._id,
-      type: 'business_review_received',
-      category: 'events',
-      title: 'Nouvelle note reçue',
-      body: `${req.user.name || 'Un influenceur'} a noté votre établissement${eventId ? ' après l’événement' : ''}.`,
-      entityType: 'event',
-      entityId: eventId || undefined,
-      data: {
-        eventId: eventId ? `${eventId}` : undefined,
-        lieuId: `${lieu._id}`,
-        lieuName: lieu.name,
-        influencerId: `${req.user._id}`,
-        score: review.globalScore,
-      },
-    });
-
-    const updatedLieu = await Lieu.findById(req.params.id).select('score reviewsCount scoreDetails');
-    res.status(201).json({ review, lieu: updatedLieu });
+    return res.status(410).json({ message: "La notation des établissements par les influenceurs est actuellement désactivée." });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

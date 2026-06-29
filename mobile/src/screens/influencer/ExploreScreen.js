@@ -12,6 +12,7 @@ import { CATEGORY_OPTIONS } from '../../constants/categories';
 import EventCard from '../../components/EventCard';
 import { eventsAPI, metaAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { filterUpcomingEvents } from '../../utils/events';
 
 const CATEGORIES = [
   { id: '', label: 'Tout', icon: 'grid-outline' },
@@ -94,7 +95,7 @@ export default function ExploreScreen({ navigation }) {
       if (city) params.city = city;
 
       const data = await eventsAPI.list(params);
-      const newEvents = data.events || [];
+      const newEvents = filterUpcomingEvents(data.events || []);
       setTotal(data.total || 0);
       if (reset) {
         setEvents(newEvents);

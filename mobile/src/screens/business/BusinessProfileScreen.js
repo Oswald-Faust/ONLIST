@@ -144,6 +144,7 @@ export default function BusinessProfileScreen({ navigation }) {
               // L'entrée Abonnement n'apparaît qu'en mode payant (piloté par l'admin)
               user?.billingEnabled ? { icon: "card-outline", label: "Abonnement", onPress: () => navigation.navigate("BusinessSubscription") } : null,
               { icon: "settings-outline", label: "Paramètres", onPress: () => navigation.navigate("BusinessSettings") },
+              { icon: "receipt-outline", label: "Facturation & factures", onPress: () => navigation.navigate("BusinessBilling") },
               { icon: "business-outline", label: "Mes lieux", onPress: () => navigation.navigate("Lieux") },
               { icon: "calendar-outline", label: "Mes événements", onPress: () => navigation.navigate("Events") },
             ].filter(Boolean).map((item, i) => (

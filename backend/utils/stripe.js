@@ -26,6 +26,19 @@ function getPlanPriceMap() {
   };
 }
 
+function getBoostCatalog() {
+  return {
+    1: { days: 1, amount: Number(process.env.STRIPE_BOOST_PRICE_1D || 19), label: 'Boost 1 jour' },
+    3: { days: 3, amount: Number(process.env.STRIPE_BOOST_PRICE_3D || 49), label: 'Boost 3 jours' },
+    7: { days: 7, amount: Number(process.env.STRIPE_BOOST_PRICE_7D || 99), label: 'Boost 7 jours' },
+    14: { days: 14, amount: Number(process.env.STRIPE_BOOST_PRICE_14D || 179), label: 'Boost 14 jours' },
+  };
+}
+
+function getBoostOffer(days) {
+  return getBoostCatalog()[Number(days)] || null;
+}
+
 function getPriceIdForPlan(planKey) {
   const map = getPlanPriceMap();
   return map[planKey] || '';
@@ -88,6 +101,8 @@ function getAppUrls() {
     success: process.env.STRIPE_SUCCESS_URL || `${base}/abonnement/merci?session_id={CHECKOUT_SESSION_ID}`,
     cancel: process.env.STRIPE_CANCEL_URL || `${base}/abonnement/annule`,
     portalReturn: process.env.STRIPE_PORTAL_RETURN_URL || `${base}/abonnement`,
+    boostSuccess: process.env.STRIPE_BOOST_SUCCESS_URL || `${base}/boost/merci?session_id={CHECKOUT_SESSION_ID}`,
+    boostCancel: process.env.STRIPE_BOOST_CANCEL_URL || `${base}/boost/annule`,
   };
 }
 
@@ -95,6 +110,8 @@ module.exports = {
   getStripe,
   isStripeConfigured,
   getPlanPriceMap,
+  getBoostCatalog,
+  getBoostOffer,
   getPriceIdForPlan,
   getPlanLabel,
   formatStripeAmount,

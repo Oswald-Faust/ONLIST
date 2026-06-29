@@ -1,5 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
-import { subscriptionsAPI } from './api';
+import { eventsAPI, subscriptionsAPI } from './api';
 
 // Migration RevenueCat -> Stripe.
 // Le paiement se fait sur des pages hébergées par Stripe (Checkout + Customer Portal),
@@ -23,6 +23,15 @@ export async function openSubscriptionPortal() {
     throw new Error('Impossible d’ouvrir la gestion de l’abonnement.');
   }
   return WebBrowser.openBrowserAsync(url);
+}
+
+export async function openBoostCheckout(eventId, days) {
+  const { url, sessionId } = await eventsAPI.boostCheckout(eventId, days);
+  if (!url) {
+    throw new Error('Impossible de démarrer le paiement du boost.');
+  }
+  const result = await WebBrowser.openBrowserAsync(url);
+  return { result, sessionId };
 }
 
 // Recharge le statut d'abonnement depuis le backend (après retour du navigateur).

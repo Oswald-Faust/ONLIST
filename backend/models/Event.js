@@ -65,6 +65,13 @@ const eventSchema = new mongoose.Schema({
   isBoosted: { type: Boolean, default: false },
   boostDurationDays: { type: Number, enum: [1, 3, 7, 14] },
   boostExpiresAt: { type: Date },
+  boostLastPaidAt: { type: Date },
+  boostAmountPaid: { type: Number, default: 0 },
+  boostCount: { type: Number, default: 0 },
+  boostTotalSpent: { type: Number, default: 0 },
+  boostCheckoutSessionId: { type: String, trim: true },
+  // Session Stripe réellement appliquée (idempotence webhook + confirmation directe).
+  boostAppliedSessionId: { type: String, trim: true },
   isActive: { type: Boolean, default: true },
   isFull: { type: Boolean, default: false },
   isLive: { type: Boolean, default: false },

@@ -296,8 +296,10 @@ export default function BusinessDashboardScreen({ navigation }) {
             onPress={() => navigation.navigate('CreateLieu')}
             activeOpacity={0.88}
           >
-            <Ionicons name="add-outline" size={18} color={COLORS.primaryLight} />
-            <Text style={s.actionSecondaryText}>Nouveau lieu</Text>
+            <LinearGradient colors={COLORS.gradient} style={s.actionSecondaryGrad}>
+              <Ionicons name="add-outline" size={18} color="#0A0A0F" />
+              <Text style={s.actionSecondaryText}>Nouveau lieu</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
@@ -476,21 +478,22 @@ const s = StyleSheet.create({
   },
 
   // Quick Actions
-  actionsRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl },
-  actionPrimary: { flex: 2, borderRadius: RADIUS.lg, overflow: 'hidden' },
+  actionsRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl, alignItems: 'stretch' },
+  actionPrimary: { flex: 1, minWidth: 0, borderRadius: RADIUS.lg, overflow: 'hidden' },
   actionPrimaryGrad: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 14, paddingHorizontal: 12, gap: 7,
+    minHeight: 56, paddingVertical: 14, paddingHorizontal: 12, gap: 7,
   },
-  actionPrimaryText: { color: '#0A0A0F', fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold },
+  actionPrimaryText: { color: '#0A0A0F', fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold, flexShrink: 1 },
   actionSecondary: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, borderRadius: RADIUS.lg,
-    borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.bgCard, paddingVertical: 14,
+    flex: 1, minWidth: 0, borderRadius: RADIUS.lg, overflow: 'hidden',
+  },
+  actionSecondaryGrad: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    minHeight: 56, paddingVertical: 14, paddingHorizontal: 12, gap: 7,
   },
   actionSecondaryText: {
-    color: COLORS.primaryLight, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold,
+    color: '#0A0A0F', fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold, flexShrink: 1,
   },
 
   // Section headers

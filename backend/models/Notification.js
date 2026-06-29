@@ -7,6 +7,7 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     enum: [
       'event_invite',
+      'invitation_accepted',
       'application_received',
       'application_accepted',
       'application_rejected',

@@ -12,6 +12,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { CATEGORY_OPTIONS } from '../../constants/categories';
 import { eventsAPI, lieuxAPI, uploadAPI } from '../../services/api';
+import { openBoostCheckout } from '../../services/subscriptions';
 import LocationAutocompleteFields from '../../components/LocationAutocompleteFields';
 import { useAuth } from '../../context/AuthContext';
 import { getBusinessPlan } from '../../constants/businessPlans';
@@ -181,7 +182,7 @@ function TagInput({ values, onAdd, onRemove, placeholder }) {
           {values.map((v, i) => (
             <View key={i} style={s.tagChip}>
               <Text style={s.tagChipText}>{v}</Text>
-              <TouchableOpacity onPress={() => onRemove(i)}>
+              <TouchableOpacity onPress={() => onRemove(i, v)}>
                 <Ionicons name="close" size={12} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -204,6 +205,9 @@ export default function CreateEventScreen({ route, navigation }) {
   const [lieuModalVisible, setLieuModalVisible] = useState(false);
   const [pickerConfig, setPickerConfig] = useState(null);
   const [successModal, setSuccessModal] = useState({ visible: false, mode: 'create' });
+  const [boostInfoVisible, setBoostInfoVisible] = useState(false);
+  const [postCreateBoostModal, setPostCreateBoostModal] = useState({ visible: false, eventId: null, mode: 'create' });
+  const [lastCreatedEventId, setLastCreatedEventId] = useState(null);
 
   const toEdit = route.params?.eventToEdit;
   const toDup = route.params?.eventToDuplicate;
@@ -237,7 +241,6 @@ export default function CreateEventScreen({ route, navigation }) {
     startTime: source?.startTime || parseTime(source?.date) || '',
     endTime: source?.endTime || '',
     requiredArrivalTime: source?.requiredArrivalTime || '',
-    minimumPresenceDuration: source?.minimumPresenceDuration || '',
     applicationCutoffOffsetHours: String(source?.applicationCutoffOffsetHours || '2'),
     images: source?.images || [],
     category: source?.category || '',
@@ -252,7 +255,7 @@ export default function CreateEventScreen({ route, navigation }) {
     plusOneMode: source?.plusOneMode || 'solo',
     isAdultsOnly: Boolean(source?.isAdultsOnly || (source?.ageRequirement && Number(source.ageRequirement) >= 18)),
     dresscode: source?.dresscode || '',
-    boostDurationDays: String(source?.boostDurationDays || '0'),
+    boostDurationDays: String(source?.boostDurationDays || BOOST_OPTIONS[0]?.days || '1'),
     isSponsored: source?.isSponsored || false,
     isActive: source?.isActive !== undefined ? source.isActive : true,
   });
@@ -355,6 +358,18 @@ export default function CreateEventScreen({ route, navigation }) {
     upd('offerItems', has ? form.offerItems.filter((item) => item !== value) : [...form.offerItems, value]);
   };
 
+  const addCustomOfferItem = (value) => {
+    const normalized = value.trim();
+    if (!normalized || form.offerItems.includes(normalized)) return;
+    upd('offerItems', [...form.offerItems, normalized]);
+  };
+
+  const addCustomDeliverableItem = (value) => {
+    const normalized = value.trim();
+    if (!normalized || form.deliverables.includes(normalized)) return;
+    upd('deliverables', [...form.deliverables, normalized]);
+  };
+
   const toggleDeliverableItem = (value, minPlan) => {
     if (!isPlanAllowedForOption(businessPlan.key, minPlan)) return;
     const has = form.deliverables.includes(value);
@@ -401,6 +416,28 @@ export default function CreateEventScreen({ route, navigation }) {
     setSuccessModal({ visible: false, mode: 'create' });
     navigation.goBack();
   };
+  const openPostCreateBoostModal = () => {
+    if (!lastCreatedEventId) {
+      closeSuccessModal();
+      return;
+    }
+    setSuccessModal({ visible: false, mode: 'create' });
+    setPostCreateBoostModal({ visible: true, eventId: lastCreatedEventId, mode: 'create' });
+  };
+  const closePostCreateBoostModal = () => {
+    setPostCreateBoostModal({ visible: false, eventId: null, mode: 'create' });
+    navigation.goBack();
+  };
+
+  const handleBoostPayment = async () => {
+    if (!postCreateBoostModal.eventId || !(Number(form.boostDurationDays) > 0)) return;
+    try {
+      await openBoostCheckout(postCreateBoostModal.eventId, Number(form.boostDurationDays));
+      closePostCreateBoostModal();
+    } catch (err) {
+      Alert.alert('Paiement indisponible', err.message);
+    }
+  };
 
   // ─── Brouillon ─────────────────────────────────────────────────────────────────────────────────
   const isDraftSource = source?.status === 'draft';
@@ -442,7 +479,8 @@ export default function CreateEventScreen({ route, navigation }) {
       plusOneMode: form.plusOneMode,
       isAdultsOnly: form.isAdultsOnly,
       dresscode: form.dresscode?.trim() || '',
-      isSponsored: form.isSponsored,
+      isSponsored: Boolean(source?.isSponsored),
+      boostDurationDays: source?.boostDurationDays || undefined,
     };
   };
 
@@ -496,7 +534,6 @@ export default function CreateEventScreen({ route, navigation }) {
         startTime: form.startTime,
         endTime: form.endTime,
         requiredArrivalTime: form.requiredArrivalTime || undefined,
-        minimumPresenceDuration: form.minimumPresenceDuration ? Number(form.minimumPresenceDuration) : undefined,
         applicationCutoffOffsetHours: Number(form.applicationCutoffOffsetHours) || 1,
         images: form.images,
         category: form.category,
@@ -515,20 +552,17 @@ export default function CreateEventScreen({ route, navigation }) {
         plusOneMode: form.plusOneMode,
         isAdultsOnly: form.isAdultsOnly,
         dresscode: form.dresscode.trim(),
-        boostDurationDays: form.isSponsored && Number(form.boostDurationDays)
-          ? Number(form.boostDurationDays)
-          : undefined,
-        isSponsored: form.isSponsored,
+        boostDurationDays: source?.isSponsored ? Number(source?.boostDurationDays) : undefined,
+        isSponsored: Boolean(source?.isSponsored),
         isActive: form.isActive,
         status: 'published',
       };
-      if (isEdit) {
-        await eventsAPI.update(toEdit._id, payload);
-        setSuccessModal({ visible: true, mode: 'edit' });
-      } else {
-        await eventsAPI.create(payload);
-        setSuccessModal({ visible: true, mode: 'create' });
-      }
+      const response = isEdit
+        ? await eventsAPI.update(toEdit._id, payload)
+        : await eventsAPI.create(payload);
+      const savedEventId = response?.event?._id || toEdit?._id;
+      setLastCreatedEventId(isEdit ? null : (savedEventId || null));
+      setSuccessModal({ visible: true, mode: isEdit ? 'edit' : 'create' });
     } catch (err) {
       Alert.alert('Erreur', err.message);
     } finally {
@@ -676,12 +710,6 @@ export default function CreateEventScreen({ route, navigation }) {
                   />
                 </InputBlock>
               </View>
-              <View style={{ width: SPACING.md }} />
-              <View style={{ flex: 1 }}>
-                <InputBlock label="Présence min. (min)">
-                  <StyledInput value={form.minimumPresenceDuration} onChangeText={(v) => upd('minimumPresenceDuration', v.replace(/[^0-9]/g, ''))} placeholder="120" keyboardType="numeric" />
-                </InputBlock>
-              </View>
             </View>
 
             <InputBlock label="Heure limite de candidature">
@@ -801,12 +829,19 @@ export default function CreateEventScreen({ route, navigation }) {
                   );
                 })}
               </View>
-              <StyledInput value={form.otherOffer} onChangeText={v => upd('otherOffer', v)} placeholder="Autre avantage à préciser..." />
+              <TagInput
+                values={form.offerItems.filter((item) => !offerTags.includes(item))}
+                onAdd={addCustomOfferItem}
+                onRemove={(_index, value) => {
+                  upd('offerItems', form.offerItems.filter((item) => item !== value));
+                }}
+                placeholder="Ajouter un autre avantage..."
+              />
             </InputBlock>
 
             <InputBlock label="Livrables attendus" hint="Les options non incluses dans votre pack restent visibles mais verrouillées.">
               <View style={s.tagsWrap}>
-                {DELIVERABLE_OPTIONS.map((option) => {
+                {DELIVERABLE_OPTIONS.filter((option) => !(form.plusOneMode === 'required' && option.key === 'google_review_plus_one_screen')).map((option) => {
                   const active = form.deliverables.includes(option.key);
                   const allowed = isPlanAllowedForOption(businessPlan.key, option.minPlan);
                   return (
@@ -823,7 +858,14 @@ export default function CreateEventScreen({ route, navigation }) {
                 })}
               </View>
               <Text style={s.planHint}>Disponible à partir du pack correspondant. Upgrade pour déverrouiller les livrables premium.</Text>
-              <StyledInput value={form.otherDeliverable} onChangeText={v => upd('otherDeliverable', v)} placeholder="Autre livrable spécifique..." />
+              <TagInput
+                values={form.deliverables.filter((item) => !DELIVERABLE_OPTIONS.some((option) => option.key === item))}
+                onAdd={addCustomDeliverableItem}
+                onRemove={(_index, value) => {
+                  upd('deliverables', form.deliverables.filter((item) => item !== value));
+                }}
+                placeholder="Ajouter un autre livrable..."
+              />
             </InputBlock>
 
             <InputBlock label="Comptes à mentionner">
@@ -876,7 +918,7 @@ export default function CreateEventScreen({ route, navigation }) {
             {form.plusOneMode === 'required' ? (
               <View style={s.inlineInfoCard}>
                 <Ionicons name="information-circle-outline" size={18} color={COLORS.primary} />
-                <Text style={s.inlineInfoText}>Le livrable “Avis Google + screen du +1” sera ajouté automatiquement.</Text>
+                <Text style={s.inlineInfoText}>Le livrable “Avis Google ” sera ajouté automatiquement.</Text>
               </View>
             ) : null}
 
@@ -887,50 +929,39 @@ export default function CreateEventScreen({ route, navigation }) {
             <View style={s.toggleRow}>
               <View style={s.toggleInfo}>
                 <Ionicons name="warning-outline" size={20} color={COLORS.primary} />
-                <View>
+                <View style={s.toggleCopy}>
                   <Text style={s.toggleTitle}>+18 requis</Text>
                   <Text style={s.toggleSub}>Activez si l’événement est réservé aux majeurs</Text>
                 </View>
               </View>
-              <Switch value={form.isAdultsOnly} onValueChange={v => upd('isAdultsOnly', v)} trackColor={{ false: COLORS.bgCard2, true: 'rgba(201,169,97,0.4)' }} thumbColor={form.isAdultsOnly ? COLORS.primary : COLORS.textMuted} />
+              <View style={s.toggleSwitchWrap}>
+                <Switch value={form.isAdultsOnly} onValueChange={v => upd('isAdultsOnly', v)} trackColor={{ false: COLORS.bgCard2, true: 'rgba(201,169,97,0.4)' }} thumbColor={form.isAdultsOnly ? COLORS.primary : COLORS.textMuted} />
+              </View>
             </View>
 
             <View style={s.toggleRow}>
               <View style={s.toggleInfo}>
                 <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.success} />
-                <View>
+                <View style={s.toggleCopy}>
                   <Text style={s.toggleTitle}>Publié</Text>
                   <Text style={s.toggleSub}>Visible par les influenceurs</Text>
                 </View>
               </View>
-              <Switch value={form.isActive} onValueChange={v => upd('isActive', v)} trackColor={{ false: COLORS.bgCard2, true: 'rgba(16,217,160,0.4)' }} thumbColor={form.isActive ? COLORS.success : COLORS.textMuted} />
-            </View>
-
-            <View style={s.toggleRow}>
-              <View style={s.toggleInfo}>
-                <Ionicons name="star-outline" size={20} color={COLORS.primary} />
-                <View>
-                  <Text style={s.toggleTitle}>BOOST Premium</Text>
-                  <Text style={s.toggleSub}>Met en avant ton événement (option payante)</Text>
-                </View>
+              <View style={s.toggleSwitchWrap}>
+                <Switch value={form.isActive} onValueChange={v => upd('isActive', v)} trackColor={{ false: COLORS.bgCard2, true: 'rgba(16,217,160,0.4)' }} thumbColor={form.isActive ? COLORS.success : COLORS.textMuted} />
               </View>
-              <Switch value={form.isSponsored} onValueChange={v => upd('isSponsored', v)} trackColor={{ false: COLORS.bgCard2, true: 'rgba(201,169,97,0.4)' }} thumbColor={form.isSponsored ? COLORS.primary : COLORS.textMuted} />
             </View>
 
-            {form.isSponsored ? (
-              <InputBlock label="Durée du boost">
-                <View style={s.optionRowWrap}>
-                  {BOOST_OPTIONS.map((option) => {
-                    const active = String(option.days) === String(form.boostDurationDays);
-                    return (
-                      <TouchableOpacity key={option.days} style={[s.optionChip, active && s.optionChipActive]} onPress={() => upd('boostDurationDays', String(option.days))}>
-                        <Text style={[s.optionChipText, active && s.optionChipTextActive]}>{option.days}j · {option.price}€</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </InputBlock>
-            ) : null}
+            <TouchableOpacity style={s.boostPreviewCard} onPress={() => setBoostInfoVisible(true)} activeOpacity={0.9}>
+              <View style={s.boostPreviewIcon}>
+                <Ionicons name="star-outline" size={18} color={COLORS.primary} />
+              </View>
+              <View style={s.boostPreviewCopy}>
+                <Text style={s.boostPreviewTitle}>Boost premium après publication</Text>
+                <Text style={s.boostPreviewText}>Vous pourrez choisir un boost et voir les tarifs juste après la création de l’événement.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
           </View>
         );
 
@@ -1134,19 +1165,126 @@ export default function CreateEventScreen({ route, navigation }) {
               </View>
             </View>
 
-            <TouchableOpacity activeOpacity={0.9} onPress={closeSuccessModal} style={s.successBtnWrap}>
-              <LinearGradient
-                colors={COLORS.gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={s.successBtn}
-              >
-                <Text style={s.successBtnText}>
-                  {successModal.mode === 'edit' ? "Retour à l'événement" : 'Parfait, continuer'}
+            {successModal.mode === 'create' && lastCreatedEventId ? (
+              <View style={s.successActions}>
+                <TouchableOpacity activeOpacity={0.88} onPress={openPostCreateBoostModal} style={s.successGhostBtn}>
+                  <Ionicons name="flash-outline" size={16} color={COLORS.primary} />
+                  <Text style={s.successGhostBtnText}>Booster l'événement</Text>
+                </TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.9} onPress={closeSuccessModal} style={s.successBtnWrap}>
+                  <LinearGradient
+                    colors={COLORS.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={s.successBtn}
+                  >
+                    <Text style={s.successBtnText}>Parfait, continuer</Text>
+                    <Ionicons name="arrow-forward" size={16} color="#0A0A0F" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity activeOpacity={0.9} onPress={closeSuccessModal} style={s.successBtnWrap}>
+                <LinearGradient
+                  colors={COLORS.gradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={s.successBtn}
+                >
+                  <Text style={s.successBtnText}>
+                    {successModal.mode === 'edit' ? "Retour à l'événement" : 'Parfait, continuer'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color="#0A0A0F" />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={boostInfoVisible} transparent animationType="slide" onRequestClose={() => setBoostInfoVisible(false)}>
+        <View style={s.topSheetOverlay}>
+          <TouchableOpacity style={s.topSheetBackdrop} activeOpacity={1} onPress={() => setBoostInfoVisible(false)} />
+          <View style={[s.topSheet, { paddingBottom: insets.bottom + SPACING.xl }]}>
+            <View style={s.topSheetHandle} />
+            <View style={s.topSheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.topSheetTitle}>Comment fonctionne un boost ?</Text>
+                <Text style={s.topSheetText}>
+                  Le boost met votre événement en avant dans l’app avec un badge premium. Les tarifs sont fixes et le paiement ne sera proposé qu’après la création de l’événement.
                 </Text>
-                <Ionicons name="arrow-forward" size={16} color="#0A0A0F" />
-              </LinearGradient>
-            </TouchableOpacity>
+              </View>
+              <TouchableOpacity onPress={() => setBoostInfoVisible(false)} style={s.topSheetClose}>
+                <Ionicons name="close" size={18} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+            <View style={s.topSheetPriceGrid}>
+              {BOOST_OPTIONS.map((option) => (
+                <View key={`info-${option.days}`} style={s.topSheetPriceCard}>
+                  <Text style={s.topSheetPriceDays}>{option.days} jour{option.days > 1 ? 's' : ''}</Text>
+                  <Text style={s.topSheetPriceValue}>{option.price}€</Text>
+                </View>
+              ))}
+            </View>
+            <View style={s.topSheetSteps}>
+              {[
+                '1. Vous créez et publiez votre événement normalement.',
+                '2. ONLIST vous propose ensuite les durées et tarifs du boost.',
+                '3. Si vous confirmez, vous êtes redirigé vers Stripe pour payer.',
+              ].map((item) => (
+                <View key={item} style={s.topSheetStep}>
+                  <Ionicons name="sparkles-outline" size={16} color={COLORS.primary} />
+                  <Text style={s.topSheetStepText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={postCreateBoostModal.visible} transparent animationType="slide" onRequestClose={closePostCreateBoostModal}>
+        <View style={s.topSheetOverlay}>
+          <TouchableOpacity style={s.topSheetBackdrop} activeOpacity={1} onPress={closePostCreateBoostModal} />
+          <View style={[s.topSheet, { paddingBottom: insets.bottom + SPACING.xl }]}>
+            <View style={s.topSheetHandle} />
+            <View style={s.topSheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.topSheetTitle}>Booster cet événement ?</Text>
+                <Text style={s.topSheetText}>
+                  Votre événement vient d’être créé. Choisissez maintenant une durée de boost pour augmenter sa visibilité auprès des influenceurs.
+                </Text>
+              </View>
+              <TouchableOpacity onPress={closePostCreateBoostModal} style={s.topSheetClose}>
+                <Ionicons name="close" size={18} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
+            <View style={s.topSheetPriceGrid}>
+              {BOOST_OPTIONS.map((option) => {
+                const active = String(option.days) === String(form.boostDurationDays);
+                return (
+                  <TouchableOpacity
+                    key={`post-${option.days}`}
+                    style={[s.topSheetPriceCard, active && s.topSheetPriceCardActive]}
+                    onPress={() => upd('boostDurationDays', String(option.days))}
+                    activeOpacity={0.88}
+                  >
+                    <Text style={[s.topSheetPriceDays, active && s.topSheetPriceDaysActive]}>{option.days} jour{option.days > 1 ? 's' : ''}</Text>
+                    <Text style={[s.topSheetPriceValue, active && s.topSheetPriceValueActive]}>{option.price}€</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={s.postBoostActions}>
+              <TouchableOpacity style={s.postBoostLaterBtn} onPress={closePostCreateBoostModal} activeOpacity={0.88}>
+                <Text style={s.postBoostLaterText}>Plus tard</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.postBoostPayBtnWrap} onPress={handleBoostPayment} activeOpacity={0.9}>
+                <LinearGradient colors={COLORS.gradient} style={s.postBoostPayBtn}>
+                  <Text style={s.postBoostPayText}>Payer le boost</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#0A0A0F" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1342,9 +1480,78 @@ const s = StyleSheet.create({
     backgroundColor: COLORS.bgCard, borderRadius: RADIUS.md, padding: SPACING.md,
     borderWidth: 1, borderColor: COLORS.border,
   },
-  toggleInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  toggleInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, paddingRight: SPACING.sm },
+  toggleCopy: { flex: 1, minWidth: 0 },
   toggleTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
   toggleSub: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  toggleSwitchWrap: { marginLeft: SPACING.sm },
+  boostPreviewCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(201,169,97,0.06)',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.22)',
+    padding: SPACING.md,
+  },
+  boostPreviewIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.12)',
+  },
+  boostPreviewCopy: { flex: 1, minWidth: 0 },
+  boostPreviewTitle: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold, marginBottom: 4 },
+  boostPreviewText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, lineHeight: 18 },
+  boostCard: {
+    backgroundColor: 'rgba(201,169,97,0.06)',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.22)',
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  boostHeader: { gap: SPACING.sm },
+  boostHeaderCopy: { gap: 6 },
+  boostTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  boostText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
+  boostInfoBtn: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.24)',
+    backgroundColor: 'rgba(201,169,97,0.08)',
+  },
+  boostInfoBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
+  boostOptionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  boostOptionCard: {
+    width: '47%',
+    minHeight: 108,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bgCard,
+    padding: SPACING.md,
+    justifyContent: 'space-between',
+  },
+  boostOptionCardActive: {
+    borderColor: 'rgba(201,169,97,0.42)',
+    backgroundColor: 'rgba(201,169,97,0.14)',
+  },
+  boostOptionDays: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  boostOptionDaysActive: { color: COLORS.primary },
+  boostOptionPrice: { color: COLORS.textPrimary, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold },
+  boostOptionPriceActive: { color: COLORS.primary },
+  boostOptionMeta: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  boostOptionMetaActive: { color: COLORS.textSecondary },
   inlineInfoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1383,6 +1590,82 @@ const s = StyleSheet.create({
   },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  topSheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  topSheetBackdrop: { flex: 1 },
+  topSheet: {
+    backgroundColor: '#131318',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.16)',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xl,
+  },
+  topSheetHandle: {
+    alignSelf: 'center',
+    width: 54,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginBottom: SPACING.md,
+  },
+  topSheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md, marginTop: SPACING.xs },
+  topSheetClose: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  topSheetTitle: { color: COLORS.white, fontSize: FONTS.sizes.md, fontFamily: FONTS.bold, marginBottom: 8, lineHeight: 24 },
+  topSheetText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 21 },
+  topSheetPriceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: SPACING.lg },
+  topSheetPriceCard: {
+    width: '47%',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: SPACING.md,
+    gap: 6,
+  },
+  topSheetPriceCardActive: {
+    borderColor: 'rgba(201,169,97,0.42)',
+    backgroundColor: 'rgba(201,169,97,0.14)',
+  },
+  topSheetPriceDays: { color: COLORS.textPrimary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  topSheetPriceDaysActive: { color: COLORS.primary },
+  topSheetPriceValue: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold },
+  topSheetPriceValueActive: { color: COLORS.primary },
+  topSheetSteps: { gap: 12, marginTop: SPACING.lg },
+  topSheetStep: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  topSheetStepText: { flex: 1, color: COLORS.textPrimary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
+  postBoostActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xl },
+  postBoostLaterBtn: {
+    paddingHorizontal: 18,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bgCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  postBoostLaterText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  postBoostPayBtnWrap: { flex: 1, borderRadius: RADIUS.full, overflow: 'hidden' },
+  postBoostPayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+  },
+  postBoostPayText: { color: '#0A0A0F', fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold },
   modalSheet: { backgroundColor: COLORS.bgCard, borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl, maxHeight: '70%' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.lg, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   modalTitle: { color: COLORS.white, fontSize: FONTS.sizes.md, fontFamily: FONTS.bold },
@@ -1509,6 +1792,26 @@ const s = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     lineHeight: 20,
     fontFamily: FONTS.medium,
+  },
+  successActions: {
+    gap: 12,
+  },
+  successGhostBtn: {
+    minHeight: 52,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.28)',
+    backgroundColor: 'rgba(201,169,97,0.08)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: SPACING.lg,
+  },
+  successGhostBtnText: {
+    color: COLORS.primary,
+    fontSize: FONTS.sizes.base,
+    fontFamily: FONTS.semiBold,
   },
   successBtnWrap: {
     borderRadius: RADIUS.full,

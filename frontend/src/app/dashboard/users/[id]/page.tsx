@@ -30,6 +30,7 @@ interface UserDetail {
   reviewsCount?: number;
   plasma?: number;
   photos?: string[];
+  avatarUrl?: string;
   // Business
   businessName?: string;
   businessType?: string;
@@ -37,6 +38,7 @@ interface UserDetail {
   businessCity?: string;
   businessDescription?: string;
   businessLogo?: string;
+  businessBannerPhoto?: string;
   isFoundingPartner?: boolean;
   foundingPartnerGrantedAt?: string;
   subscriptionPlan?: 'starter' | 'pro' | 'group';
@@ -45,6 +47,18 @@ interface UserDetail {
   subscriptionStore?: string;
   subscriptionExpiresAt?: string | null;
   subscriptionUpdatedAt?: string | null;
+}
+
+interface LieuSummary {
+  _id: string;
+  name: string;
+  category?: string;
+  city?: string;
+  address?: string;
+  logo?: string;
+  bannerPhoto?: string;
+  photos?: string[];
+  createdAt: string;
 }
 
 const STATUS_CONFIG = {
@@ -128,6 +142,7 @@ export default function UserDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const [user, setUser] = useState<UserDetail | null>(null);
+  const [lieux, setLieux] = useState<LieuSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -137,6 +152,7 @@ export default function UserDetailPage() {
     const data = await res.json();
     const found = data.user as UserDetail | null;
     setUser(found || null);
+    setLieux(Array.isArray(data.lieux) ? data.lieux : []);
     setLoading(false);
   };
 
@@ -185,6 +201,10 @@ export default function UserDetailPage() {
   const avatarBg = isInfluencer
     ? 'var(--gradient-primary)'
     : 'linear-gradient(135deg, #a89060, #d4af77)';
+  const primaryVisual = isInfluencer
+    ? user.photos?.[0] || user.avatarUrl || ''
+    : user.businessLogo || user.businessBannerPhoto || '';
+  const businessGallery = [user.businessLogo, user.businessBannerPhoto].filter(Boolean) as string[];
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -230,9 +250,13 @@ export default function UserDetailPage() {
 
             <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
               {/* Avatar */}
-              <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-bold flex-shrink-0"
+              <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-bold flex-shrink-0 overflow-hidden"
                 style={{ background: avatarBg, color: '#16130d' }}>
-                {user.name?.charAt(0)}
+                {primaryVisual ? (
+                  <img src={primaryVisual} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  user.name?.charAt(0)
+                )}
               </div>
 
               {/* Info principale */}
@@ -371,6 +395,8 @@ export default function UserDetailPage() {
                 {user.businessType && <InfoRow icon={Globe} label="Type" value={BUSINESS_TYPE_LABELS[user.businessType] || user.businessType} />}
                 {user.businessAddress && <InfoRow icon={MapPin} label="Adresse" value={user.businessAddress} />}
                 {user.businessCity && <InfoRow icon={MapPin} label="Ville" value={user.businessCity} />}
+                {user.businessLogo && <InfoRow icon={Share2} label="Logo" value="Image disponible" link={user.businessLogo} />}
+                {user.businessBannerPhoto && <InfoRow icon={Share2} label="Bannière" value="Image disponible" link={user.businessBannerPhoto} />}
               </Section>
             )}
 
@@ -424,6 +450,60 @@ export default function UserDetailPage() {
                       className="w-full aspect-square object-cover rounded-xl hover:opacity-80 transition-opacity" />
                   </a>
                 ))}
+              </div>
+            </Section>
+          )}
+
+          {!isInfluencer && businessGallery.length > 0 && (
+            <Section title={`Médias établissement (${businessGallery.length})`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {businessGallery.map((image, i) => (
+                  <a key={`${image}-${i}`} href={image} target="_blank" rel="noopener noreferrer">
+                    <img src={image} alt={`Media établissement ${i + 1}`} className="w-full h-56 object-cover rounded-2xl hover:opacity-80 transition-opacity" />
+                  </a>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {!isInfluencer && lieux.length > 0 && (
+            <Section title={`Lieux associés (${lieux.length})`}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {lieux.map((lieu) => {
+                  const media = [lieu.logo, lieu.bannerPhoto, ...(lieu.photos || [])].filter(Boolean) as string[];
+                  return (
+                    <div key={lieu._id} className="rounded-2xl p-4 surface">
+                      <div className="flex items-start gap-4">
+                        <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0" style={{ background: 'var(--bg-card-2)' }}>
+                          {media[0] ? (
+                            <img src={media[0]} alt={lieu.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+                              <Building2 size={24} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{lieu.name}</p>
+                          {lieu.category && <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{BUSINESS_TYPE_LABELS[lieu.category] || lieu.category}</p>}
+                          {(lieu.address || lieu.city) && <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{lieu.address || lieu.city}{lieu.address && lieu.city ? `, ${lieu.city}` : ''}</p>}
+                          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                            Créé le {new Date(lieu.createdAt).toLocaleDateString('fr-FR')}
+                          </p>
+                        </div>
+                      </div>
+                      {media.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2 mt-4">
+                          {media.slice(0, 3).map((image, index) => (
+                            <a key={`${image}-${index}`} href={image} target="_blank" rel="noopener noreferrer">
+                              <img src={image} alt={`${lieu.name} ${index + 1}`} className="w-full h-20 object-cover rounded-xl hover:opacity-80 transition-opacity" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Section>
           )}

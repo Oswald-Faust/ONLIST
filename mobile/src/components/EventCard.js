@@ -34,7 +34,8 @@ export default function EventCard({ event, onPress, style }) {
 
       {event.isSponsored && (
         <View style={styles.sponsoredBadge}>
-          <Text style={styles.sponsoredText}>Premium</Text>
+          <Ionicons name="megaphone" size={11} color="#000" />
+          <Text style={styles.sponsoredText}>Sponsorisé</Text>
         </View>
       )}
 
@@ -106,10 +107,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: SPACING.sm,
     right: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: COLORS.gold,
     borderRadius: RADIUS.full,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 5,
   },
   sponsoredText: { color: '#000', fontSize: FONTS.sizes.xs, fontFamily: 'Poppins_700Bold' },
   content: {

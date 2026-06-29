@@ -9,7 +9,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
-import { eventsAPI, applicationsAPI, lieuxAPI } from '../../services/api';
+import { eventsAPI, applicationsAPI } from '../../services/api';
 import { getDeliverableLabel } from '../../constants/businessEventOptions';
 import { useAuth } from '../../context/AuthContext';
 
@@ -129,12 +129,10 @@ export default function EventDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(!eventParam);
   const [applying, setApplying] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState(null);
+  const [application, setApplication] = useState(route.params?.application || null);
   const [liked, setLiked] = useState(false);
   const [likeSaving, setLikeSaving] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
-  const [showLieuRating, setShowLieuRating] = useState(false);
-  const [ratingSaving, setRatingSaving] = useState(false);
-  const [lieuRating, setLieuRating] = useState({ ambience: 8, service: 8, value: 8, comment: '' });
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -145,6 +143,26 @@ export default function EventDetailScreen({ route, navigation }) {
       checkIfFavorited(eventParam._id);
     }
   }, [eventParam?._id]);
+
+  // Tracking de vue : on enregistre l'ouverture de la fiche, puis la durée de
+  // consultation à la sortie de l'écran (alimente les statistiques côté business).
+  const viewRef = useRef({ id: null, start: 0 });
+  useEffect(() => {
+    const id = eventParam?._id;
+    if (!id || user?.type !== 'influencer') return undefined;
+    let active = true;
+    viewRef.current = { id: null, start: Date.now() };
+    eventsAPI.recordView(id)
+      .then((data) => { if (active) viewRef.current.id = data?.viewId || null; })
+      .catch(() => {});
+    return () => {
+      active = false;
+      const { id: viewId, start } = viewRef.current;
+      if (viewId) {
+        eventsAPI.updateView(id, viewId, Date.now() - start).catch(() => {});
+      }
+    };
+  }, [eventParam?._id, user?.type]);
 
   const checkIfFavorited = async (id) => {
     try {
@@ -187,6 +205,7 @@ export default function EventDetailScreen({ route, navigation }) {
     try {
       const data = await applicationsAPI.myApplications();
       const existingApplication = data.applications?.find(a => a.event?._id === id);
+      setApplication(existingApplication || null);
       setApplicationStatus(existingApplication?.status || null);
     } catch (err) {
       console.log('checkIfApplied error:', err.message);
@@ -198,8 +217,27 @@ export default function EventDetailScreen({ route, navigation }) {
     setApplying(true);
     try {
       await applicationsAPI.apply({ eventId: event._id });
+      setApplication(null);
       setApplicationStatus('pending');
       Alert.alert('Demande envoyée !', "L'établissement examinera votre profil.");
+    } catch (err) {
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleAcceptInvitation = async () => {
+    if (!application?._id || !application?.isInvitation || applicationStatus !== 'pending') return;
+    setApplying(true);
+    try {
+      const data = await applicationsAPI.acceptInvite(application._id);
+      const nextApplication = data?.application;
+      if (nextApplication) {
+        setApplication(nextApplication);
+        setApplicationStatus(nextApplication.status);
+        navigation.navigate('AttendanceConfirmed', { application: nextApplication });
+      }
     } catch (err) {
       Alert.alert('Erreur', err.message);
     } finally {
@@ -224,9 +262,12 @@ export default function EventDetailScreen({ route, navigation }) {
 
   const imgUri = event.images?.[0] || PLACEHOLDER;
   const hasApplied = Boolean(applicationStatus);
+  const isPendingInvitation = applicationStatus === 'pending' && application?.isInvitation;
   const applyLabel = applicationStatus === 'accepted'
     ? 'Vous participerez à cet évènement'
-    : 'Demande envoyée';
+    : isPendingInvitation
+      ? 'Invitation reçue'
+      : 'Demande envoyée';
 
   const dateObj = event.date ? new Date(event.date) : null;
   const dateFormatted = dateObj
@@ -248,30 +289,6 @@ export default function EventDetailScreen({ route, navigation }) {
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
-
-  const submitLieuRating = async () => {
-    if (!lieu?._id) return;
-    setRatingSaving(true);
-    try {
-      await lieuxAPI.review(lieu._id, {
-        eventId: event._id,
-        scores: {
-          ambience: Number(lieuRating.ambience),
-          service: Number(lieuRating.service),
-          value: Number(lieuRating.value),
-        },
-        comment: lieuRating.comment.trim(),
-      });
-      const data = await eventsAPI.get(event._id);
-      setEvent(data.event);
-      setShowLieuRating(false);
-      Alert.alert('Merci', 'Votre avis sur ce lieu a été enregistré.');
-    } catch (err) {
-      Alert.alert('Erreur', err.message);
-    } finally {
-      setRatingSaving(false);
-    }
-  };
 
   return (
     <View style={S.container}>
@@ -334,6 +351,12 @@ export default function EventDetailScreen({ route, navigation }) {
           <View style={[S.heroBottom, { bottom: SPACING.lg }]}>
             {/* Badges */}
             <View style={S.badgesRow}>
+              {event.isSponsored && (
+                <View style={S.badgeSponsored}>
+                  <Ionicons name="megaphone" size={11} color="#0A0A0F" />
+                  <Text style={S.badgeSponsoredTxt}>Sponsorisé</Text>
+                </View>
+              )}
               {event.isFull && (
                 <View style={S.badgeFull}>
                   <Text style={S.badgeFullTxt}>EVENT IS FULL</Text>
@@ -433,10 +456,6 @@ export default function EventDetailScreen({ route, navigation }) {
                 <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} style={{ marginLeft: 4 }} />
               </TouchableOpacity>
               <Text style={S.lieuScoreMeta}>{lieu.reviewsCount || 0} avis influenceurs</Text>
-              <TouchableOpacity style={S.rateLieuBtn} onPress={() => setShowLieuRating(true)}>
-                <Ionicons name="create-outline" size={16} color={COLORS.primary} />
-                <Text style={S.rateLieuBtnText}>Noter ce lieu</Text>
-              </TouchableOpacity>
             </View>
           )}
 
@@ -639,12 +658,34 @@ export default function EventDetailScreen({ route, navigation }) {
             style={StyleSheet.absoluteFill}
           />
           <TouchableOpacity
-            onPress={() => setShowPopup(true)}
-            disabled={applying || hasApplied || event.isFull}
+            onPress={() => {
+              if (isPendingInvitation) {
+                handleAcceptInvitation();
+                return;
+              }
+              setShowPopup(true);
+            }}
+            disabled={applying || (hasApplied && !isPendingInvitation) || event.isFull}
             activeOpacity={0.85}
             style={{ zIndex: 1 }}
           >
-            {hasApplied ? (
+            {isPendingInvitation ? (
+              <LinearGradient
+                colors={COLORS.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={S.applyBtn}
+              >
+                {applying ? (
+                  <ActivityIndicator color={COLORS.bg} size="small" />
+                ) : (
+                  <>
+                    <Text style={S.applyTxt}>Accepter l'invitation</Text>
+                    <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.bg} />
+                  </>
+                )}
+              </LinearGradient>
+            ) : hasApplied ? (
               <View style={S.applyApplied}>
                 <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
                 <Text style={[S.applyTxt, { color: COLORS.success }]}>{applyLabel}</Text>
@@ -747,52 +788,6 @@ export default function EventDetailScreen({ route, navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      <Modal
-        visible={showLieuRating}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLieuRating(false)}
-      >
-        <TouchableOpacity style={S.modalOverlay} activeOpacity={1} onPress={() => setShowLieuRating(false)}>
-          <TouchableOpacity style={S.rateSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-            <View style={S.modalHandle} />
-            <Text style={S.rateSheetTitle}>Noter ce lieu</Text>
-            {[
-              ['ambience', 'Ambiance'],
-              ['service', 'Service'],
-              ['value', 'Rapport qualité/prix'],
-            ].map(([key, label]) => (
-              <View key={key} style={S.ratingRow}>
-                <Text style={S.ratingLabel}>{label}</Text>
-                <View style={S.ratingStars}>
-                  {[1, 2, 3, 4, 5].map((star) => {
-                    const filled = star <= Math.round((lieuRating[key] || 0) / 2);
-                    return (
-                      <TouchableOpacity key={star} onPress={() => setLieuRating((prev) => ({ ...prev, [key]: star * 2 }))}>
-                        <Ionicons name={filled ? 'star' : 'star-outline'} size={22} color={COLORS.primary} />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-            <TextInput
-              style={S.rateCommentInput}
-              value={lieuRating.comment}
-              onChangeText={(value) => setLieuRating((prev) => ({ ...prev, comment: value }))}
-              placeholder="Partagez votre expérience sur ce lieu..."
-              placeholderTextColor={COLORS.textMuted}
-              multiline
-            />
-            <TouchableOpacity style={S.rateSubmitBtn} onPress={submitLieuRating} disabled={ratingSaving}>
-              {ratingSaving ? <ActivityIndicator color={COLORS.bg} size="small" /> : <Text style={S.rateSubmitText}>Envoyer mon avis</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity style={S.rateCancelBtn} onPress={() => setShowLieuRating(false)}>
-              <Text style={S.rateCancelText}>Annuler</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 }
@@ -873,6 +868,21 @@ const S = StyleSheet.create({
     letterSpacing: 0.8,
   },
   // Badge catégorie — fond sombre
+  badgeSponsored: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.gold || COLORS.primary,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  badgeSponsoredTxt: {
+    color: '#0A0A0F',
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.bold,
+    letterSpacing: 0.3,
+  },
   badgeCat: {
     backgroundColor: 'rgba(20,18,28,0.9)',
     borderRadius: RADIUS.full,
@@ -1320,23 +1330,27 @@ const S = StyleSheet.create({
   rateCancelBtn: { alignItems: 'center', paddingVertical: 8 },
   rateCancelText: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#111018',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 40,
     alignItems: 'center',
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(201,169,97,0.14)',
   },
   modalHandle: {
     width: 38,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     marginBottom: 24,
   },
   modalTitle: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 22,
     fontFamily: FONTS.bold,
     textAlign: 'center',
@@ -1345,7 +1359,7 @@ const S = StyleSheet.create({
     marginBottom: 8,
   },
   modalSubtitle: {
-    color: '#8E8E93',
+    color: COLORS.textSecondary,
     fontSize: 15,
     fontFamily: FONTS.medium,
     textAlign: 'center',
@@ -1360,25 +1374,31 @@ const S = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   stepCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: '#D946EF', // pink-purple
+    borderColor: 'rgba(201,169,97,0.72)',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.08)',
   },
   stepCircleTxt: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 14,
     fontFamily: FONTS.bold,
   },
   stepText: {
     flex: 1,
-    color: '#333333',
+    color: '#FFFFFF',
     fontSize: 14,
     fontFamily: FONTS.medium,
     lineHeight: 20,
@@ -1387,12 +1407,12 @@ const S = StyleSheet.create({
     width: '100%',
     height: 50,
     borderRadius: 16,
-    backgroundColor: '#4F46E5', // Indigo royal
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalBtnTxt: {
-    color: '#FFFFFF',
+    color: '#0A0A0F',
     fontSize: 16,
     fontFamily: FONTS.bold,
   },

@@ -15,6 +15,7 @@ import { CATEGORY_OPTIONS } from '../../constants/categories';
 import { eventsAPI, notificationsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import CityPickerSheet from './CityPickerScreen';
+import { filterUpcomingEvents } from '../../utils/events';
 
 const { width: W, height: H } = Dimensions.get('window');
 const SLIDER_H = Math.min(H * 0.62, 520);
@@ -33,7 +34,7 @@ const FILTERS = [
 
 // ─── EventCard pleine largeur ──────────────────────────────────────────────────
 
-function EventCard({ event, onPress }) {
+function EventCard({ event, onPress, isFavorite, onToggleFavorite }) {
   const dateStr = event?.date
     ? new Date(event.date).toLocaleDateString('fr-FR', {
         day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -62,8 +63,21 @@ function EventCard({ event, onPress }) {
             <Text style={ec.badgeTxt}>{event.type}</Text>
           </View>
         )}
-        <TouchableOpacity style={ec.heartBtn}>
-          <Ionicons name="heart-outline" size={15} color={COLORS.white} />
+        {event?.isSponsored && (
+          <View style={ec.boostBadge}>
+            <Ionicons name="megaphone" size={11} color="#0A0A0F" />
+            <Text style={ec.boostBadgeText}>Sponsorisé</Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={ec.heartBtn}
+          onPress={(e) => {
+            e.stopPropagation();
+            onToggleFavorite?.(event?._id);
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={15} color={isFavorite ? COLORS.primary : COLORS.white} />
         </TouchableOpacity>
       </View>
       <View style={ec.info}>
@@ -105,6 +119,7 @@ export default function HomeScreen({ navigation }) {
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [selectedCity, setSelectedCity] = useState(user?.selectedCity || '');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [favoriteIds, setFavoriteIds]   = useState([]);
 
   const city = selectedCity;
   const displayName = user?.name?.trim() || 'toi';
@@ -163,8 +178,12 @@ export default function HomeScreen({ navigation }) {
     try {
       const params = { limit: 30 };
       if (city) params.city = city;
-      const data = await eventsAPI.list(params);
-      setEvents(data.events || []);
+      const [data, favoritesData] = await Promise.all([
+        eventsAPI.list(params),
+        eventsAPI.favorites().catch(() => ({ events: [] })),
+      ]);
+      setEvents(filterUpcomingEvents(data.events || []));
+      setFavoriteIds((favoritesData.events || []).map((event) => String(event._id)));
     } catch (err) {
       console.log('Events error:', err.message);
     } finally {
@@ -175,6 +194,28 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
   const onRefresh = () => { setRefreshing(true); fetchEvents(); };
+
+  const toggleFavorite = useCallback(async (eventId) => {
+    if (!eventId) return;
+    const normalizedId = String(eventId);
+    const wasFavorite = favoriteIds.includes(normalizedId);
+    setFavoriteIds((prev) => (
+      wasFavorite ? prev.filter((id) => id !== normalizedId) : [...prev, normalizedId]
+    ));
+    try {
+      const data = await eventsAPI.toggleFavorite(eventId);
+      setFavoriteIds((prev) => {
+        const exists = prev.includes(normalizedId);
+        if (data?.favorited) return exists ? prev : [...prev, normalizedId];
+        return prev.filter((id) => id !== normalizedId);
+      });
+    } catch (err) {
+      setFavoriteIds((prev) => (
+        wasFavorite ? (prev.includes(normalizedId) ? prev : [...prev, normalizedId]) : prev.filter((id) => id !== normalizedId)
+      ));
+      console.log('Favorite toggle error:', err.message);
+    }
+  }, [favoriteIds]);
 
   // ── Données slider ─────────────────────────────────────────────────────────
   const featured     = events.slice(0, 5);
@@ -495,6 +536,8 @@ export default function HomeScreen({ navigation }) {
                 <EventCard
                   key={e._id}
                   event={e}
+                  isFavorite={favoriteIds.includes(String(e._id))}
+                  onToggleFavorite={toggleFavorite}
                   onPress={() => navigation.navigate('EventDetail', { event: e })}
                 />
               ))}
@@ -807,6 +850,25 @@ const ec = StyleSheet.create({
     paddingVertical: 4,
   },
   badgeTxt: { color: COLORS.bg, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
+  boostBadge: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  boostBadgeText: {
+    color: '#0A0A0F',
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.semiBold,
+  },
   heartBtn: {
     position: 'absolute',
     top: SPACING.sm,

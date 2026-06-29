@@ -4,76 +4,128 @@ import {
   StatusBar, Alert, Image, ActivityIndicator, RefreshControl, Modal, TextInput,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { CATEGORY_LABELS } from '../../constants/categories';
-import { eventsAPI, applicationsAPI, deliverablesAPI } from '../../services/api';
+import { eventsAPI, applicationsAPI, deliverablesAPI, usersAPI } from '../../services/api';
 import { getDeliverableLabel } from '../../constants/businessEventOptions';
+import MiniAreaChart from '../../components/MiniAreaChart';
 
 const MOMENT_LABELS = { morning: 'Matin', afternoon: 'Apres-midi', evening: 'Soir', night: 'Nuit' };
+
+const isEventBoosted = (event) => Boolean(event?.isSponsored || event?.isBoosted);
+
+const boostStatusLabel = (event) => {
+  if (!event?.boostExpiresAt) return 'Votre événement est mis en avant auprès des influenceurs.';
+  const exp = new Date(event.boostExpiresAt);
+  const days = Math.max(0, Math.ceil((exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  const dateStr = exp.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const remaining = days > 0 ? ` · ${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}` : '';
+  return `Mis en avant jusqu'au ${dateStr}${remaining}`;
+};
 
 // --- Tabs ---
 function TabBar({ activeTab, onPress, counts }) {
   const tabs = [
-    { id: 'details',       label: 'Détails' },
-    { id: 'inscriptions',  label: `Inscriptions (${counts.pending})` },
-    { id: 'attestations',  label: `Présences (${counts.checkedIn})` },
+    { id: 'details',       label: 'Détails',      icon: 'information-circle-outline', count: null },
+    { id: 'inscriptions',  label: 'Inscriptions', icon: 'people-outline',             count: counts.pending },
+    { id: 'inviter',       label: 'Inviter',      icon: 'person-add-outline',         count: counts.invited },
+    { id: 'attestations',  label: 'Présences',    icon: 'checkmark-done-outline',     count: counts.checkedIn },
+    { id: 'stats',         label: 'Stats',        icon: 'stats-chart-outline',        count: null },
   ];
   return (
     <View style={s.tabBar}>
-      {tabs.map(t => (
-        <TouchableOpacity
-          key={t.id}
-          style={[s.tabItem, activeTab === t.id && s.tabItemActive]}
-          onPress={() => onPress(t.id)}
-        >
-          <Text style={[s.tabText, activeTab === t.id && s.tabTextActive]}>{t.label}</Text>
-          {activeTab === t.id && <View style={s.tabUnderline} />}
-        </TouchableOpacity>
-      ))}
+      {tabs.map((t) => {
+        const active = activeTab === t.id;
+        const color = active ? COLORS.primary : COLORS.textMuted;
+        return (
+          <TouchableOpacity key={t.id} style={s.tabItem} onPress={() => onPress(t.id)} activeOpacity={0.7}>
+            <View>
+              <Ionicons name={t.icon} size={21} color={color} />
+              {t.count > 0 ? (
+                <View style={s.tabDot}>
+                  <Text style={s.tabDotText}>{t.count > 9 ? '9+' : t.count}</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={[s.tabText, active && s.tabTextActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {t.label}
+            </Text>
+            <View style={[s.tabUnderline, active && s.tabUnderlineActive]} />
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
 // --- Details Tab ---
+const capitalize = (str) => (str && typeof str === 'string' ? str.charAt(0).toUpperCase() + str.slice(1) : str);
+
 function DetailsTab({ event }) {
   const date = event.date ? new Date(event.date) : null;
-  const dateStr = date ? date.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+  const dateStr = date ? capitalize(date.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })) : '—';
   const timeStr = date ? date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
 
+  const accepted = event.acceptedCount || 0;
+  const maxP = event.maxParticipants || 0;
+  const fillRatio = maxP > 0 ? Math.min(1, accepted / maxP) : 0;
+  const fillPct = Math.round(fillRatio * 100);
+
+  const primaryRows = [
+    { icon: 'calendar-outline', label: 'Date', value: timeStr ? `${dateStr} · ${timeStr}` : dateStr },
+    { icon: 'business-outline', label: 'Lieu', value: event.venue || '—' },
+    { icon: 'location-outline', label: 'Ville', value: event.city || '—' },
+  ];
+  const attributes = [
+    { icon: 'pricetag-outline', label: 'Catégorie', value: CATEGORY_LABELS[event.category] || '—' },
+    { icon: 'moon-outline', label: 'Moment', value: MOMENT_LABELS[event.moment] || '—' },
+    event.dresscode ? { icon: 'shirt-outline', label: 'Dress code', value: event.dresscode } : null,
+    event.ageRequirement ? { icon: 'person-outline', label: 'Âge minimum', value: `${event.ageRequirement} ans` } : null,
+  ].filter(Boolean);
+
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: SPACING.lg, paddingBottom: 100 }}>
-      {/* Stats */}
-      <View style={s.statsGrid}>
-        <View style={s.statCard}>
-          <Text style={s.statValue}>{event.acceptedCount || 0}</Text>
-          <Text style={s.statLabel}>Acceptés</Text>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: 100 }}>
+      {/* Boost actif */}
+      {isEventBoosted(event) ? (
+        <View style={s.boostCard}>
+          <View style={s.boostCardIcon}>
+            <Ionicons name="flash" size={18} color={COLORS.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.boostCardTitle}>Boost actif</Text>
+            <Text style={s.boostCardText}>{boostStatusLabel(event)}</Text>
+          </View>
         </View>
-        <View style={s.statCard}>
-          <Text style={s.statValue}>{event.maxParticipants || '—'}</Text>
-          <Text style={s.statLabel}>Places max</Text>
+      ) : null}
+
+      {/* Remplissage */}
+      <View style={s.fillCard}>
+        <View style={s.fillHead}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.fillNumber}>
+              {accepted}
+              <Text style={s.fillNumberMuted}>{` / ${maxP || '—'}`}</Text>
+            </Text>
+            <Text style={s.fillLabel}>Influenceurs acceptés</Text>
+          </View>
+          <View style={s.fillPctBadge}>
+            <Text style={s.fillPctText}>{fillPct}%</Text>
+          </View>
         </View>
-        <View style={s.statCard}>
-          <Text style={[s.statValue, { color: event.isActive ? COLORS.success : COLORS.warning }]}>{event.isActive ? 'Publié' : 'Brouillon'}</Text>
-          <Text style={s.statLabel}>Statut</Text>
+        <View style={s.fillTrack}>
+          <View style={[s.fillBar, { width: `${Math.max(2, fillPct)}%` }]} />
         </View>
       </View>
 
-      {/* Infos */}
+      {/* Infos principales */}
       <View style={s.infoCard}>
-        {[
-          { icon: 'calendar-outline', label: 'Date', value: `${dateStr}${timeStr ? ` à ${timeStr}` : ''}` },
-          { icon: 'business-outline', label: 'Lieu', value: event.venue || '—' },
-          { icon: 'location-outline', label: 'Ville', value: event.city || '—' },
-          { icon: 'pricetag-outline', label: 'Catégorie', value: CATEGORY_LABELS[event.category] || '—' },
-          { icon: 'time-outline', label: 'Moment', value: MOMENT_LABELS[event.moment] || '—' },
-          event.dresscode ? { icon: 'shirt-outline', label: 'Dress code', value: event.dresscode } : null,
-          event.ageRequirement ? { icon: 'person-outline', label: 'Âge minimum', value: `${event.ageRequirement} ans` } : null,
-        ].filter(Boolean).map((row, i) => (
+        {primaryRows.map((row, i) => (
           <View key={i} style={[s.infoRow, i > 0 && { borderTopWidth: 1, borderTopColor: COLORS.border }]}>
-            <View style={s.infoIconWrap}><Ionicons name={row.icon} size={16} color={COLORS.textMuted} /></View>
+            <View style={s.infoIconWrap}><Ionicons name={row.icon} size={18} color={COLORS.primary} /></View>
             <View style={{ flex: 1 }}>
               <Text style={s.infoRowLabel}>{row.label}</Text>
               <Text style={s.infoRowValue}>{row.value}</Text>
@@ -81,6 +133,19 @@ function DetailsTab({ event }) {
           </View>
         ))}
       </View>
+
+      {/* Attributs */}
+      {attributes.length ? (
+        <View style={s.chipGrid}>
+          {attributes.map((c, i) => (
+            <View key={i} style={s.chipTile}>
+              <Ionicons name={c.icon} size={15} color={COLORS.textMuted} />
+              <Text style={s.chipLabel} numberOfLines={1}>{c.label}</Text>
+              <Text style={s.chipValue} numberOfLines={1}>{c.value}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {/* Description */}
       {event.description ? (
@@ -229,6 +294,215 @@ function InscriptionsTab({ eventId, applications, onUpdate, navigation }) {
             onPressUser={() => openProfile(item.user?._id)}
           />
         )}
+      />
+    </View>
+  );
+}
+
+const formatFollowers = (n) => {
+  if (!n) return '0';
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}k`;
+  return String(n);
+};
+
+function InviteInfluencerCard({ influencer, onSelect, disabled }) {
+  return (
+    <TouchableOpacity style={s.inviteCard} onPress={() => onSelect(influencer)} activeOpacity={0.82}>
+      <View style={s.candidateRow}>
+        <View style={s.avatar}>
+          {influencer?.photos?.[0]
+            ? <Image source={{ uri: influencer.photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            : <LinearGradient colors={COLORS.gradient} style={s.avatarGrad}><Text style={s.avatarLetter}>{(influencer?.name || '?')[0].toUpperCase()}</Text></LinearGradient>}
+        </View>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={s.candidateName}>{influencer?.name || 'Inconnu'}</Text>
+          <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+            {influencer?.instagram && <Text style={s.handle}>@{influencer.instagram.replace('@', '')}</Text>}
+            <Text style={s.statSmall}>{formatFollowers(influencer?.followersCount)} abonnés</Text>
+            {influencer?.score ? <Text style={s.statSmall}>⭐ {influencer.score.toFixed(1)}/10</Text> : null}
+            {influencer?.city ? <Text style={s.statSmall}>{influencer.city}</Text> : null}
+          </View>
+        </View>
+        {disabled ? (
+          <View style={s.linkedPill}>
+            <Ionicons name="checkmark-circle" size={13} color={COLORS.success} />
+            <Text style={s.linkedPillText}>Déjà lié</Text>
+          </View>
+        ) : (
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// Feuille d'action : Consulter le profil / Inviter (au lieu d'inviter directement).
+function InfluencerActionSheet({ influencer, alreadyLinked, onClose, onViewProfile, onInvite }) {
+  const [inviting, setInviting] = useState(false);
+  const visible = !!influencer;
+
+  const handleInvite = async () => {
+    if (inviting) return;
+    setInviting(true);
+    try {
+      await onInvite(influencer._id);
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.sheetBackdropWrap}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+        <View style={s.sheet}>
+          <View style={s.sheetHandle} />
+          <View style={s.sheetProfile}>
+            <View style={s.sheetAvatar}>
+              {influencer?.photos?.[0]
+                ? <Image source={{ uri: influencer.photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                : <LinearGradient colors={COLORS.gradient} style={s.avatarGrad}><Text style={s.sheetAvatarLetter}>{(influencer?.name || '?')[0].toUpperCase()}</Text></LinearGradient>}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.sheetName} numberOfLines={1}>{influencer?.name || 'Influenceur'}</Text>
+              <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginTop: 3 }}>
+                {influencer?.instagram && <Text style={s.handle}>@{influencer.instagram.replace('@', '')}</Text>}
+                <Text style={s.statSmall}>{formatFollowers(influencer?.followersCount)} abonnés</Text>
+                {influencer?.city ? <Text style={s.statSmall}>{influencer.city}</Text> : null}
+              </View>
+            </View>
+          </View>
+
+          <TouchableOpacity style={s.sheetActionGhost} onPress={onViewProfile} activeOpacity={0.85}>
+            <Ionicons name="person-outline" size={18} color={COLORS.primary} />
+            <Text style={s.sheetActionGhostText}>Consulter le profil</Text>
+          </TouchableOpacity>
+
+          {alreadyLinked ? (
+            <View style={[s.sheetActionPrimary, s.sheetActionPrimaryDisabled]}>
+              <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.textMuted} />
+              <Text style={[s.sheetActionPrimaryText, { color: COLORS.textMuted }]}>Déjà lié à l'événement</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={s.sheetActionPrimary} onPress={handleInvite} activeOpacity={0.9} disabled={inviting}>
+              {inviting ? (
+                <ActivityIndicator size="small" color="#0A0A0F" />
+              ) : (
+                <>
+                  <Ionicons name="mail-outline" size={18} color="#0A0A0F" />
+                  <Text style={s.sheetActionPrimaryText}>Inviter l'influenceur</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function InviteTab({ eventId, applications, onInvited, navigation }) {
+  const [influencers, setInfluencers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+
+  const linkedIds = new Set(applications.map((item) => String(item.user?._id || item.user || '')));
+  const selectedLinked = selected ? linkedIds.has(String(selected._id)) : false;
+
+  const loadInfluencers = useCallback(async () => {
+    try {
+      const data = await usersAPI.list({ limit: 100 });
+      setInfluencers(data.users || []);
+    } catch (err) {
+      Alert.alert('Erreur', err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { loadInfluencers(); }, [loadInfluencers]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadInfluencers();
+  };
+
+  const handleInvite = async (userId) => {
+    try {
+      await applicationsAPI.invite({ userId, eventId });
+      const invitedUser = influencers.find((item) => String(item._id) === String(userId));
+      onInvited?.(invitedUser);
+      setSelected(null);
+      Alert.alert('Invitation envoyée', `${invitedUser?.name || 'Cet influenceur'} a été ajouté dans En attente.`);
+    } catch (err) {
+      Alert.alert('Erreur', err.message);
+    }
+  };
+
+  const handleViewProfile = () => {
+    const userId = selected?._id;
+    setSelected(null);
+    if (userId) navigation.navigate('BusinessInfluencerProfile', { userId });
+  };
+
+  const filtered = influencers.filter((item) => {
+    const haystack = `${item?.name || ''} ${item?.city || ''} ${item?.instagram || ''}`.toLowerCase();
+    return !search.trim() || haystack.includes(search.trim().toLowerCase());
+  });
+
+  if (loading) {
+    return (
+      <View style={s.statsCenter}>
+        <ActivityIndicator color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={s.inviteIntro}>
+        <Text style={s.inviteIntroTitle}>Inviter des influenceurs</Text>
+        <Text style={s.inviteIntroText}>
+          Recherchez un profil et envoyez-lui une invitation pour cet événement. Une invitation reçue apparaît ensuite dans En attente.
+        </Text>
+      </View>
+
+      <View style={s.inviteSearchWrap}>
+        <Ionicons name="search" size={16} color={COLORS.textMuted} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Nom, ville ou Instagram..."
+          placeholderTextColor={COLORS.textMuted}
+          style={s.inviteSearchInput}
+        />
+      </View>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={{ paddingHorizontal: SPACING.lg, gap: SPACING.md, paddingBottom: 120 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
+        ListEmptyComponent={<View style={s.emptySmall}><Text style={s.emptySmallText}>Aucun influenceur trouvé</Text></View>}
+        renderItem={({ item }) => (
+          <InviteInfluencerCard
+            influencer={item}
+            disabled={linkedIds.has(String(item._id))}
+            onSelect={setSelected}
+          />
+        )}
+      />
+
+      <InfluencerActionSheet
+        influencer={selected}
+        alreadyLinked={selectedLinked}
+        onClose={() => setSelected(null)}
+        onViewProfile={handleViewProfile}
+        onInvite={handleInvite}
       />
     </View>
   );
@@ -608,6 +882,228 @@ function AttestationsTab({ applications, navigation, eventId, onCheckIn, submiss
   );
 }
 
+// --- Stats Tab ---
+const formatCompact = (n) => {
+  const value = Number(n) || 0;
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return String(value);
+};
+
+const formatDayLabel = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+};
+
+// Message contextuel affiché en encart selon l'état de l'événement.
+const buildInsight = (stats) => {
+  const { views, applications, attendance } = stats;
+  if (attendance.accepted > 0 && attendance.attendanceRate < 70) {
+    return { tone: 'warning', text: `Taux de présence à ${attendance.attendanceRate} %. Relancez les influenceurs acceptés la veille de l'événement.` };
+  }
+  if (views.total > 0 && applications.total === 0) {
+    return { tone: 'warning', text: `${views.total} vue${views.total > 1 ? 's' : ''} mais aucune candidature. Améliorez votre offre ou boostez l'événement pour convertir.` };
+  }
+  if (applications.pending > 0) {
+    return { tone: 'info', text: `${applications.pending} candidature${applications.pending > 1 ? 's' : ''} en attente de réponse.` };
+  }
+  return { tone: 'success', text: 'Bonne dynamique : continuez à publier régulièrement pour garder la visibilité.' };
+};
+
+function KpiCard({ icon, label, value, sub, accent }) {
+  return (
+    <View style={[s.kpiCard, accent && s.kpiCardAccent]}>
+      <View style={s.kpiHead}>
+        <Ionicons name={icon} size={14} color={accent ? COLORS.primary : COLORS.textMuted} />
+        <Text style={[s.kpiLabel, accent && { color: COLORS.primary }]} numberOfLines={1}>{label}</Text>
+      </View>
+      <Text style={s.kpiValue}>{value}</Text>
+      {sub ? <Text style={s.kpiSub} numberOfLines={1}>{sub}</Text> : null}
+    </View>
+  );
+}
+
+function FunnelBar({ label, value, ratio, color }) {
+  return (
+    <View style={s.funnelRow}>
+      <View style={s.funnelTrack}>
+        <View style={[s.funnelFill, { width: `${Math.max(4, Math.round(ratio * 100))}%`, backgroundColor: color }]} />
+      </View>
+      <Text style={s.funnelLabel} numberOfLines={1}>{label} · {value}</Text>
+    </View>
+  );
+}
+
+function StatsTab({ eventId }) {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadStats = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await eventsAPI.stats(eventId);
+      setStats(data);
+    } catch (err) {
+      setError(err.message || 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+
+  useEffect(() => { loadStats(); }, [loadStats]);
+
+  if (loading) {
+    return (
+      <View style={s.statsCenter}>
+        <ActivityIndicator color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={s.statsCenter}>
+        <Text style={s.statsEmptyText}>{error}</Text>
+        <TouchableOpacity style={s.retryBtn} onPress={loadStats}>
+          <Text style={s.retryBtnText}>Réessayer</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!stats) return null;
+
+  const { views, applications, attendance, reach, reviews, funnel, boost } = stats;
+  const hasAnyData = views.total > 0 || applications.total > 0;
+  const showBoost = boost && (boost.isActive || boost.count > 0);
+  const insight = buildInsight(stats);
+  const funnelMax = Math.max(1, ...funnel.map((f) => f.value));
+  const series = views.series || [];
+  const axisLabels = series.length
+    ? [series[0], series[Math.floor(series.length / 2)], series[series.length - 1]]
+    : [];
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      {/* KPIs — défilent bord à bord, sans rognage */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.lg }}
+      >
+        <KpiCard icon="eye-outline" label="Vues" value={formatCompact(views.total)} sub={`${views.avgDurationSec}s en moy.`} accent />
+        <KpiCard icon="people-outline" label="Spectateurs" value={formatCompact(views.uniqueViewers)} sub="uniques" />
+        <KpiCard icon="documents-outline" label="Candidatures" value={formatCompact(applications.total)} sub={`${applications.pending} en attente`} />
+        <KpiCard icon="checkmark-done-outline" label="Acceptation" value={`${applications.acceptanceRate}%`} sub={`${applications.accepted} acceptés`} />
+        <KpiCard icon="walk-outline" label="Présents" value={`${attendance.checkedIn}/${attendance.accepted}`} sub={`${attendance.attendanceRate}%`} />
+        <KpiCard icon="megaphone-outline" label="Reach" value={formatCompact(reach.totalFollowers)} sub="abonnés cumulés" />
+        <KpiCard icon="star-outline" label="Note" value={reviews.avgScore > 0 ? `${reviews.avgScore}/10` : '—'} sub={`${reviews.count} avis`} />
+      </ScrollView>
+
+      {/* Boost — mesure */}
+      {showBoost ? (
+        <View style={[s.statsBody, { marginBottom: SPACING.lg }]}>
+          <View style={[s.boostStatCard, boost.isActive && s.boostStatCardActive]}>
+            <View style={s.boostStatHead}>
+              <View style={s.boostStatIcon}>
+                <Ionicons name="flash" size={16} color={boost.isActive ? COLORS.primary : COLORS.textMuted} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.boostStatTitle}>{boost.isActive ? 'Boost actif' : 'Boost inactif'}</Text>
+                <Text style={s.boostStatSub}>
+                  {boost.isActive
+                    ? `${boost.daysRemaining} jour${boost.daysRemaining > 1 ? 's' : ''} restant${boost.daysRemaining > 1 ? 's' : ''}`
+                    : 'Aucun boost en cours'}
+                </Text>
+              </View>
+              {boost.isActive ? (
+                <View style={s.boostStatPill}><Text style={s.boostStatPillText}>EN COURS</Text></View>
+              ) : null}
+            </View>
+            <View style={s.boostStatMetrics}>
+              <View style={s.boostStatMetric}>
+                <Text style={s.boostStatMetricValue}>{boost.count}</Text>
+                <Text style={s.boostStatMetricLabel}>boost{boost.count > 1 ? 's' : ''} activé{boost.count > 1 ? 's' : ''}</Text>
+              </View>
+              <View style={s.boostStatDivider} />
+              <View style={s.boostStatMetric}>
+                <Text style={s.boostStatMetricValue}>{boost.totalSpent.toFixed(0)} €</Text>
+                <Text style={s.boostStatMetricLabel}>total investi</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {!hasAnyData ? (
+        <View style={s.statsEmpty}>
+          <Ionicons name="bar-chart-outline" size={32} color={COLORS.textMuted} />
+          <Text style={s.statsEmptyTitle}>Pas encore de données</Text>
+          <Text style={s.statsEmptyText}>Les statistiques apparaîtront dès que des influenceurs consulteront votre événement.</Text>
+        </View>
+      ) : (
+        <View style={s.statsBody}>
+          {/* Courbe des vues */}
+          <View style={s.statsSection}>
+            <Text style={s.statsSectionTitle}>Total des vues</Text>
+            <MiniAreaChart data={series} />
+            {axisLabels.length ? (
+              <View style={s.axisRow}>
+                {axisLabels.map((pt, i) => (
+                  <Text key={i} style={s.axisLabel}>{formatDayLabel(pt.date)}</Text>
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          {/* Insight */}
+          <View style={[s.insightCard, insight.tone === 'success' ? s.insightSuccess : insight.tone === 'info' ? s.insightInfo : s.insightWarning]}>
+            <Ionicons
+              name={insight.tone === 'success' ? 'checkmark-circle' : insight.tone === 'info' ? 'information-circle' : 'warning'}
+              size={18}
+              color={insight.tone === 'success' ? COLORS.success : insight.tone === 'info' ? COLORS.primary : COLORS.warning}
+            />
+            <Text style={s.insightText}>{insight.text}</Text>
+          </View>
+
+          {/* Entonnoir */}
+          <View style={s.statsSection}>
+            <Text style={s.statsSectionTitle}>Entonnoir de conversion</Text>
+            <View style={{ gap: SPACING.sm }}>
+              <FunnelBar label="Vues" value={funnel[0].value} ratio={funnel[0].value / funnelMax} color={COLORS.primary} />
+              <FunnelBar label="Candidatures" value={funnel[1].value} ratio={funnel[1].value / funnelMax} color={COLORS.primaryLight} />
+              <FunnelBar label="Acceptés" value={funnel[2].value} ratio={funnel[2].value / funnelMax} color="rgba(201,169,97,0.6)" />
+              <FunnelBar label="Présents" value={funnel[3].value} ratio={funnel[3].value / funnelMax} color={COLORS.success} />
+            </View>
+          </View>
+
+          {/* Répartition + audience */}
+          <View style={s.statsSection}>
+            <Text style={s.statsSectionTitle}>Répartition des candidatures</Text>
+            <View style={s.breakdownCard}>
+              {[
+                { label: 'En attente', value: applications.pending },
+                { label: 'Acceptés', value: applications.accepted },
+                { label: 'Refusés', value: applications.rejected },
+                { label: 'Reach moyen / influenceur', value: `${formatCompact(reach.avgFollowers)} abonnés` },
+                { label: 'Note moyenne reçue', value: reviews.avgScore > 0 ? `${reviews.avgScore} / 10` : '—' },
+              ].map((row, i) => (
+                <View key={i} style={[s.breakdownRow, i > 0 && { borderTopWidth: 1, borderTopColor: COLORS.border }]}>
+                  <Text style={s.breakdownLabel}>{row.label}</Text>
+                  <Text style={s.breakdownValue}>{row.value}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
 // --- Main Screen ---
 export default function BusinessEventDetailScreen({ route, navigation }) {
   const { eventId } = route.params;
@@ -637,7 +1133,8 @@ export default function BusinessEventDetailScreen({ route, navigation }) {
     }
   }, [eventId]);
 
-  useEffect(() => { load(); }, [load]);
+  // Recharge à chaque focus : reflète un boost activé depuis la liste sans rester sur des données périmées.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const handleRefresh = () => { setRefreshing(true); load(); };
   const handleUpdateApp = (id, status) => {
@@ -650,12 +1147,27 @@ export default function BusinessEventDetailScreen({ route, navigation }) {
         : a
     )));
   };
+  const handleInvitedInfluencer = (influencer) => {
+    if (!influencer?._id) return;
+    setApplications((prev) => [
+      {
+        _id: `invite-${influencer._id}-${Date.now()}`,
+        user: influencer,
+        event: eventId,
+        isInvitation: true,
+        status: 'pending',
+        appliedAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  };
 
   const counts = {
     pending:  applications.filter(a => a.status === 'pending').length,
     accepted: applications.filter(a => a.status === 'accepted').length,
     rejected: applications.filter(a => a.status === 'rejected').length,
     checkedIn: applications.filter(a => a.status === 'accepted' && a.checkedIn).length,
+    invited: applications.filter(a => a.status === 'pending' && a.isInvitation).length,
   };
   const submissionsByApplication = deliverableSubmissions.reduce((acc, submission) => {
     const key = String(submission.application?._id || submission.application || '');
@@ -723,9 +1235,17 @@ export default function BusinessEventDetailScreen({ route, navigation }) {
             </View>
           </View>
           <View style={s.imageHeaderBottom}>
-            <View style={[s.statusBadge, { backgroundColor: event.isActive ? 'rgba(16,217,160,0.15)' : 'rgba(245,158,11,0.15)' }]}>
-              <View style={[s.statusDot, { backgroundColor: event.isActive ? COLORS.success : COLORS.warning }]} />
-              <Text style={[s.statusText, { color: event.isActive ? COLORS.success : COLORS.warning }]}>{event.isActive ? 'Publié' : 'Brouillon'}</Text>
+            <View style={s.badgeRow}>
+              <View style={[s.statusBadge, { backgroundColor: event.isActive ? 'rgba(16,217,160,0.15)' : 'rgba(245,158,11,0.15)' }]}>
+                <View style={[s.statusDot, { backgroundColor: event.isActive ? COLORS.success : COLORS.warning }]} />
+                <Text style={[s.statusText, { color: event.isActive ? COLORS.success : COLORS.warning }]}>{event.isActive ? 'Publié' : 'Brouillon'}</Text>
+              </View>
+              {isEventBoosted(event) ? (
+                <View style={s.boostBadge}>
+                  <Ionicons name="flash" size={11} color="#0A0A0F" />
+                  <Text style={s.boostBadgeText}>Boosté</Text>
+                </View>
+              ) : null}
             </View>
             <Text style={s.eventTitle} numberOfLines={2}>{event.title}</Text>
             {event.venue || event.city ? (
@@ -752,9 +1272,18 @@ export default function BusinessEventDetailScreen({ route, navigation }) {
             navigation={navigation}
           />
         )}
+        {activeTab === 'inviter' && (
+          <InviteTab
+            eventId={eventId}
+            applications={applications}
+            onInvited={handleInvitedInfluencer}
+            navigation={navigation}
+          />
+        )}
         {activeTab === 'attestations' && (
           <AttestationsTab applications={applications} navigation={navigation} eventId={eventId} onCheckIn={handleCheckInApp} submissionsByApplication={submissionsByApplication} />
         )}
+        {activeTab === 'stats' && <StatsTab eventId={eventId} />}
       </View>
     </View>
   );
@@ -775,6 +1304,12 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(201,169,97,0.3)', alignItems: 'center', justifyContent: 'center',
   },
   imageHeaderBottom: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md, gap: 6 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  boostBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    backgroundColor: COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  boostBadgeText: { color: '#0A0A0F', fontSize: FONTS.sizes.xs, fontFamily: FONTS.bold },
   statusBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
     borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4,
@@ -790,11 +1325,114 @@ const s = StyleSheet.create({
     flexDirection: 'row', backgroundColor: COLORS.bgCard,
     borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
-  tabItem: { flex: 1, alignItems: 'center', paddingVertical: 14, position: 'relative' },
-  tabItemActive: {},
-  tabText: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium },
+  tabItem: { flex: 1, alignItems: 'center', paddingTop: 10, paddingBottom: 12, gap: 5, position: 'relative' },
+  tabText: { color: COLORS.textMuted, fontSize: 11, fontFamily: FONTS.medium },
   tabTextActive: { color: COLORS.primary, fontFamily: FONTS.semiBold },
-  tabUnderline: { position: 'absolute', bottom: 0, left: '20%', right: '20%', height: 2, backgroundColor: COLORS.primary, borderRadius: 1 },
+  tabDot: {
+    position: 'absolute', top: -6, right: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary,
+    borderWidth: 1.5, borderColor: COLORS.bgCard,
+  },
+  tabDotText: { color: '#0A0A0F', fontSize: 9, fontFamily: FONTS.bold },
+  tabUnderline: { position: 'absolute', bottom: 0, left: '22%', right: '22%', height: 2, borderRadius: 1, backgroundColor: 'transparent' },
+  tabUnderlineActive: { backgroundColor: COLORS.primary },
+
+  inviteIntro: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.md,
+    gap: 6,
+  },
+  inviteIntroTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  inviteIntroText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
+  inviteSearchWrap: {
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.bgInput,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+  },
+  inviteSearchInput: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.regular,
+    padding: 0,
+  },
+  inviteCard: {
+    backgroundColor: COLORS.bgCard,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  inviteActionBtn: {
+    minWidth: 92,
+    height: 40,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  inviteActionBtnDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inviteActionBtnText: { color: '#0A0A0F', fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold },
+  inviteActionBtnTextDisabled: { color: COLORS.textMuted },
+
+  linkedPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(16,217,160,0.08)', borderWidth: 1, borderColor: 'rgba(16,217,160,0.3)',
+  },
+  linkedPillText: { color: COLORS.success, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
+
+  // Feuille d'action influenceur
+  sheetBackdropWrap: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: {
+    backgroundColor: COLORS.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderWidth: 1, borderColor: COLORS.borderLight, paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm, paddingBottom: SPACING.xxl, gap: SPACING.md,
+  },
+  sheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border, marginBottom: SPACING.sm },
+  sheetProfile: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.sm },
+  sheetAvatar: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden', backgroundColor: COLORS.bgCard2 },
+  sheetAvatarLetter: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold },
+  sheetName: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold },
+  sheetActionGhost: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 52,
+    borderRadius: RADIUS.full, backgroundColor: COLORS.bgCard2, borderWidth: 1, borderColor: COLORS.border,
+  },
+  sheetActionGhostText: { color: COLORS.primary, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
+  sheetActionPrimary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 52,
+    borderRadius: RADIUS.full, backgroundColor: COLORS.primary,
+  },
+  sheetActionPrimaryDisabled: { backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: COLORS.border },
+  sheetActionPrimaryText: { color: '#0A0A0F', fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+
+  boostCard: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginTop: SPACING.lg,
+    backgroundColor: 'rgba(201,169,97,0.1)', borderWidth: 1, borderColor: 'rgba(201,169,97,0.35)',
+    borderRadius: RADIUS.md, padding: SPACING.md,
+  },
+  boostCardIcon: {
+    width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.15)',
+  },
+  boostCardTitle: { color: COLORS.primary, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  boostCardText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, marginTop: 2 },
 
   statsGrid: { flexDirection: 'row', gap: SPACING.sm, marginVertical: SPACING.lg },
   statCard: {
@@ -804,11 +1442,40 @@ const s = StyleSheet.create({
   statValue: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold },
   statLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
 
-  infoCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md, overflow: 'hidden' },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: SPACING.md },
-  infoIconWrap: { width: 28, alignItems: 'center', paddingTop: 2 },
+  // Carte de remplissage (Détails)
+  fillCard: {
+    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border,
+    padding: SPACING.lg, marginBottom: SPACING.md, gap: SPACING.md,
+  },
+  fillHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACING.md },
+  fillNumber: { color: COLORS.white, fontSize: 28, fontFamily: FONTS.bold },
+  fillNumberMuted: { color: COLORS.textMuted, fontSize: FONTS.sizes.lg, fontFamily: FONTS.semiBold },
+  fillLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, marginTop: 2 },
+  fillPctBadge: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(201,169,97,0.12)', borderWidth: 1, borderColor: 'rgba(201,169,97,0.35)',
+  },
+  fillPctText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold },
+  fillTrack: { height: 8, borderRadius: 4, backgroundColor: COLORS.bgCard2, overflow: 'hidden' },
+  fillBar: { height: '100%', borderRadius: 4, backgroundColor: COLORS.primary },
+
+  infoCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.md, overflow: 'hidden' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
+  infoIconWrap: {
+    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.1)',
+  },
   infoRowLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
-  infoRowValue: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: FONTS.medium, marginTop: 2 },
+  infoRowValue: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold, marginTop: 2 },
+
+  // Grille d'attributs (Détails)
+  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.lg },
+  chipTile: {
+    width: '48%', backgroundColor: COLORS.bgCard, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, gap: 6,
+  },
+  chipLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  chipValue: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
 
   section: { marginBottom: SPACING.lg },
   sectionTitle: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: SPACING.sm },
@@ -1007,4 +1674,69 @@ const s = StyleSheet.create({
   deliverableMeta: { color: COLORS.primaryLight, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
   deliverableNote: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
   deliverableThumb: { width: 78, height: 78, borderRadius: 14, backgroundColor: COLORS.bgInput },
+
+  // --- Stats ---
+  statsCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md, padding: SPACING.xl },
+  statsEmpty: { alignItems: 'center', gap: 8, paddingVertical: SPACING.xxl, paddingHorizontal: SPACING.lg },
+  statsEmptyTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold, marginTop: 6 },
+  statsEmptyText: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 20 },
+  retryBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: RADIUS.full, backgroundColor: 'rgba(201,169,97,0.12)', borderWidth: 1, borderColor: 'rgba(201,169,97,0.4)' },
+  retryBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+
+  kpiCard: {
+    minWidth: 130, backgroundColor: COLORS.bgCard, borderRadius: RADIUS.md, borderWidth: 1,
+    borderColor: COLORS.border, paddingVertical: SPACING.md, paddingHorizontal: SPACING.md, gap: 6,
+  },
+  kpiCardAccent: { borderColor: 'rgba(201,169,97,0.45)', backgroundColor: 'rgba(201,169,97,0.06)' },
+  kpiHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  kpiLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.medium },
+  kpiValue: { color: COLORS.white, fontSize: FONTS.sizes.xl, fontFamily: FONTS.bold },
+  kpiSub: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+
+  statsBody: { paddingHorizontal: SPACING.lg },
+
+  // Carte de mesure du boost (Stats)
+  boostStatCard: {
+    backgroundColor: COLORS.bgCard, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border,
+    padding: SPACING.md, gap: SPACING.md,
+  },
+  boostStatCardActive: { borderColor: 'rgba(201,169,97,0.4)', backgroundColor: 'rgba(201,169,97,0.06)' },
+  boostStatHead: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  boostStatIcon: {
+    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.12)',
+  },
+  boostStatTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+  boostStatSub: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, marginTop: 2 },
+  boostStatPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full, backgroundColor: COLORS.primary },
+  boostStatPillText: { color: '#0A0A0F', fontSize: 9, fontFamily: FONTS.bold, letterSpacing: 0.5 },
+  boostStatMetrics: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bgCard2, borderRadius: RADIUS.md, paddingVertical: SPACING.md },
+  boostStatMetric: { flex: 1, alignItems: 'center', gap: 2 },
+  boostStatMetricValue: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold },
+  boostStatMetricLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+  boostStatDivider: { width: 1, height: 28, backgroundColor: COLORS.border },
+
+  statsSection: { marginBottom: SPACING.lg },
+  statsSectionTitle: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: SPACING.sm },
+  axisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  axisLabel: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
+
+  insightCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: RADIUS.md,
+    padding: SPACING.md, marginBottom: SPACING.lg, borderWidth: 1,
+  },
+  insightWarning: { backgroundColor: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.24)' },
+  insightInfo: { backgroundColor: 'rgba(201,169,97,0.08)', borderColor: 'rgba(201,169,97,0.3)' },
+  insightSuccess: { backgroundColor: 'rgba(16,217,160,0.08)', borderColor: 'rgba(16,217,160,0.3)' },
+  insightText: { flex: 1, color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
+
+  funnelRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  funnelTrack: { flex: 1, height: 28, borderRadius: 6, backgroundColor: COLORS.bgCard2, overflow: 'hidden' },
+  funnelFill: { height: '100%', borderRadius: 6 },
+  funnelLabel: { width: 130, color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.medium },
+
+  breakdownCard: { backgroundColor: COLORS.bgCard, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md },
+  breakdownLabel: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular },
+  breakdownValue: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
 });

@@ -10,6 +10,7 @@ import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { usersAPI, eventsAPI, applicationsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getBusinessPlan } from '../../constants/businessPlans';
+import { filterUpcomingEvents } from '../../utils/events';
 
 function InfluencerCard({ influencer, myEvents, onInvite, plan }) {
   const [inviting, setInviting] = useState(false);
@@ -130,7 +131,7 @@ export default function InfluencerListScreen({ navigation }) {
         ]);
         setInfluencers(usersData.users || []);
         if (usersData.plan?.key) setPlan({ ...basePlan, ...usersData.plan });
-        setMyEvents(eventsData.events || []);
+        setMyEvents(filterUpcomingEvents(eventsData.events || []));
       } catch (err) {
         console.log('InfluencerList error:', err.message);
       } finally {

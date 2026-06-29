@@ -177,7 +177,7 @@ export default function LieuxScreen({ navigation }) {
       <SafeAreaView style={{ flex: 1 }}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerCopy}>
             <Text style={styles.headerTitle}>Mes lieux</Text>
             <Text style={styles.headerSub}>
               {lieux.length} lieu{lieux.length !== 1 ? 'x' : ''}
@@ -234,13 +234,15 @@ export default function LieuxScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.md,
+    gap: SPACING.md,
   },
+  headerCopy: { flex: 1, minWidth: 0 },
   headerTitle: { color: COLORS.white, fontSize: FONTS.sizes.xl, fontFamily: FONTS.bold },
   headerSub: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, marginTop: 2 },
-  addBtn: { borderRadius: RADIUS.full, overflow: 'hidden' },
-  addBtnGrad: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10 },
+  addBtn: { borderRadius: RADIUS.full, overflow: 'hidden', flexShrink: 0, maxWidth: 140, alignSelf: 'flex-start' },
+  addBtnGrad: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, justifyContent: 'center' },
   addBtnText: { color: '#0A0A0F', fontSize: FONTS.sizes.sm, fontFamily: FONTS.bold },
 
   list: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, gap: SPACING.md },
@@ -287,13 +289,13 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { color: COLORS.textMuted, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, flex: 1 },
 
-  cardActions: { flexDirection: 'row', gap: 8 },
+  cardActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   actionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: 'rgba(201,169,97,0.1)', borderRadius: RADIUS.md, borderWidth: 1,
     borderColor: 'rgba(201,169,97,0.25)', paddingVertical: 10,
   },
-  actionBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  actionBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold, flexShrink: 1 },
   actionBtnSecondary: {
     width: 40, height: 40, alignItems: 'center', justifyContent: 'center',
     backgroundColor: COLORS.bgCard2, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border,

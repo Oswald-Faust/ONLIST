@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { eventsAPI, applicationsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { filterUpcomingApplications, filterUpcomingEvents } from '../../utils/events';
 
 const { width: W } = Dimensions.get('window');
 
@@ -110,8 +111,8 @@ export default function SearchScreen({ navigation }) {
           eventsAPI.list({ limit: 100, ...(city ? { city } : {}) }),
           applicationsAPI.myApplications(),
         ]);
-        setAllEvents(eventsRes.events || []);
-        setAllApplications(appsRes.applications || []);
+        setAllEvents(filterUpcomingEvents(eventsRes.events || []));
+        setAllApplications(filterUpcomingApplications(appsRes.applications || []));
       } catch (err) {
         console.log('Search prefetch error:', err.message);
       } finally {
@@ -308,6 +309,12 @@ export default function SearchScreen({ navigation }) {
                           colors={['rgba(10,10,15,0.4)', 'rgba(10,10,15,0.92)']}
                           style={StyleSheet.absoluteFill}
                         />
+                        {item.isSponsored && (
+                          <View style={styles.sponsoredBadge}>
+                            <Ionicons name="megaphone" size={10} color="#0A0A0F" />
+                            <Text style={styles.sponsoredBadgeText}>Sponsorisé</Text>
+                          </View>
+                        )}
                         <View style={styles.eventCardContent}>
                           {/* Left Date Circle */}
                           <View style={styles.dateCircle}>
@@ -547,6 +554,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
+  sponsoredBadge: {
+    position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: COLORS.gold || COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 4,
+  },
+  sponsoredBadgeText: { color: '#0A0A0F', fontSize: 11, fontFamily: FONTS.bold },
   eventCardContent: {
     flex: 1,
     flexDirection: 'row',
