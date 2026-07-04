@@ -1,7 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { Text, TextInput, Alert } from '../../i18n/LocalizedReactNative';
+import { getCurrentLocale } from '../../i18n/runtime';
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  Image, Alert, StatusBar, ActivityIndicator, Modal,
+  View, StyleSheet, TouchableOpacity, Image, StatusBar, ActivityIndicator, Modal
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -198,6 +200,7 @@ function DateField({ label, value, onChange }) {
                 </TouchableOpacity>
               </View>
               <DateTimePicker
+                locale={getCurrentLocale()}
                 value={draft}
                 mode="date"
                 display="spinner"
@@ -213,6 +216,7 @@ function DateField({ label, value, onChange }) {
       {/* Android — picker natif */}
       {show && Platform.OS === 'android' && (
         <DateTimePicker
+          locale={getCurrentLocale()}
           value={draft}
           mode="date"
           display="default"
@@ -244,6 +248,7 @@ const DS = StyleSheet.create({
 
 // ─── Écran principal ─────────────────────────────────────────────────────────
 export default function EditProfileScreen({ navigation }) {
+  useLanguage();
   const insets = useSafeAreaInsets();
   const { user, updateUser } = useAuth();
 

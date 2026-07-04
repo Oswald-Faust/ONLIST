@@ -1,6 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, ScrollView, Linking, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, StatusBar, Image, ScrollView, Linking, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,10 +15,14 @@ import { getDeliverableLabel } from '../../constants/businessEventOptions';
 function formatRange(event) {
   if (!event?.date) return '';
   const start = new Date(event.date);
-  const fmt = (d) => d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const fmt = (d) => d.toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'short', year: 'numeric' });
   const time = (t) => (t ? ` ${t}` : '');
   let str = `${fmt(start)}${time(event.startTime)}`;
-  if (event.endTime) str += ` - ${event.endTime}`;
+  if (event.endTime) {
+    const end = event.endDate ? new Date(event.endDate) : start;
+    const nextDay = end.toDateString() !== start.toDateString();
+    str += ` - ${nextDay ? `${fmt(end)} ` : ''}${event.endTime}`;
+  }
   return str;
 }
 
@@ -34,6 +41,7 @@ function DetailSection({ title, children, defaultOpen = false }) {
 }
 
 export default function AttendanceConfirmedScreen({ route, navigation }) {
+  useLanguage();
   const initial = route.params?.application || {};
   const [application, setApplication] = useState(initial);
   const [confirming, setConfirming] = useState(false);

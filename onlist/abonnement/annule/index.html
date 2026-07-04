@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Paiement annulé — ONLIST</title>
+<meta name="theme-color" content="#0c0c10">
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#0a0a0f;--ink-soft:#5d5d66;--ink-faint:#8a8a92;--line:#eae6dc;--gold-deep:#8a6d31;
+    --neu:#5d5d66;--neu-bg:#f0eee7;--font-d:'Inter Tight',system-ui,sans-serif;--font:'Inter',system-ui,sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased;
+    min-height:100vh;display:grid;place-items:center;padding:24px;
+    background:radial-gradient(800px 480px at 50% -10%,#f4f2ec 0%,rgba(244,242,236,0) 60%),#fbfaf7}
+  .card{width:100%;max-width:460px;background:#fff;border:1px solid var(--line);border-radius:24px;
+    padding:44px 36px;text-align:center;box-shadow:0 2px 6px rgba(12,12,16,.05),0 30px 70px rgba(12,12,16,.10)}
+  .brand{font-family:var(--font-d);font-weight:700;letter-spacing:.16em;font-size:1rem;color:var(--ink);margin-bottom:30px}
+  .badge{width:84px;height:84px;border-radius:50%;background:var(--neu-bg);display:grid;place-items:center;margin:0 auto 26px}
+  .badge svg{width:40px;height:40px;color:var(--neu)}
+  h1{font-family:var(--font-d);font-weight:700;font-size:1.7rem;letter-spacing:-.02em;line-height:1.1}
+  p{color:var(--ink-soft);margin-top:14px;font-size:1.02rem}
+  .hint{margin-top:30px;padding:16px 18px;background:#f7f6f1;border-radius:14px;color:var(--ink-soft);font-size:.94rem;
+    display:flex;gap:11px;align-items:flex-start;text-align:left}
+  .hint svg{width:20px;height:20px;color:var(--gold-deep);flex:none;margin-top:1px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;margin-top:28px;width:100%;
+    background:#0c0c10;color:#fff;font-weight:500;font-size:1rem;padding:15px 24px;border-radius:14px;border:0;cursor:pointer;
+    transition:transform .15s ease,box-shadow .2s ease}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(12,12,16,.22)}
+</style>
+</head>
+<body>
+  <main class="card" role="main">
+    <div class="brand">ONLIST</div>
+    <div class="badge" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </div>
+    <h1>Paiement annulé</h1>
+    <p>Aucun montant n'a été débité. Tu peux réessayer à tout moment depuis l'application.</p>
+    <div class="hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      <span>Ferme cette page et <b>reviens dans l'application ONLIST</b> pour relancer ton abonnement quand tu le souhaites.</span>
+    </div>
+    <button class="btn" id="close" type="button">Revenir à l'application</button>
+  </main>
+<script>
+  document.getElementById('close').addEventListener('click',function(){
+    window.close();
+    setTimeout(function(){location.href='/';},250);
+  });
+</script>
+</body>
+</html>

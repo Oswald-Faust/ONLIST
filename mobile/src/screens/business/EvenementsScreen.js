@@ -1,7 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text, Alert } from '../../i18n/LocalizedReactNative';
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, Alert, RefreshControl, Image, Modal,
+  View, StyleSheet, FlatList, TouchableOpacity, StatusBar, RefreshControl, Image, Modal
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,7 +35,7 @@ function EventCard({ event, navigation, onBoost }) {
     : (isActive ? 'rgba(16,217,160,0.15)' : 'rgba(255,255,255,0.08)');
   const date = event.date ? new Date(event.date) : null;
   const dateStr = date
-    ? date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+    ? date.toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'short', year: 'numeric' })
     : null;
   const isPast = !isUpcomingEvent(event);
   const boosted = !!(event.isBoosted && event.boostExpiresAt && new Date(event.boostExpiresAt) > new Date());
@@ -158,6 +160,7 @@ function EventCard({ event, navigation, onBoost }) {
 }
 
 export default function EvenementsScreen({ navigation }) {
+  useLanguage();
   const [events, setEvents] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('active');

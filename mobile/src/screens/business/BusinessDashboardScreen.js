@@ -1,7 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, RefreshControl, Dimensions, StatusBar, Animated,
+  View, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Dimensions, StatusBar, Animated
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,7 +18,7 @@ const CARD_W = (W - SPACING.lg * 2 - SPACING.md) / 2;
 
 function formatDate(dateString) {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return new Date(dateString).toLocaleDateString(getCurrentLocale(), { day: 'numeric', month: 'short' });
 }
 
 function formatFollowers(n) {
@@ -165,6 +167,7 @@ function EventCard({ event, onPress }) {
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 export default function BusinessDashboardScreen({ navigation }) {
+  useLanguage();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);

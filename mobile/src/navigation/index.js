@@ -55,6 +55,7 @@ import BusinessApplicationAssetsScreen from '../screens/business/BusinessApplica
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -173,6 +174,7 @@ function AdminStack() {
 // ─── Root Navigator ────────────────────────────────────────────────────────────
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  const { loading: languageLoading } = useLanguage();
   // Mode payant piloté depuis le dashboard admin (subscriptionBillingEnabled).
   // OFF (défaut au lancement) = tout gratuit, aucun blocage abonnement.
   const businessNeedsSubscription =
@@ -181,7 +183,7 @@ export default function RootNavigator() {
     user?.status !== 'pending' &&
     !['active', 'trialing', 'grace'].includes(user?.subscriptionStatus);
 
-  if (loading) {
+  if (loading || languageLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={COLORS.primaryLight} size="large" />

@@ -33,6 +33,15 @@ const eventSchema = new mongoose.Schema({
   },
 
   date: { type: Date },
+  endDate: {
+    type: Date,
+    validate: {
+      validator(value) {
+        return !value || !this.date || value > this.date;
+      },
+      message: "La date de fin doit être postérieure à la date de début",
+    },
+  },
   startTime: { type: String },
   endTime: { type: String },
   requiredArrivalTime: { type: String },

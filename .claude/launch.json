@@ -1,0 +1,8 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "onlist-site", "runtimeExecutable": "python3", "runtimeArgs": ["-m","http.server","8788","--directory","onlist"], "port": 8788 },
+    { "name": "onlist-cre", "runtimeExecutable": "python3", "runtimeArgs": ["-m","http.server","8790","--directory","/private/tmp/claude-501/-Users-oswaldfaust-Code-ONLIST/d2c6d0e1-90af-435c-a3d3-3fbfc2c241b1/scratchpad/prev/cre"], "port": 8790 },
+    { "name": "onlist-eta", "runtimeExecutable": "python3", "runtimeArgs": ["-m","http.server","8791","--directory","/private/tmp/claude-501/-Users-oswaldfaust-Code-ONLIST/d2c6d0e1-90af-435c-a3d3-3fbfc2c241b1/scratchpad/prev/eta"], "port": 8791 }
+  ]
+}

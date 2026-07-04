@@ -1,12 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
+  View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -41,7 +38,7 @@ function formatRelativeTime(dateString) {
   if (diffHours < 24) return `Il y a ${diffHours} h`;
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `Il y a ${diffDays} j`;
-  return createdAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return createdAt.toLocaleDateString(getCurrentLocale(), { day: 'numeric', month: 'short' });
 }
 
 function NotificationCard({ item, onPress }) {
@@ -71,6 +68,7 @@ function NotificationCard({ item, onPress }) {
 }
 
 export default function NotificationsScreen({ navigation }) {
+  useLanguage();
   const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState('all');
   const [loading, setLoading] = useState(true);

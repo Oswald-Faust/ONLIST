@@ -28,6 +28,7 @@ const DELIVERABLE_OPTIONS = [
   { key: 'feed_post', label: 'Post Feed Instagram', minPlan: 'pro' },
   { key: 'reel_or_tiktok', label: 'Reel ou TikTok', minPlan: 'group' },
   { key: 'google_review', label: 'Avis Google ', minPlan: 'starter' },
+  { key: 'tripadvisor_review', label: 'Avis TripAdvisor', minPlan: 'pro' },
 ];
 
 const APPLICATION_CUTOFF_OPTIONS = [1, 2, 3, 4];

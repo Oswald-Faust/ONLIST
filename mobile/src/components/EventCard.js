@@ -1,5 +1,10 @@
+import { useLanguage } from '../context/LanguageContext';
+import { getCurrentLocale } from '../i18n/runtime';
+import { Text } from '../i18n/LocalizedReactNative';
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View, Image, TouchableOpacity, StyleSheet
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, RADIUS, SPACING, SHADOW } from '../constants/theme';
@@ -14,13 +19,14 @@ const PLACEHOLDER_IMAGES = [
 ];
 
 export default function EventCard({ event, onPress, style }) {
+  useLanguage();
   const imgUri = event.images?.[0] || PLACEHOLDER_IMAGES[Math.floor(Math.random() * PLACEHOLDER_IMAGES.length)];
   const date = event.date ? new Date(event.date) : null;
   const dateStr = date
-    ? date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+    ? date.toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'short' })
     : '';
   const timeStr = date
-    ? date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    ? date.toLocaleTimeString(getCurrentLocale(), { hour: '2-digit', minute: '2-digit' })
     : '';
   const iconName = CATEGORY_ICONS[event.category] || 'star';
 
@@ -77,7 +83,7 @@ export default function EventCard({ event, onPress, style }) {
 export function EventCardSmall({ event, onPress }) {
   const imgUri = event.images?.[0] || PLACEHOLDER_IMAGES[0];
   const date = event.date ? new Date(event.date) : null;
-  const dateStr = date ? date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '';
+  const dateStr = date ? date.toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'short' }) : '';
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.smallCard} activeOpacity={0.9}>

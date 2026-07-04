@@ -1,8 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
-  StatusBar, Alert, Share, ActivityIndicator, Dimensions, Animated,
-  Modal, Linking, Platform, TextInput,
+  View, StyleSheet, ScrollView, Image, TouchableOpacity, StatusBar, Share, ActivityIndicator, Dimensions, Animated, Modal, Linking, Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -19,9 +20,19 @@ const PLACEHOLDER = 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1
 
 // ─── Helper : durée entre deux heures ─────────────────────────────────────────
 
-function getTimeDiff(start, end) {
+function getTimeDiff(start, end, startDate, endDate) {
   if (!start || !end) return null;
   try {
+    if (startDate && endDate) {
+      const startAt = new Date(`${startDate.slice(0, 10)}T${start}:00`);
+      const endAt = new Date(`${endDate.slice(0, 10)}T${end}:00`);
+      const diff = Math.round((endAt.getTime() - startAt.getTime()) / 60000);
+      if (diff > 0) {
+        const hrs = Math.floor(diff / 60);
+        const min = diff % 60;
+        return min > 0 ? `${hrs}h${String(min).padStart(2, '0')}` : `${hrs}h`;
+      }
+    }
     const parse = (t) => {
       const pm = /pm/i.test(t);
       const [h, m] = t.replace(/[ap]m/i, '').trim().split(':').map(Number);
@@ -121,6 +132,7 @@ function CheckItem({ text, showInfo = false }) {
 // ─── Écran principal ──────────────────────────────────────────────────────────
 
 export default function EventDetailScreen({ route, navigation }) {
+  useLanguage();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const eventParam = route.params?.event;
@@ -270,11 +282,12 @@ export default function EventDetailScreen({ route, navigation }) {
       : 'Demande envoyée';
 
   const dateObj = event.date ? new Date(event.date) : null;
+  const endDateObj = event.endDate ? new Date(event.endDate) : null;
   const dateFormatted = dateObj
-    ? `${dateObj.getDate()} ${dateObj.toLocaleDateString('en-GB', { month: 'short' })}, ${dateObj.getFullYear()}`
+    ? `${dateObj.getDate()} ${dateObj.toLocaleDateString(getCurrentLocale(), { month: 'short' })}, ${dateObj.getFullYear()}${endDateObj && endDateObj.toDateString() !== dateObj.toDateString() ? ` → ${endDateObj.getDate()} ${endDateObj.toLocaleDateString(getCurrentLocale(), { month: 'short' })}, ${endDateObj.getFullYear()}` : ''}`
     : null;
 
-  const timeDiff = getTimeDiff(event.startTime, event.endTime);
+  const timeDiff = getTimeDiff(event.startTime, event.endTime, event.date, event.endDate);
   const timeStr = (event.startTime || event.endTime)
     ? [event.startTime, event.endTime].filter(Boolean).join(' • ') + (timeDiff ? ` • ${timeDiff}` : '')
     : null;

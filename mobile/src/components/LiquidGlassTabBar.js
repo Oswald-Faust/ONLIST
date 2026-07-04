@@ -1,25 +1,27 @@
+import { Text } from '../i18n/LocalizedReactNative';
 import React, { useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Platform,
+  View, TouchableOpacity, StyleSheet, Animated, Dimensions, Platform
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS } from '../constants/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
 const TABS = [
-  { name: 'Home',     label: 'Accueil',  icon: 'home',     iconOutline: 'home-outline' },
-  { name: 'Explore',  label: 'Explorer', icon: 'compass',  iconOutline: 'compass-outline' },
-  { name: 'MyEvents', label: 'Events',   icon: 'calendar', iconOutline: 'calendar-outline' },
-  { name: 'Profile',  label: 'Profil',   icon: 'person',   iconOutline: 'person-outline' },
+  { name: 'Home',     labelKey: 'tabs.home',    icon: 'home',     iconOutline: 'home-outline' },
+  { name: 'Explore',  labelKey: 'tabs.explore', icon: 'compass',  iconOutline: 'compass-outline' },
+  { name: 'MyEvents', labelKey: 'tabs.events',  icon: 'calendar', iconOutline: 'calendar-outline' },
+  { name: 'Profile',  labelKey: 'tabs.profile', icon: 'person',   iconOutline: 'person-outline' },
 ];
 
 // ─── Onglet individuel ─────────────────────────────────────────────────────────
 
-function TabItem({ tab, isFocused, onPress, onLongPress }) {
+function TabItem({ tab, label, isFocused, onPress, onLongPress }) {
   const scale   = useRef(new Animated.Value(1)).current;
   const pillOp  = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
   const labelOp = useRef(new Animated.Value(isFocused ? 1 : 0.82)).current;
@@ -98,7 +100,7 @@ function TabItem({ tab, isFocused, onPress, onLongPress }) {
           ]}
           numberOfLines={1}
         >
-          {tab.label}
+          {label}
         </Animated.Text>
       </Animated.View>
     </TouchableOpacity>
@@ -109,6 +111,7 @@ function TabItem({ tab, isFocused, onPress, onLongPress }) {
 
 export default function LiquidGlassTabBar({ state, descriptors, navigation }) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
 
   return (
     <View style={[styles.container, { bottom: Math.max(insets.bottom, 8) + 8 }]}>
@@ -165,6 +168,7 @@ export default function LiquidGlassTabBar({ state, descriptors, navigation }) {
               <TabItem
                 key={route.key}
                 tab={tab}
+                label={t(tab.labelKey)}
                 isFocused={isFocused}
                 onPress={onPress}
                 onLongPress={onLongPress}

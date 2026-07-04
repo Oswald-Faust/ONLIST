@@ -93,7 +93,7 @@ router.get('/my', protect, requireValidated, async (req, res) => {
     if (status) filter.status = status;
 
     const applications = await Application.find(filter)
-      .populate('event', 'title description images date city venue address country category moment offer offerItems creator deliverables lieu rules dresscode startTime endTime plusOneMode guestsRequired')
+      .populate('event', 'title description images date endDate city venue address country category moment offer offerItems creator deliverables lieu rules dresscode startTime endTime requiredArrivalTime plusOneMode guestsRequired')
       .populate({ path: 'event', populate: { path: 'creator', select: 'businessName businessLogo' } })
       .populate({ path: 'event', populate: { path: 'lieu', select: 'name city score reviewsCount' } })
       .sort({ appliedAt: -1 });
@@ -341,7 +341,7 @@ router.post('/checkin', protect, requireValidated, async (req, res) => {
 router.post('/:id/confirm', protect, requireValidated, async (req, res) => {
   try {
     const application = await Application.findById(req.params.id)
-      .populate('event', 'title description city date startTime endTime images venue address country offer offerItems rules dresscode deliverables plusOneMode guestsRequired');
+      .populate('event', 'title description city date endDate startTime endTime requiredArrivalTime images venue address country offer offerItems rules dresscode deliverables plusOneMode guestsRequired');
     if (!application) return res.status(404).json({ message: 'Candidature introuvable' });
     if (application.user.toString() !== req.user._id.toString())
       return res.status(403).json({ message: 'Non autorisé' });

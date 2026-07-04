@@ -1,7 +1,8 @@
+import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
+import { getCurrentLocale } from '../../i18n/runtime';
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar,
-  Modal, FlatList, TextInput, Platform, Image, Dimensions,
+  View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Modal, FlatList, Platform, Image, Dimensions
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +12,7 @@ import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import GradientButton from '../../components/GradientButton';
 import InputField from '../../components/InputField';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
@@ -129,6 +131,7 @@ function PhotoGrid({ photos, onAdd, onRemove }) {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function RegisterInfluencerScreen({ navigation }) {
+  useLanguage();
   const { register } = useAuth();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(1);
@@ -511,7 +514,7 @@ export default function RegisterInfluencerScreen({ navigation }) {
                 <SummaryRow icon="location" label={`${form.city}, ${form.country}`} />
                 {form.instagram && <SummaryRow icon="logo-instagram" label={`@${form.instagram.replace('@','')}`} />}
                 {form.tiktok && <SummaryRow icon="logo-tiktok" label={`@${form.tiktok.replace('@','')}`} />}
-                <SummaryRow icon="people" label={`${parseInt(form.followersCount || 0).toLocaleString()} followers`} />
+                <SummaryRow icon="people" label={`${parseInt(form.followersCount || 0).toLocaleString(getCurrentLocale())} followers`} />
                 <SummaryRow icon="images" label={`${form.photos.length} photo${form.photos.length > 1 ? 's' : ''}`} />
               </LinearGradient>
             </View>

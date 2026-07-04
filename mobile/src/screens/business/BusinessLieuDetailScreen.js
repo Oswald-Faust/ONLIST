@@ -1,6 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, FlatList, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, StatusBar, Image, FlatList, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,7 +14,7 @@ import { eventsAPI, lieuxAPI } from '../../services/api';
 function EventRow({ item, navigation }) {
   const date = item?.date ? new Date(item.date) : null;
   const dateLabel = date
-    ? date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+    ? date.toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'short', year: 'numeric' })
     : 'Date à définir';
 
   return (
@@ -38,6 +41,7 @@ function EventRow({ item, navigation }) {
 }
 
 export default function BusinessLieuDetailScreen({ route, navigation }) {
+  useLanguage();
   const lieuId = route.params?.lieuId;
   const initialLieu = route.params?.lieu || null;
   const [lieu, setLieu] = useState(initialLieu);

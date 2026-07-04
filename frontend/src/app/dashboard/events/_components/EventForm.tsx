@@ -22,8 +22,10 @@ export interface EventPayload {
   category: string;
   moment: string;
   date: string;
+  endDate: string;
   startTime: string;
   endTime: string;
+  requiredArrivalTime: string;
   dresscode: string;
   ageRequirement: number;
   guestsRequired: number;
@@ -44,7 +46,7 @@ const EMPTY: EventPayload = {
   title: '', description: '', images: [],
   venue: '', address: '', city: '', country: 'France',
   category: 'restaurant', moment: 'soir',
-  date: '', startTime: '', endTime: '',
+  date: '', endDate: '', startTime: '', endTime: '', requiredArrivalTime: '',
   dresscode: '', ageRequirement: 18, guestsRequired: 0,
   repeats: 'none', maxParticipants: 10, minFollowers: 0,
   genderRequirement: 'any', offer: '', rules: '',
@@ -453,8 +455,10 @@ export default function EventForm({ initialData, mode }: Props) {
       category: initialData.category || 'restaurant-gastronomique',
       moment: initialData.moment || 'soir',
       date: initialData.date ? initialData.date.slice(0, 10) : '',
+      endDate: initialData.endDate ? initialData.endDate.slice(0, 10) : (initialData.date ? initialData.date.slice(0, 10) : ''),
       startTime: initialData.startTime || '',
       endTime: initialData.endTime || '',
+      requiredArrivalTime: initialData.requiredArrivalTime || '',
       dresscode: initialData.dresscode || '',
       ageRequirement: initialData.ageRequirement ?? 18,
       guestsRequired: initialData.guestsRequired ?? 0,
@@ -485,17 +489,23 @@ export default function EventForm({ initialData, mode }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title || !form.city || !form.date) {
-      setError('Titre, ville et date sont obligatoires');
+    if (!form.title || !form.city || !form.date || !form.endDate || !form.startTime || !form.endTime) {
+      setError('Titre, ville, dates et horaires sont obligatoires');
       return;
     }
     setSaving(true);
     setError('');
     try {
+      const startAt = new Date(`${form.date}T${form.startTime}:00`);
+      const endAt = new Date(`${form.endDate}T${form.endTime}:00`);
+      if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
+        throw new Error('La date et l’heure de fin doivent être après le début de l’événement');
+      }
       const payload = {
         ...form,
         images: [coverImage, ...galleryImages].filter(Boolean),
-        date: new Date(form.date).toISOString(),
+        date: startAt.toISOString(),
+        endDate: endAt.toISOString(),
       };
       const endpoint = isEdit ? `/admin/events/${initialData?._id}` : '/admin/events';
       const method = isEdit ? 'PUT' : 'POST';
@@ -644,14 +654,33 @@ export default function EventForm({ initialData, mode }: Props) {
                   <div className="space-y-3">
                     <FieldHeader label="Date & horaires" hint="Donne un cadre clair pour faciliter la projection et la participation." required />
                     <div className="space-y-3">
-                      <input type="date" className={`${inputCls} px-4 py-3 rounded-2xl`} style={inputStyle} value={form.date}
-                        onChange={e => set('date', e.target.value)} required />
                       <div className="grid grid-cols-2 gap-3">
-                        <input type="time" className={`${inputCls} px-4 py-3 rounded-2xl`} style={inputStyle} value={form.startTime}
-                          onChange={e => set('startTime', e.target.value)} />
-                        <input type="time" className={`${inputCls} px-4 py-3 rounded-2xl`} style={inputStyle} value={form.endTime}
-                          onChange={e => set('endTime', e.target.value)} />
+                        <label className="space-y-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                          <span>Date de début</span>
+                          <input type="date" className={`${inputCls} px-4 py-3 rounded-2xl`} style={inputStyle} value={form.date}
+                            onChange={e => { set('date', e.target.value); if (!form.endDate || form.endDate < e.target.value) set('endDate', e.target.value); }} required />
+                        </label>
+                        <label className="space-y-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                          <span>Date de fin</span>
+                          <input type="date" min={form.date} className={`${inputCls} px-4 py-3 rounded-2xl`} style={inputStyle} value={form.endDate}
+                            onChange={e => set('endDate', e.target.value)} required />
+                        </label>
+                        <label className="space-y-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                          <span>Heure de début</span>
+                          <input type="time" className={`${inputCls} px-4 py-3 rounded-2xl`} style={inputStyle} value={form.startTime}
+                            onChange={e => set('startTime', e.target.value)} required />
+                        </label>
+                        <label className="space-y-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                          <span>Heure de fin</span>
+                          <input type="time" className={`${inputCls} px-4 py-3 rounded-2xl`} style={inputStyle} value={form.endTime}
+                            onChange={e => set('endTime', e.target.value)} required />
+                        </label>
                       </div>
+                      <label className="block space-y-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                        <span>Heure d’arrivée requise pour l’influenceur</span>
+                        <input type="time" className={`${inputCls} px-4 py-3 rounded-2xl`} style={inputStyle} value={form.requiredArrivalTime}
+                          onChange={e => set('requiredArrivalTime', e.target.value)} />
+                      </label>
                     </div>
                   </div>
 

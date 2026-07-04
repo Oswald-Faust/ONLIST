@@ -1,8 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, Alert, ActivityIndicator, RefreshControl,
-  Modal, TextInput, KeyboardAvoidingView, Platform, Image,
+  View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, Modal, KeyboardAvoidingView, Platform, Image
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -58,7 +59,7 @@ function UserRow({ user, onValidate, onReject }) {
             <Text style={u.sub}>{user.businessName} · {CATEGORY_LABELS[user.businessType] || user.businessType}</Text>
           )}
           {user.type === 'influencer' && user.instagram && (
-            <Text style={u.sub}>@{user.instagram.replace('@', '')} · {user.followersCount?.toLocaleString() || 0} followers</Text>
+            <Text style={u.sub}>@{user.instagram.replace('@', '')} · {user.followersCount?.toLocaleString(getCurrentLocale()) || 0} followers</Text>
           )}
         </View>
       </View>
@@ -105,7 +106,7 @@ function UserRow({ user, onValidate, onReject }) {
 
 function EventRow({ event, onDelete }) {
   const dateStr = event?.date
-    ? new Date(event.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+    ? new Date(event.date).toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'short', year: 'numeric' })
     : '—';
 
   return (
@@ -170,7 +171,7 @@ function SubscriptionRow({ user, onToggleFoundingPartner }) {
   const plan = user.subscriptionPlan || 'starter';
   const status = user.subscriptionStatus || 'inactive';
   const expiresAt = user.subscriptionExpiresAt
-    ? new Date(user.subscriptionExpiresAt).toLocaleDateString('fr-FR')
+    ? new Date(user.subscriptionExpiresAt).toLocaleDateString(getCurrentLocale())
     : '—';
 
   return (
@@ -555,6 +556,7 @@ function CreateEventModal({ visible, onClose, onCreated }) {
 // ─── Écran principal ───────────────────────────────────────────────────────────
 
 export default function AdminDashboardScreen() {
+  useLanguage();
   const { logout } = useAuth();
   const insets = useSafeAreaInsets();
 

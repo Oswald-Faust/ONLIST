@@ -50,6 +50,11 @@ function applyPlanEventLimits(payload, plan) {
 
   if (payload.deliverables && Array.isArray(payload.deliverables)) {
     nextPayload.deliverables = payload.deliverables.filter(Boolean);
+    if (plan.key === 'starter') {
+      nextPayload.deliverables = nextPayload.deliverables.filter((item) => (
+        item !== 'tripadvisor_review' && item !== 'google_review_plus_one_screen'
+      ));
+    }
   }
 
   return nextPayload;
@@ -68,12 +73,10 @@ function buildCutoffTime({ date, startTime, applicationCutoffOffsetHours }) {
 function normalizeEventPayload(payload = {}) {
   const nextPayload = { ...payload };
 
-  if (payload.plusOneMode === 'required') {
-    const deliverables = Array.isArray(payload.deliverables) ? [...payload.deliverables] : [];
-    if (!deliverables.includes('google_review_plus_one_screen')) {
-      deliverables.push('google_review_plus_one_screen');
-    }
-    nextPayload.deliverables = deliverables;
+  if (Array.isArray(payload.deliverables)) {
+    nextPayload.deliverables = payload.deliverables.map((item) => (
+      item === 'google_review_plus_one_screen' ? 'tripadvisor_review' : item
+    ));
   }
 
   if (payload.date && payload.startTime && !payload.cutoffTime && payload.applicationCutoffOffsetHours) {
@@ -99,7 +102,11 @@ async function archivePastEvents() {
     {
       isActive: true,
       status: { $ne: 'draft' },
-      date: { $lt: startOfToday },
+      $or: [
+        { endDate: { $lt: now } },
+        { endDate: { $exists: false }, date: { $lt: startOfToday } },
+        { endDate: null, date: { $lt: startOfToday } },
+      ],
     },
     {
       $set: {
@@ -309,7 +316,7 @@ router.put('/:id', protect, requireValidated, async (req, res) => {
     const updated = await Event.findByIdAndUpdate(
       req.params.id,
       { ...normalizeEventPayload(applyPlanEventLimits(req.body, plan)), status: nextStatus, isActive: nextIsActive },
-      { new: true }
+      { new: true, runValidators: true }
     );
     res.json({ event: updated });
   } catch (err) {

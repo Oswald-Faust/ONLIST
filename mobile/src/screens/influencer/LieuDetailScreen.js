@@ -1,7 +1,7 @@
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
-  ActivityIndicator, Dimensions, Linking,
+  View, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Dimensions, Linking
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';

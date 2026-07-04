@@ -1,7 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  StatusBar, ScrollView, ActivityIndicator, RefreshControl, Modal, Platform,
+  View, StyleSheet, FlatList, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, RefreshControl, Modal, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,6 +50,7 @@ const toLocalDayKey = (date) => {
 const isSameDay = (left, right) => toLocalDayKey(left) === toLocalDayKey(right);
 
 export default function ExploreScreen({ navigation }) {
+  useLanguage();
   const { user } = useAuth();
 
   const [events, setEvents] = useState([]);
@@ -327,7 +330,7 @@ export default function ExploreScreen({ navigation }) {
                 ? dateFilter === 'custom' && !!customDate
                 : dateFilter === filter.id;
               const label = filter.id === 'custom' && customDate
-                ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' }).format(customDate)
+                ? new Intl.DateTimeFormat(getCurrentLocale(), { day: '2-digit', month: 'short' }).format(customDate)
                 : filter.label;
 
               return (
@@ -475,6 +478,7 @@ export default function ExploreScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
               <DateTimePicker
+                locale={getCurrentLocale()}
                 value={draftDate}
                 mode="date"
                 display="inline"
@@ -491,6 +495,7 @@ export default function ExploreScreen({ navigation }) {
 
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker
+          locale={getCurrentLocale()}
           value={draftDate}
           mode="date"
           display="default"

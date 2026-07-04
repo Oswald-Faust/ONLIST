@@ -1,13 +1,14 @@
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Dimensions, FlatList,
-  TouchableOpacity, StatusBar,
+  View, StyleSheet, Dimensions, FlatList, TouchableOpacity, StatusBar
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Video, ResizeMode } from 'expo-av';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import GradientButton from '../../components/GradientButton';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { width, height } = Dimensions.get('window');
 const AUTO_SCROLL_INTERVAL = 6000;
@@ -24,23 +25,17 @@ const AUTO_SCROLL_INTERVAL = 6000;
 
 // Vidéos Mixkit — licence gratuite — streaming direct (aucun bundle)
 // Pour utiliser des vidéos locales : remplace { uri } par require('../../../assets/videos/slideX.mp4')
-const SLIDES = [
+const SLIDE_VIDEOS = [
   {
     id: '1',
-    tag: 'Deviens Influenceur !',
-    title: 'Participe aux meilleurs évènements d\'influence !',
     video: { uri: 'https://assets.mixkit.co/videos/14116/14116-720.mp4' },
   },
   {
     id: '2',
-    tag: 'Développe ton Business',
-    title: 'Connecte-toi aux meilleurs influenceurs et modèles',
     video: { uri: 'https://assets.mixkit.co/videos/49141/49141-720.mp4' },
   },
   {
     id: '3',
-    tag: 'Vis l\'expérience',
-    title: 'Touche une audience\nlocale plus large',
     video: { uri: 'https://assets.mixkit.co/videos/4344/4344-1080.mp4' },
   },
 ];
@@ -87,6 +82,11 @@ function VideoSlide({ item, isActive }) {
 
 // ─── Écran principal ───────────────────────────────────────────────────────────
 export default function WelcomeScreen({ navigation }) {
+  const { t } = useLanguage();
+  const slides = SLIDE_VIDEOS.map((slide, index) => ({
+    ...slide,
+    ...t('welcome.slides')[index],
+  }));
   const [activeIndex, setActiveIndex] = useState(0);
   const flatRef = useRef(null);
   const timerRef = useRef(null);
@@ -95,7 +95,7 @@ export default function WelcomeScreen({ navigation }) {
     clearInterval(timerRef.current);
     let current = fromIndex;
     timerRef.current = setInterval(() => {
-      current = (current + 1) % SLIDES.length;
+      current = (current + 1) % SLIDE_VIDEOS.length;
       flatRef.current?.scrollToIndex({ index: current, animated: true });
       setActiveIndex(current);
     }, AUTO_SCROLL_INTERVAL);
@@ -121,7 +121,7 @@ export default function WelcomeScreen({ navigation }) {
       {/* Slides vidéo */}
       <FlatList
         ref={flatRef}
-        data={SLIDES}
+        data={slides}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -142,16 +142,16 @@ export default function WelcomeScreen({ navigation }) {
         <SafeAreaView style={{ flex: 1 }}>
           <View style={styles.textContainer}>
             <View style={styles.tagPill}>
-              <Text style={styles.tagText}>{SLIDES[activeIndex].tag}</Text>
+              <Text style={styles.tagText}>{slides[activeIndex].tag}</Text>
             </View>
-            <Text style={styles.title}>{SLIDES[activeIndex].title}</Text>
+            <Text style={styles.title}>{slides[activeIndex].title}</Text>
           </View>
         </SafeAreaView>
       </View>
 
       {/* Pagination */}
       <View style={styles.dots}>
-        {SLIDES.map((_, i) => (
+        {slides.map((_, i) => (
           <View key={i} style={[styles.dot, i === activeIndex && styles.dotActive]} />
         ))}
       </View>
@@ -161,18 +161,18 @@ export default function WelcomeScreen({ navigation }) {
         <View style={styles.bottom}>
           <GradientButton
             variant="dark"
-            title="S'inscrire en tant qu'Établissement"
+            title={t('welcome.registerBusiness')}
             onPress={() => navigation.navigate('RegisterBusiness')}
             style={styles.btnFull}
           />
           <GradientButton
-            title="S'inscrire en tant que Membre"
+            title={t('welcome.registerMember')}
             onPress={() => navigation.navigate('RegisterInfluencer')}
             style={styles.btnFull}
           />
           <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginRow}>
-            <Text style={styles.loginQuestion}>Déjà un compte ?  </Text>
-            <Text style={styles.loginLink}>Se connecter</Text>
+            <Text style={styles.loginQuestion}>{t('welcome.alreadyAccount')}  </Text>
+            <Text style={styles.loginLink}>{t('welcome.login')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

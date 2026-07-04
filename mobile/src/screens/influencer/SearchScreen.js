@@ -1,7 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  StatusBar, Image, ActivityIndicator, Dimensions, ScrollView,
+  View, StyleSheet, FlatList, TouchableOpacity, StatusBar, Image, ActivityIndicator, Dimensions, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -48,7 +50,7 @@ const getDayAndMonth = (dateStr) => {
   if (!dateStr) return { day: '--', month: '---' };
   const date = new Date(dateStr);
   const day = date.getDate().toString();
-  const month = date.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '').toUpperCase();
+  const month = date.toLocaleDateString(getCurrentLocale(), { month: 'short' }).replace('.', '').toUpperCase();
   return { day, month };
 };
 
@@ -79,6 +81,7 @@ function FAQItem({ item }) {
 
 // ─── Search Screen ───────────────────────────────────────────────────────────
 export default function SearchScreen({ navigation }) {
+  useLanguage();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('events'); // 'events', 'my_events', 'faqs'
@@ -330,7 +333,7 @@ export default function SearchScreen({ navigation }) {
                               <View style={styles.eventCardRow}>
                                 <Ionicons name="time-outline" size={13} color="#FFFFFF" />
                                 <Text style={styles.eventCardTxt}>
-                                  {new Date(item.date).toLocaleTimeString('fr-FR', {
+                                  {new Date(item.date).toLocaleTimeString(getCurrentLocale(), {
                                     hour: '2-digit', minute: '2-digit',
                                   })}
                                 </Text>

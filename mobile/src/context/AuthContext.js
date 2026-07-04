@@ -2,10 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI, subscriptionsAPI, usersAPI } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/pushNotifications';
+import { useLanguage } from './LanguageContext';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  const { language, setLanguage } = useLanguage();
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,6 +25,10 @@ export const AuthProvider = ({ children }) => {
     if (!user?._id || !token) return;
     syncSubscriptionStatus();
   }, [user?._id, token]);
+
+  useEffect(() => {
+    if (user?.preferredLanguage) setLanguage(user.preferredLanguage);
+  }, [user?.preferredLanguage]);
 
   const restoreSession = async () => {
     try {
@@ -49,7 +55,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (userData) => {
-    const data = await authAPI.register(userData);
+    const data = await authAPI.register({ ...userData, preferredLanguage: language });
     await AsyncStorage.setItem('token', data.token);
     await AsyncStorage.setItem('user', JSON.stringify(data.user));
     setToken(data.token);
@@ -58,7 +64,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const loginWithGoogle = async (accessToken) => {
-    const data = await authAPI.googleOAuth(accessToken);
+    const data = await authAPI.googleOAuth(accessToken, language);
     await AsyncStorage.setItem('token', data.token);
     await AsyncStorage.setItem('user', JSON.stringify(data.user));
     setToken(data.token);
@@ -67,7 +73,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const loginWithApple = async (identityToken, fullName, email) => {
-    const data = await authAPI.appleOAuth(identityToken, fullName, email);
+    const data = await authAPI.appleOAuth(identityToken, fullName, email, language);
     await AsyncStorage.setItem('token', data.token);
     await AsyncStorage.setItem('user', JSON.stringify(data.user));
     setToken(data.token);

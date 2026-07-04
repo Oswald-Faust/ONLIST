@@ -1,9 +1,7 @@
+import { Text, TextInput, Alert } from '../../i18n/LocalizedReactNative';
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  KeyboardAvoidingView, Platform, StatusBar, Alert,
-  Dimensions, ActivityIndicator, Modal, FlatList, Image,
-  Keyboard, TouchableWithoutFeedback, ScrollView,
+  View, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, StatusBar, Dimensions, ActivityIndicator, Modal, FlatList, Image, Keyboard, TouchableWithoutFeedback, ScrollView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';

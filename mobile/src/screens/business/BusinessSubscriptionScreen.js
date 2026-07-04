@@ -1,17 +1,7 @@
+import { Alert, Text } from '../../i18n/LocalizedReactNative';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  Animated,
-  Easing,
-  Linking,
-  Modal,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ActivityIndicator,
+  Animated, Easing, Linking, Modal, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';

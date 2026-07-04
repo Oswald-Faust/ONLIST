@@ -24,6 +24,7 @@ const subscriptionHistorySchema = new mongoose.Schema({
     type: String,
     enum: ['inactive', 'trialing', 'active', 'past_due', 'cancelled', 'grace'],
   },
+  preferredLanguage: { type: String, enum: ['fr', 'en'], default: 'fr' },
   productId: { type: String, trim: true },
   store: { type: String, trim: true },
   expiresAt: { type: Date },

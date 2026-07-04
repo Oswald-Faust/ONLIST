@@ -1,6 +1,7 @@
+import { Text, TextInput } from '../i18n/LocalizedReactNative';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../constants/theme';

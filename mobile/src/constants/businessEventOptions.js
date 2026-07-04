@@ -32,7 +32,7 @@ export const DELIVERABLE_OPTIONS = [
   { key: 'google_review', label: 'Avis Google', minPlan: BUSINESS_PLAN_KEYS.STARTER },
   { key: 'feed_post', label: 'Post feed Instagram', minPlan: BUSINESS_PLAN_KEYS.PRO },
   { key: 'reel_or_tiktok', label: 'Reel ou TikTok', minPlan: BUSINESS_PLAN_KEYS.GROUP },
-  { key: 'google_review_plus_one_screen', label: 'Avis Google + screen du +1', minPlan: BUSINESS_PLAN_KEYS.STARTER },
+  { key: 'tripadvisor_review', label: 'Avis TripAdvisor', minPlan: BUSINESS_PLAN_KEYS.PRO },
 ];
 
 // Map clé technique -> libellé lisible (ex: 'instagram_story_5' -> 'Jusqu’à 5 stories')
@@ -40,6 +40,9 @@ export const DELIVERABLE_LABELS = DELIVERABLE_OPTIONS.reduce((acc, opt) => {
   acc[opt.key] = opt.label;
   return acc;
 }, {});
+
+// Compatibilité avec les événements créés avant le remplacement du livrable.
+DELIVERABLE_LABELS.google_review_plus_one_screen = 'Avis TripAdvisor';
 
 export const getDeliverableLabel = (key) => DELIVERABLE_LABELS[key] || key;
 

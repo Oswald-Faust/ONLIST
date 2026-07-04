@@ -1,13 +1,7 @@
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StatusBar,
-  ActivityIndicator,
+  View, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';

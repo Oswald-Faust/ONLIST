@@ -1,5 +1,8 @@
+import { Text } from '../i18n/LocalizedReactNative';
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, View } from 'react-native';
+import {
+  TouchableOpacity, ActivityIndicator, StyleSheet, View
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, RADIUS, SPACING } from '../constants/theme';
 

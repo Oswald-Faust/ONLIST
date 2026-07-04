@@ -1,13 +1,14 @@
+import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, Alert, Modal, TextInput, ActivityIndicator, Linking,
+  View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Modal, ActivityIndicator, Linking
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { TERMS_OF_USE_TEXT, PRIVACY_POLICY_TEXT } from '../../constants/legalContent';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { usersAPI } from '../../services/api';
 
 // ─── Composant item de paramètre ─────────────────────────────────────────────
@@ -28,7 +29,8 @@ function SettingItem({ icon, label, onPress, destructive, chevron = true }) {
 // ─── Écran principal ──────────────────────────────────────────────────────────
 export default function SettingsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
 
   // ── Modal mot de passe ──
   const [pwdVisible,    setPwdVisible]    = useState(false);
@@ -44,6 +46,14 @@ export default function SettingsScreen({ navigation }) {
   const [legalVisible, setLegalVisible] = useState(false);
   const [legalType, setLegalType] = useState('privacy');
 
+  const handleLanguageChange = (nextLanguage) => {
+    setLanguage(nextLanguage);
+    updateUser({ preferredLanguage: nextLanguage }).catch(() => null);
+    usersAPI.updateMe({ preferredLanguage: nextLanguage })
+      .then((data) => updateUser(data.user || { preferredLanguage: nextLanguage }))
+      .catch(() => null);
+  };
+
   const resetPwdForm = () => {
     setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
     setShowCurrent(false); setShowNew(false); setShowConfirm(false);
@@ -51,15 +61,15 @@ export default function SettingsScreen({ navigation }) {
 
   const handleChangePassword = async () => {
     if (!currentPwd || !newPwd || !confirmPwd) {
-      Alert.alert('Champs requis', 'Veuillez remplir tous les champs.');
+      Alert.alert(t('settings.requiredTitle'), t('settings.requiredMessage'));
       return;
     }
     if (newPwd.length < 8) {
-      Alert.alert('Mot de passe trop court', 'Le nouveau mot de passe doit contenir au moins 8 caractères.');
+      Alert.alert(t('settings.shortPasswordTitle'), t('settings.shortPasswordMessage'));
       return;
     }
     if (newPwd !== confirmPwd) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
+      Alert.alert(t('common.error'), t('settings.passwordMismatch'));
       return;
     }
     setPwdSaving(true);
@@ -67,9 +77,9 @@ export default function SettingsScreen({ navigation }) {
       await usersAPI.changePassword({ currentPassword: currentPwd, newPassword: newPwd });
       setPwdVisible(false);
       resetPwdForm();
-      Alert.alert('Succès', 'Votre mot de passe a été modifié avec succès.');
+      Alert.alert(t('common.success'), t('settings.passwordChanged'));
     } catch (e) {
-      Alert.alert('Erreur', e.message || 'Impossible de modifier le mot de passe.');
+      Alert.alert(t('common.error'), e.message || t('settings.passwordChangeFailed'));
     } finally {
       setPwdSaving(false);
     }
@@ -77,29 +87,29 @@ export default function SettingsScreen({ navigation }) {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Supprimer le compte',
-      'Cette action est irréversible. Toutes vos données seront définitivement supprimées.',
+      t('settings.deleteTitle'),
+      t('settings.deleteWarning'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: t('settings.delete'),
           style: 'destructive',
           onPress: () => {
             // Double confirmation
             Alert.alert(
-              'Confirmation finale',
-              `Êtes-vous certain de vouloir supprimer le compte de ${user?.name || 'cet utilisateur'} ? Cette action ne peut pas être annulée.`,
+              t('settings.finalConfirmation'),
+              t('settings.deleteConfirmation', { name: user?.name || t('settings.thisUser') }),
               [
-                { text: 'Annuler', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Oui, supprimer',
+                  text: t('settings.confirmDelete'),
                   style: 'destructive',
                   onPress: async () => {
                     try {
                       await usersAPI.deleteAccount();
                       await logout();
                     } catch (e) {
-                      Alert.alert('Erreur', e.message || 'Impossible de supprimer le compte.');
+                      Alert.alert(t('common.error'), e.message || t('settings.deleteFailed'));
                     }
                   },
                 },
@@ -120,7 +130,7 @@ export default function SettingsScreen({ navigation }) {
         <TouchableOpacity style={S.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <Text style={S.headerTitle}>Paramètres</Text>
+        <Text style={S.headerTitle}>{t('settings.title')}</Text>
         <View style={{ width: 42 }} />
       </View>
 
@@ -129,30 +139,48 @@ export default function SettingsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={S.contentPad}
       >
+        <Text style={S.sectionLabel}>{t('settings.languageSection')}</Text>
+        <View style={S.card}>
+          <LanguageItem
+            label={t('common.french')}
+            code="FR"
+            selected={language === 'fr'}
+            onPress={() => handleLanguageChange('fr')}
+          />
+          <View style={S.divider} />
+          <LanguageItem
+            label={t('common.english')}
+            code="EN"
+            selected={language === 'en'}
+            onPress={() => handleLanguageChange('en')}
+          />
+        </View>
+        <Text style={S.languageHint}>{t('settings.languageHint')}</Text>
+
         {/* ── Mon compte ── */}
-        <Text style={S.sectionLabel}>MON COMPTE</Text>
+        <Text style={S.sectionLabel}>{t('settings.accountSection')}</Text>
         <View style={S.card}>
           <SettingItem
             icon="lock-closed-outline"
-            label="Modifier le mot de passe"
+            label={t('settings.changePassword')}
             onPress={() => { resetPwdForm(); setPwdVisible(true); }}
           />
           <View style={S.divider} />
           <SettingItem
             icon="document-outline"
-            label="Conditions d’utilisation"
+            label={t('settings.terms')}
             onPress={() => { setLegalType('terms'); setLegalVisible(true); }}
           />
           <View style={S.divider} />
           <SettingItem
             icon="document-text-outline"
-            label="Politique de confidentialité"
+            label={t('settings.privacy')}
             onPress={() => { setLegalType('privacy'); setLegalVisible(true); }}
           />
           <View style={S.divider} />
           <SettingItem
             icon="trash-outline"
-            label="Supprimer mon compte"
+            label={t('settings.deleteAccount')}
             onPress={handleDeleteAccount}
             destructive
           />
@@ -172,24 +200,24 @@ export default function SettingsScreen({ navigation }) {
         <View style={S.modalOverlay}>
           <View style={[S.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
             <View style={S.sheetHandle} />
-            <Text style={S.sheetTitle}>Modifier le mot de passe</Text>
+            <Text style={S.sheetTitle}>{t('settings.changePassword')}</Text>
 
             <PwdField
-              label="Mot de passe actuel"
+              label={t('settings.currentPassword')}
               value={currentPwd}
               onChangeText={setCurrentPwd}
               show={showCurrent}
               onToggle={() => setShowCurrent(v => !v)}
             />
             <PwdField
-              label="Nouveau mot de passe"
+              label={t('settings.newPassword')}
               value={newPwd}
               onChangeText={setNewPwd}
               show={showNew}
               onToggle={() => setShowNew(v => !v)}
             />
             <PwdField
-              label="Confirmer le nouveau mot de passe"
+              label={t('settings.confirmPassword')}
               value={confirmPwd}
               onChangeText={setConfirmPwd}
               show={showConfirm}
@@ -215,7 +243,11 @@ export default function SettingsScreen({ navigation }) {
                   />
                 ))}
                 <Text style={S.pwdStrengthTxt}>
-                  {newPwd.length < 6 ? 'Trop court' : newPwd.length < 10 ? 'Correct' : 'Fort'}
+                  {newPwd.length < 6
+                    ? t('settings.strengthShort')
+                    : newPwd.length < 10
+                      ? t('settings.strengthFair')
+                      : t('settings.strengthStrong')}
                 </Text>
               </View>
             )}
@@ -227,7 +259,7 @@ export default function SettingsScreen({ navigation }) {
             >
               {pwdSaving
                 ? <ActivityIndicator color={COLORS.bg} size="small" />
-                : <Text style={S.sheetBtnTxt}>Modifier le mot de passe</Text>
+                : <Text style={S.sheetBtnTxt}>{t('settings.changePassword')}</Text>
               }
             </TouchableOpacity>
 
@@ -235,7 +267,7 @@ export default function SettingsScreen({ navigation }) {
               style={S.sheetBtnCancel}
               onPress={() => { setPwdVisible(false); resetPwdForm(); }}
             >
-              <Text style={S.sheetBtnCancelTxt}>Annuler</Text>
+              <Text style={S.sheetBtnCancelTxt}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -253,7 +285,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={S.sheetHandle} />
             <View style={S.privacyHeader}>
               <Text style={S.sheetTitle}>
-                {legalType === 'terms' ? 'Conditions d’utilisation' : 'Politique de confidentialité'}
+                {legalType === 'terms' ? t('settings.terms') : t('settings.privacy')}
               </Text>
               <TouchableOpacity onPress={() => setLegalVisible(false)}>
                 <Ionicons name="close" size={22} color={COLORS.textSecondary} />
@@ -268,6 +300,22 @@ export default function SettingsScreen({ navigation }) {
         </View>
       </Modal>
     </View>
+  );
+}
+
+function LanguageItem({ label, code, selected, onPress }) {
+  return (
+    <TouchableOpacity style={S.item} onPress={onPress} activeOpacity={0.7}>
+      <View style={[S.languageCode, selected && S.languageCodeSelected]}>
+        <Text style={[S.languageCodeText, selected && S.languageCodeTextSelected]}>{code}</Text>
+      </View>
+      <Text style={S.itemLabel}>{label}</Text>
+      <Ionicons
+        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+        size={22}
+        color={selected ? COLORS.primary : COLORS.textMuted}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -348,6 +396,18 @@ const S = StyleSheet.create({
   },
   itemIconRed: { backgroundColor: 'rgba(255,59,48,0.1)' },
   itemLabel: { flex: 1, color: COLORS.textPrimary, fontSize: FONTS.sizes.base, fontFamily: FONTS.medium },
+  languageCode: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  languageCodeSelected: { backgroundColor: 'rgba(201,169,97,0.14)' },
+  languageCodeText: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.bold },
+  languageCodeTextSelected: { color: COLORS.primaryLight },
+  languageHint: {
+    color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular,
+    lineHeight: 18, marginTop: -10, marginBottom: SPACING.lg, paddingHorizontal: 4,
+  },
 
   version: {
     color: COLORS.textMuted, fontSize: FONTS.sizes.xs,

@@ -1,14 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Linking,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  ActivityIndicator, Linking, RefreshControl, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +15,7 @@ import { openSubscriptionPortal } from '../../services/subscriptions';
 
 function formatAmount(amount, currency = 'eur') {
   try {
-    return new Intl.NumberFormat('fr-FR', {
+    return new Intl.NumberFormat(getCurrentLocale(), {
       style: 'currency',
       currency: String(currency || 'eur').toUpperCase(),
     }).format(Number(amount || 0) / 100);
@@ -38,6 +33,7 @@ const STATUS_LABELS = {
 };
 
 export default function BusinessBillingScreen({ navigation }) {
+  useLanguage();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -141,7 +137,7 @@ export default function BusinessBillingScreen({ navigation }) {
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={s.invoiceTitle} numberOfLines={1}>{firstLine}</Text>
                         <Text style={s.invoiceDate}>
-                          {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Date inconnue'}
+                          {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString(getCurrentLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : 'Date inconnue'}
                         </Text>
                       </View>
                       <View style={[s.statusBadge, isPaid ? s.statusBadgePaid : s.statusBadgePending]}>

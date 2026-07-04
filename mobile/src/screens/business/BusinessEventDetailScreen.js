@@ -1,7 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList,
-  StatusBar, Alert, Image, ActivityIndicator, RefreshControl, Modal, TextInput,
+  View, StyleSheet, TouchableOpacity, ScrollView, FlatList, StatusBar, Image, ActivityIndicator, RefreshControl, Modal
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,6 +15,8 @@ import { CATEGORY_LABELS } from '../../constants/categories';
 import { eventsAPI, applicationsAPI, deliverablesAPI, usersAPI } from '../../services/api';
 import { getDeliverableLabel } from '../../constants/businessEventOptions';
 import MiniAreaChart from '../../components/MiniAreaChart';
+import { useAuth } from '../../context/AuthContext';
+import { getBusinessPlan } from '../../constants/businessPlans';
 
 const MOMENT_LABELS = { morning: 'Matin', afternoon: 'Apres-midi', evening: 'Soir', night: 'Nuit' };
 
@@ -22,7 +26,7 @@ const boostStatusLabel = (event) => {
   if (!event?.boostExpiresAt) return 'Votre événement est mis en avant auprès des influenceurs.';
   const exp = new Date(event.boostExpiresAt);
   const days = Math.max(0, Math.ceil((exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-  const dateStr = exp.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const dateStr = exp.toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'long', year: 'numeric' });
   const remaining = days > 0 ? ` · ${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}` : '';
   return `Mis en avant jusqu'au ${dateStr}${remaining}`;
 };
@@ -67,8 +71,8 @@ const capitalize = (str) => (str && typeof str === 'string' ? str.charAt(0).toUp
 
 function DetailsTab({ event }) {
   const date = event.date ? new Date(event.date) : null;
-  const dateStr = date ? capitalize(date.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })) : '—';
-  const timeStr = date ? date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+  const dateStr = date ? capitalize(date.toLocaleDateString(getCurrentLocale(), { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })) : '—';
+  const timeStr = date ? date.toLocaleTimeString(getCurrentLocale(), { hour: '2-digit', minute: '2-digit' }) : '';
 
   const accepted = event.acceptedCount || 0;
   const maxP = event.maxParticipants || 0;
@@ -306,25 +310,34 @@ const formatFollowers = (n) => {
   return String(n);
 };
 
-function InviteInfluencerCard({ influencer, onSelect, disabled }) {
+function InviteInfluencerCard({ influencer, onSelect, disabled, locked }) {
   return (
-    <TouchableOpacity style={s.inviteCard} onPress={() => onSelect(influencer)} activeOpacity={0.82}>
+    <TouchableOpacity
+      style={[s.inviteCard, locked && s.inviteCardLocked]}
+      onPress={() => onSelect(influencer)}
+      activeOpacity={0.82}
+    >
       <View style={s.candidateRow}>
-        <View style={s.avatar}>
+        <View style={[s.avatar, locked && s.avatarLocked]}>
           {influencer?.photos?.[0]
             ? <Image source={{ uri: influencer.photos[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             : <LinearGradient colors={COLORS.gradient} style={s.avatarGrad}><Text style={s.avatarLetter}>{(influencer?.name || '?')[0].toUpperCase()}</Text></LinearGradient>}
         </View>
         <View style={{ flex: 1, gap: 3 }}>
-          <Text style={s.candidateName}>{influencer?.name || 'Inconnu'}</Text>
+          <Text style={[s.candidateName, locked && s.textLocked]}>{influencer?.name || 'Inconnu'}</Text>
           <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-            {influencer?.instagram && <Text style={s.handle}>@{influencer.instagram.replace('@', '')}</Text>}
-            <Text style={s.statSmall}>{formatFollowers(influencer?.followersCount)} abonnés</Text>
-            {influencer?.score ? <Text style={s.statSmall}>⭐ {influencer.score.toFixed(1)}/10</Text> : null}
-            {influencer?.city ? <Text style={s.statSmall}>{influencer.city}</Text> : null}
+            {influencer?.instagram && <Text style={[s.handle, locked && s.textLocked]}>@{influencer.instagram.replace('@', '')}</Text>}
+            <Text style={[s.statSmall, locked && s.textLocked]}>{formatFollowers(influencer?.followersCount)} abonnés</Text>
+            {influencer?.score ? <Text style={[s.statSmall, locked && s.textLocked]}>⭐ {influencer.score.toFixed(1)}/10</Text> : null}
+            {influencer?.city ? <Text style={[s.statSmall, locked && s.textLocked]}>{influencer.city}</Text> : null}
           </View>
         </View>
-        {disabled ? (
+        {locked ? (
+          <View style={s.lockedPill}>
+            <Ionicons name="lock-closed" size={12} color={COLORS.textMuted} />
+            <Text style={s.lockedPillText}>Pack Group</Text>
+          </View>
+        ) : disabled ? (
           <View style={s.linkedPill}>
             <Ionicons name="checkmark-circle" size={13} color={COLORS.success} />
             <Text style={s.linkedPillText}>Déjà lié</Text>
@@ -338,7 +351,7 @@ function InviteInfluencerCard({ influencer, onSelect, disabled }) {
 }
 
 // Feuille d'action : Consulter le profil / Inviter (au lieu d'inviter directement).
-function InfluencerActionSheet({ influencer, alreadyLinked, onClose, onViewProfile, onInvite }) {
+function InfluencerActionSheet({ influencer, alreadyLinked, locked, onClose, onViewProfile, onInvite, onUpgrade }) {
   const [inviting, setInviting] = useState(false);
   const visible = !!influencer;
 
@@ -379,7 +392,18 @@ function InfluencerActionSheet({ influencer, alreadyLinked, onClose, onViewProfi
             <Text style={s.sheetActionGhostText}>Consulter le profil</Text>
           </TouchableOpacity>
 
-          {alreadyLinked ? (
+          {locked ? (
+            <View style={s.upsellBox}>
+              <Ionicons name="lock-closed" size={16} color={COLORS.primary} />
+              <Text style={s.upsellBoxText}>
+                Cet influenceur dépasse la limite d'abonnés de votre pack Pro (50k). Passez au pack Group pour l'inviter.
+              </Text>
+              <TouchableOpacity style={s.sheetActionPrimary} onPress={onUpgrade} activeOpacity={0.9}>
+                <Ionicons name="arrow-up-circle-outline" size={18} color="#0A0A0F" />
+                <Text style={s.sheetActionPrimaryText}>Passer au pack Group</Text>
+              </TouchableOpacity>
+            </View>
+          ) : alreadyLinked ? (
             <View style={[s.sheetActionPrimary, s.sheetActionPrimaryDisabled]}>
               <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.textMuted} />
               <Text style={[s.sheetActionPrimaryText, { color: COLORS.textMuted }]}>Déjà lié à l'événement</Text>
@@ -403,6 +427,8 @@ function InfluencerActionSheet({ influencer, alreadyLinked, onClose, onViewProfi
 }
 
 function InviteTab({ eventId, applications, onInvited, navigation }) {
+  const { user } = useAuth();
+  const plan = getBusinessPlan(user?.subscriptionPlan);
   const [influencers, setInfluencers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -411,10 +437,16 @@ function InviteTab({ eventId, applications, onInvited, navigation }) {
 
   const linkedIds = new Set(applications.map((item) => String(item.user?._id || item.user || '')));
   const selectedLinked = selected ? linkedIds.has(String(selected._id)) : false;
+  const selectedLocked = Boolean(selected?.locked);
 
   const loadInfluencers = useCallback(async () => {
+    if (!plan.canDirectInvite) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
-      const data = await usersAPI.list({ limit: 100 });
+      const data = await usersAPI.list({ limit: 100, includeLocked: 1 });
       setInfluencers(data.users || []);
     } catch (err) {
       Alert.alert('Erreur', err.message);
@@ -422,11 +454,12 @@ function InviteTab({ eventId, applications, onInvited, navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [plan.canDirectInvite]);
 
   useEffect(() => { loadInfluencers(); }, [loadInfluencers]);
 
   const handleRefresh = () => {
+    if (!plan.canDirectInvite) return;
     setRefreshing(true);
     loadInfluencers();
   };
@@ -449,10 +482,33 @@ function InviteTab({ eventId, applications, onInvited, navigation }) {
     if (userId) navigation.navigate('BusinessInfluencerProfile', { userId });
   };
 
+  const goToSubscription = () => {
+    setSelected(null);
+    navigation.navigate('BusinessSubscription');
+  };
+
   const filtered = influencers.filter((item) => {
     const haystack = `${item?.name || ''} ${item?.city || ''} ${item?.instagram || ''}`.toLowerCase();
     return !search.trim() || haystack.includes(search.trim().toLowerCase());
   });
+
+  if (!plan.canDirectInvite) {
+    return (
+      <View style={s.inviteLockedWrap}>
+        <View style={s.inviteLockedIcon}>
+          <Ionicons name="lock-closed" size={28} color={COLORS.primary} />
+        </View>
+        <Text style={s.inviteLockedTitle}>Invitations non disponibles</Text>
+        <Text style={s.inviteLockedText}>
+          Le pack {plan.name} ne permet pas d'inviter directement des influenceurs. Passez au pack Pro (jusqu'à 50k abonnés) ou Group (illimité) pour débloquer cette fonctionnalité.
+        </Text>
+        <TouchableOpacity style={s.inviteLockedBtn} onPress={goToSubscription} activeOpacity={0.9}>
+          <Ionicons name="arrow-up-circle-outline" size={18} color="#0A0A0F" />
+          <Text style={s.inviteLockedBtnText}>Passer au pack Pro</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
@@ -469,6 +525,11 @@ function InviteTab({ eventId, applications, onInvited, navigation }) {
         <Text style={s.inviteIntroText}>
           Recherchez un profil et envoyez-lui une invitation pour cet événement. Une invitation reçue apparaît ensuite dans En attente.
         </Text>
+        {plan.maxFollowersAccess ? (
+          <Text style={s.inviteIntroHint}>
+            Votre pack {plan.name} permet d'inviter les influenceurs jusqu'à {formatFollowers(plan.maxFollowersAccess)} abonnés.
+          </Text>
+        ) : null}
       </View>
 
       <View style={s.inviteSearchWrap}>
@@ -492,6 +553,7 @@ function InviteTab({ eventId, applications, onInvited, navigation }) {
           <InviteInfluencerCard
             influencer={item}
             disabled={linkedIds.has(String(item._id))}
+            locked={Boolean(item.locked)}
             onSelect={setSelected}
           />
         )}
@@ -500,9 +562,11 @@ function InviteTab({ eventId, applications, onInvited, navigation }) {
       <InfluencerActionSheet
         influencer={selected}
         alreadyLinked={selectedLinked}
+        locked={selectedLocked}
         onClose={() => setSelected(null)}
         onViewProfile={handleViewProfile}
         onInvite={handleInvite}
+        onUpgrade={goToSubscription}
       />
     </View>
   );
@@ -778,7 +842,7 @@ function AttestationsTab({ applications, navigation, eventId, onCheckIn, submiss
                   {user?.instagram && <Text style={s.handle}>@{user.instagram.replace('@', '')}</Text>}
                   <Text style={s.attMeta}>
                     {isCheckedIn
-                      ? `Scanné${item.checkedInAt ? ` · ${new Date(item.checkedInAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}`
+                      ? `Scanné${item.checkedInAt ? ` · ${new Date(item.checkedInAt).toLocaleTimeString(getCurrentLocale(), { hour: '2-digit', minute: '2-digit' })}` : ''}`
                       : 'En attente de scan'}
                   </Text>
                   {deliverables.length > 0 ? <Text style={s.attDeliverableMeta}>{deliverables.length} livrable(s) reçu(s)</Text> : null}
@@ -894,7 +958,7 @@ const formatDayLabel = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+  return d.toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'short' });
 };
 
 // Message contextuel affiché en encart selon l'état de l'événement.
@@ -1106,6 +1170,7 @@ function StatsTab({ eventId }) {
 
 // --- Main Screen ---
 export default function BusinessEventDetailScreen({ route, navigation }) {
+  useLanguage();
   const { eventId } = route.params;
   const insets = useSafeAreaInsets();
   const [event, setEvent] = useState(null);
@@ -1345,6 +1410,7 @@ const s = StyleSheet.create({
   },
   inviteIntroTitle: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
   inviteIntroText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
+  inviteIntroHint: { color: COLORS.primary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold, marginTop: 2 },
   inviteSearchWrap: {
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
@@ -1372,6 +1438,48 @@ const s = StyleSheet.create({
     borderColor: COLORS.border,
     overflow: 'hidden',
   },
+  inviteCardLocked: {
+    opacity: 0.5,
+  },
+  avatarLocked: { opacity: 0.6 },
+  textLocked: { color: COLORS.textMuted },
+  lockedPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: COLORS.border,
+  },
+  lockedPillText: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
+
+  inviteLockedWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xl,
+    gap: SPACING.md,
+  },
+  inviteLockedIcon: {
+    width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(201,169,97,0.12)', borderWidth: 1, borderColor: 'rgba(201,169,97,0.3)',
+    marginBottom: SPACING.sm,
+  },
+  inviteLockedTitle: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold, textAlign: 'center' },
+  inviteLockedText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20, textAlign: 'center' },
+  inviteLockedBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 52, minWidth: 220, borderRadius: RADIUS.full, backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg, marginTop: SPACING.sm,
+  },
+  inviteLockedBtnText: { color: '#0A0A0F', fontSize: FONTS.sizes.base, fontFamily: FONTS.bold },
+
+  upsellBox: {
+    gap: SPACING.md,
+    backgroundColor: 'rgba(201,169,97,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.3)',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+  },
+  upsellBoxText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, lineHeight: 20 },
   inviteActionBtn: {
     minWidth: 92,
     height: 40,

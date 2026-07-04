@@ -1,7 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text, Alert, TouchableOpacity } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, StatusBar, Dimensions, Linking, Alert,
+  View, StyleSheet, ScrollView, Image, ActivityIndicator, StatusBar, Dimensions, Linking
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -85,6 +87,7 @@ function Card({ title, children, style }) {
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 export default function BusinessInfluencerProfileScreen({ route, navigation }) {
+  useLanguage();
   const { user: businessUser } = useAuth();
   const plan = getBusinessPlan(businessUser?.subscriptionPlan);
   const { userId } = route.params;
@@ -381,7 +384,7 @@ export default function BusinessInfluencerProfileScreen({ route, navigation }) {
                   <View style={s.reviewEventMeta}>
                     <Text style={s.reviewEventTitle}>{review.event?.title || 'Événement'}</Text>
                     <Text style={s.reviewEventDate}>
-                      {review.event?.date ? new Date(review.event.date).toLocaleDateString('fr-FR') : 'Date indisponible'}
+                      {review.event?.date ? new Date(review.event.date).toLocaleDateString(getCurrentLocale()) : 'Date indisponible'}
                     </Text>
                   </View>
                   <View style={s.reviewScorePill}>

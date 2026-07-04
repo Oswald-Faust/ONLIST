@@ -20,14 +20,14 @@ const avg = (arr, key) =>
 // GET /users — liste des influenceurs validés (pour business)
 router.get('/', protect, requireValidated, async (req, res) => {
   try {
-    const { city, minFollowers, minScore, page = 1, limit = 20 } = req.query;
+    const { city, minFollowers, minScore, page = 1, limit = 20, includeLocked } = req.query;
     const filter = { type: 'influencer', status: 'validated' };
     const businessPlan = req.user.type === 'business' ? getBusinessPlan(req.user) : null;
 
     if (city) filter.city = new RegExp(city, 'i');
     if (minFollowers) filter.followersCount = { $gte: Number(minFollowers) };
     if (minScore) filter.score = { $gte: Number(minScore) };
-    if (businessPlan?.maxFollowersAccess) {
+    if (businessPlan?.maxFollowersAccess && !includeLocked) {
       filter.followersCount = {
         ...(filter.followersCount || {}),
         $lte: businessPlan.maxFollowersAccess,
@@ -129,7 +129,8 @@ router.put('/me', protect, async (req, res) => {
     const allowed = ['name', 'bio', 'city', 'country', 'nationality', 'gender', 'dateOfBirth',
       'instagram', 'tiktok', 'youtube', 'followersCount', 'photos',
       'businessName', 'businessType', 'businessDescription', 'businessAddress',
-      'businessCity', 'businessPostalCode', 'businessLogo', 'businessBannerPhoto', 'selectedCity'];
+      'businessCity', 'businessPostalCode', 'businessLogo', 'businessBannerPhoto', 'selectedCity',
+      'preferredLanguage'];
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 

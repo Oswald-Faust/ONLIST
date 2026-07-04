@@ -1,9 +1,10 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  View, Text, StyleSheet, TouchableOpacity, RefreshControl,
-  StatusBar, ScrollView, Image, ActivityIndicator,
-  ImageBackground, Dimensions,
+  View, StyleSheet, TouchableOpacity, RefreshControl, StatusBar, ScrollView, Image, ActivityIndicator, ImageBackground, Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -36,7 +37,7 @@ const FILTERS = [
 
 function EventCard({ event, onPress, isFavorite, onToggleFavorite }) {
   const dateStr = event?.date
-    ? new Date(event.date).toLocaleDateString('fr-FR', {
+    ? new Date(event.date).toLocaleDateString(getCurrentLocale(), {
         day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
       })
     : null;
@@ -107,6 +108,7 @@ function EventCard({ event, onPress, isFavorite, onToggleFavorite }) {
 // ─── Écran principal ───────────────────────────────────────────────────────────
 
 export default function HomeScreen({ navigation }) {
+  useLanguage();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const sliderRef = useRef(null);
@@ -244,10 +246,10 @@ export default function HomeScreen({ navigation }) {
   };
 
   const fmtDate = (d) => d
-    ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    ? new Date(d).toLocaleDateString(getCurrentLocale(), { day: 'numeric', month: 'short' })
     : null;
   const fmtTime = (d) => d
-    ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    ? new Date(d).toLocaleTimeString(getCurrentLocale(), { hour: '2-digit', minute: '2-digit' })
     : null;
 
   // ── Loader ─────────────────────────────────────────────────────────────────

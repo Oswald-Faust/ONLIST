@@ -1,8 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
+import { getCurrentLocale } from '../../i18n/runtime';
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  StatusBar, Alert, TextInput, Modal, FlatList, Switch, Image,
-  KeyboardAvoidingView, Platform, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Modal, FlatList, Switch, Image, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -115,14 +116,12 @@ function formatTimeValue(date) {
   return `${h}:${m}`;
 }
 
-function parseDurationMinutes(startTime, endTime) {
-  if (!startTime || !endTime) return null;
-  const [startH, startM] = startTime.split(':').map(Number);
-  const [endH, endM] = endTime.split(':').map(Number);
-  const start = startH * 60 + startM;
-  const end = endH * 60 + endM;
-  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
-  return end - start;
+function parseDurationMinutes(startDate, startTime, endDate, endTime) {
+  if (!startDate || !startTime || !endDate || !endTime) return null;
+  const start = new Date(`${startDate}T${startTime}:00`);
+  const end = new Date(`${endDate}T${endTime}:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null;
+  return Math.round((end.getTime() - start.getTime()) / 60000);
 }
 
 function formatDuration(minutes) {
@@ -195,6 +194,7 @@ function TagInput({ values, onAdd, onRemove, placeholder }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────────────────────
 export default function CreateEventScreen({ route, navigation }) {
+  useLanguage();
   const { user } = useAuth();
   const businessPlan = getBusinessPlan(user?.subscriptionPlan);
   const insets = useSafeAreaInsets();
@@ -238,6 +238,7 @@ export default function CreateEventScreen({ route, navigation }) {
     postalCode: '',
     city: lieuPreselected?.city || source?.city || '',
     date: parseDate(source?.date) || '',
+    endDate: parseDate(source?.endDate) || parseDate(source?.date) || '',
     startTime: source?.startTime || parseTime(source?.date) || '',
     endTime: source?.endTime || '',
     requiredArrivalTime: source?.requiredArrivalTime || '',
@@ -248,7 +249,7 @@ export default function CreateEventScreen({ route, navigation }) {
     description: source?.description || '',
     offerItems: source?.offerItems || [],
     otherOffer: source?.otherOffer || '',
-    deliverables: source?.deliverables || [],
+    deliverables: (source?.deliverables || []).map((item) => item === 'google_review_plus_one_screen' ? 'tripadvisor_review' : item),
     otherDeliverable: source?.otherDeliverable || '',
     accountsToMention: source?.accountsToMention?.length ? source.accountsToMention : (user?.instagram ? [`@${String(user.instagram).replace(/^@/, '')}`] : []),
     maxParticipants: String(source?.maxParticipants || '10'),
@@ -276,6 +277,12 @@ export default function CreateEventScreen({ route, navigation }) {
             ? form.requiredArrivalTime
               ? new Date(`2025-01-01T${form.requiredArrivalTime}:00`)
               : new Date()
+          : field === 'endDate'
+            ? form.endDate
+              ? new Date(`${form.endDate}T12:00:00`)
+              : form.date
+                ? new Date(`${form.date}T12:00:00`)
+                : new Date()
           : form.date
             ? new Date(`${form.date}T12:00:00`)
             : new Date();
@@ -297,7 +304,11 @@ export default function CreateEventScreen({ route, navigation }) {
       if (pickerConfig.field === 'time') upd('startTime', formatTimeValue(selectedDate));
       if (pickerConfig.field === 'endTime') upd('endTime', formatTimeValue(selectedDate));
       if (pickerConfig.field === 'requiredArrivalTime') upd('requiredArrivalTime', formatTimeValue(selectedDate));
-      if (pickerConfig.field === 'date') upd('date', formatDateValue(selectedDate));
+      if (pickerConfig.field === 'date') {
+        const nextDate = formatDateValue(selectedDate);
+        setForm((prev) => ({ ...prev, date: nextDate, endDate: !prev.endDate || prev.endDate < nextDate ? nextDate : prev.endDate }));
+      }
+      if (pickerConfig.field === 'endDate') upd('endDate', formatDateValue(selectedDate));
       setPickerConfig(null);
       return;
     }
@@ -312,7 +323,11 @@ export default function CreateEventScreen({ route, navigation }) {
     if (pickerConfig.field === 'time') upd('startTime', formatTimeValue(pickerConfig.value));
     if (pickerConfig.field === 'endTime') upd('endTime', formatTimeValue(pickerConfig.value));
     if (pickerConfig.field === 'requiredArrivalTime') upd('requiredArrivalTime', formatTimeValue(pickerConfig.value));
-    if (pickerConfig.field === 'date') upd('date', formatDateValue(pickerConfig.value));
+    if (pickerConfig.field === 'date') {
+      const nextDate = formatDateValue(pickerConfig.value);
+      setForm((prev) => ({ ...prev, date: nextDate, endDate: !prev.endDate || prev.endDate < nextDate ? nextDate : prev.endDate }));
+    }
+    if (pickerConfig.field === 'endDate') upd('endDate', formatDateValue(pickerConfig.value));
     setPickerConfig(null);
   };
 
@@ -321,27 +336,56 @@ export default function CreateEventScreen({ route, navigation }) {
   }, []);
 
   // ─── Image picking ──────────────────────────────────────────────────────────────────────────
+  const uploadPickedAssets = async (assets) => {
+    const uploaded = [];
+    for (const asset of assets) {
+      const data = await uploadAPI.image(asset.uri, {
+        mimeType: asset.mimeType,
+        fileName: asset.fileName,
+      });
+      uploaded.push(data.url);
+    }
+    return uploaded;
+  };
+
+  const replaceCoverImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('Permission refusée', "Accès à la galerie requis."); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
+    if (result.canceled) return;
+    setUploadingImg(true);
+    try {
+      const [newCoverUrl] = await uploadPickedAssets(result.assets.slice(0, 1));
+      if (newCoverUrl) {
+        setForm((prev) => ({ ...prev, images: [newCoverUrl, ...prev.images.slice(1)] }));
+      }
+    } catch (err) {
+      Alert.alert('Erreur upload', err.message);
+    } finally {
+      setUploadingImg(false);
+    }
+  };
+
   const addEventImages = async () => {
+    const availableSlots = Math.max(0, 6 - form.images.length);
+    if (availableSlots === 0) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert('Permission refusée', "Accès à la galerie requis."); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
       allowsMultipleSelection: true,
-      selectionLimit: Math.max(1, 6 - form.images.length),
+      selectionLimit: availableSlots,
     });
     if (result.canceled) return;
     setUploadingImg(true);
     try {
-      const uploaded = [];
-      for (const asset of result.assets) {
-        const data = await uploadAPI.image(asset.uri, {
-          mimeType: asset.mimeType,
-          fileName: asset.fileName,
-        });
-        uploaded.push(data.url);
-      }
-      upd('images', [...form.images, ...uploaded].slice(0, 6));
+      const uploaded = await uploadPickedAssets(result.assets.slice(0, availableSlots));
+      setForm((prev) => ({ ...prev, images: [...prev.images, ...uploaded].slice(0, 6) }));
     } catch (err) {
       Alert.alert('Erreur upload', err.message);
     } finally {
@@ -373,34 +417,22 @@ export default function CreateEventScreen({ route, navigation }) {
   const toggleDeliverableItem = (value, minPlan) => {
     if (!isPlanAllowedForOption(businessPlan.key, minPlan)) return;
     const has = form.deliverables.includes(value);
-    let nextDeliverables = has
+    const nextDeliverables = has
       ? form.deliverables.filter((item) => item !== value)
       : [...form.deliverables, value];
-    if (form.plusOneMode === 'required' && !nextDeliverables.includes('google_review_plus_one_screen')) {
-      nextDeliverables = [...nextDeliverables, 'google_review_plus_one_screen'];
-    }
     upd('deliverables', nextDeliverables);
   };
-
-  useEffect(() => {
-    if (form.plusOneMode === 'required' && !form.deliverables.includes('google_review_plus_one_screen')) {
-      upd('deliverables', [...form.deliverables, 'google_review_plus_one_screen']);
-    }
-    if (form.plusOneMode === 'solo' && form.deliverables.includes('google_review_plus_one_screen')) {
-      upd('deliverables', form.deliverables.filter((item) => item !== 'google_review_plus_one_screen'));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.plusOneMode]);
 
   // ─── Validation ───────────────────────────────────────────────────────────────────────────────
   const validateStep = () => {
     if (step === 1) {
       if (!form.title.trim()) { Alert.alert('Titre requis'); return false; }
       if (!form.date.trim()) { Alert.alert('Date requise'); return false; }
+      if (!form.endDate.trim()) { Alert.alert('Date de fin requise'); return false; }
       if (!form.city.trim()) { Alert.alert('Ville requise'); return false; }
       if (!form.startTime.trim()) { Alert.alert('Heure de début requise'); return false; }
       if (!form.endTime.trim()) { Alert.alert('Heure de fin requise'); return false; }
-      if (!parseDurationMinutes(form.startTime, form.endTime)) { Alert.alert('Heure de fin invalide', "L'heure de fin doit être après l'heure de début."); return false; }
+      if (!parseDurationMinutes(form.date, form.startTime, form.endDate, form.endTime)) { Alert.alert('Fin d’événement invalide', "La date et l'heure de fin doivent être après le début de l'événement."); return false; }
       if (!form.lieuId && !form.venueCustom.trim()) { Alert.alert('Nom du lieu requis'); return false; }
     }
     if (step === 3) {
@@ -464,6 +496,7 @@ export default function CreateEventScreen({ route, navigation }) {
       address: form.lieuId ? (lieux.find((item) => item._id === form.lieuId)?.address || '') : (form.address?.trim() || ''),
       city: form.city?.trim() || '',
       date: dateISO,
+      endDate: form.endDate && form.endTime ? new Date(`${form.endDate}T${form.endTime}:00`).toISOString() : undefined,
       startTime: form.startTime || undefined,
       endTime: form.endTime || undefined,
       category: form.category || undefined,
@@ -524,6 +557,8 @@ export default function CreateEventScreen({ route, navigation }) {
     try {
       const dateObj = new Date(`${form.date}T${form.startTime || '20:00'}:00`);
       if (isNaN(dateObj.getTime())) throw new Error('Format de date invalide (YYYY-MM-DD)');
+      const endDateObj = new Date(`${form.endDate}T${form.endTime}:00`);
+      if (isNaN(endDateObj.getTime()) || endDateObj <= dateObj) throw new Error("La fin de l'événement doit être après son début");
       const payload = {
         title: form.title.trim(),
         lieu: form.lieuId || undefined,
@@ -531,6 +566,7 @@ export default function CreateEventScreen({ route, navigation }) {
         address: form.lieuId ? (lieux.find((item) => item._id === form.lieuId)?.address || '') : form.address.trim(),
         city: form.city.trim(),
         date: dateObj.toISOString(),
+        endDate: endDateObj.toISOString(),
         startTime: form.startTime,
         endTime: form.endTime,
         requiredArrivalTime: form.requiredArrivalTime || undefined,
@@ -572,7 +608,7 @@ export default function CreateEventScreen({ route, navigation }) {
 
   // ─── Render Steps ────────────────────────────────────────────────────────────────────────────
   const renderStep = () => {
-    const durationMinutes = parseDurationMinutes(form.startTime, form.endTime);
+    const durationMinutes = parseDurationMinutes(form.date, form.startTime, form.endDate, form.endTime);
     const offerTags = OFFER_TAGS_BY_CATEGORY[form.category || lieuPreselected?.category || user?.businessType || 'other'] || OFFER_TAGS_BY_CATEGORY.other;
     switch (step) {
       // ── Step 1 ────────────────────────────────────────────────────────────────────────────────
@@ -680,6 +716,17 @@ export default function CreateEventScreen({ route, navigation }) {
 
             <View style={s.row}>
               <View style={{ flex: 1 }}>
+                <InputBlock label="Date de fin" required>
+                  <PickerField
+                    value={form.endDate}
+                    placeholder="Sélectionner une date"
+                    icon="calendar-outline"
+                    onPress={() => openPicker('endDate')}
+                  />
+                </InputBlock>
+              </View>
+              <View style={{ width: SPACING.md }} />
+              <View style={{ flex: 1 }}>
                 <InputBlock label="Heure de fin" required>
                   <PickerField
                     value={form.endTime}
@@ -689,19 +736,17 @@ export default function CreateEventScreen({ route, navigation }) {
                   />
                 </InputBlock>
               </View>
-              <View style={{ width: SPACING.md }} />
-              <View style={{ flex: 1 }}>
-                <InputBlock label="Durée">
-                  <View style={s.readOnlyField}>
-                    <Text style={s.readOnlyFieldText}>{formatDuration(durationMinutes) || 'À définir'}</Text>
-                  </View>
-                </InputBlock>
-              </View>
             </View>
+
+            <InputBlock label="Durée calculée automatiquement">
+              <View style={s.readOnlyField}>
+                <Text style={s.readOnlyFieldText}>{formatDuration(durationMinutes) || 'À définir'}</Text>
+              </View>
+            </InputBlock>
 
             <View style={s.row}>
               <View style={{ flex: 1 }}>
-                <InputBlock label="Heure d’arrivée requise">
+                <InputBlock label="Heure d’arrivée requise pour l’influenceur">
                   <PickerField
                     value={form.requiredArrivalTime}
                     placeholder="Ex: 18:30"
@@ -732,7 +777,7 @@ export default function CreateEventScreen({ route, navigation }) {
         return (
           <View style={s.stepContent}>
             <Text style={s.stepSectionTitle}>Photo de couverture</Text>
-            <TouchableOpacity style={s.coverPicker} onPress={addEventImages} disabled={uploadingImg}>
+            <TouchableOpacity style={s.coverPicker} onPress={replaceCoverImage} disabled={uploadingImg}>
               {form.images[0] ? (
                 <>
                   <Image source={{ uri: form.images[0] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -841,7 +886,7 @@ export default function CreateEventScreen({ route, navigation }) {
 
             <InputBlock label="Livrables attendus" hint="Les options non incluses dans votre pack restent visibles mais verrouillées.">
               <View style={s.tagsWrap}>
-                {DELIVERABLE_OPTIONS.filter((option) => !(form.plusOneMode === 'required' && option.key === 'google_review_plus_one_screen')).map((option) => {
+                {DELIVERABLE_OPTIONS.map((option) => {
                   const active = form.deliverables.includes(option.key);
                   const allowed = isPlanAllowedForOption(businessPlan.key, option.minPlan);
                   return (
@@ -914,13 +959,6 @@ export default function CreateEventScreen({ route, navigation }) {
                 ? `Votre pack ${businessPlan.name} limite cet événement à ${businessPlan.maxCreatorsPerEvent} créateurs maximum.`
                 : `Votre pack ${businessPlan.name} autorise un nombre illimité de créateurs par événement.`}
             </Text>
-
-            {form.plusOneMode === 'required' ? (
-              <View style={s.inlineInfoCard}>
-                <Ionicons name="information-circle-outline" size={18} color={COLORS.primary} />
-                <Text style={s.inlineInfoText}>Le livrable “Avis Google ” sera ajouté automatiquement.</Text>
-              </View>
-            ) : null}
 
             <InputBlock label="Dress code">
               <StyledInput value={form.dresscode} onChangeText={v => upd('dresscode', v)} placeholder="Smart casual, tenue de soirée..." />
@@ -1097,6 +1135,7 @@ export default function CreateEventScreen({ route, navigation }) {
                 </TouchableOpacity>
               </View>
               <DateTimePicker
+                locale={getCurrentLocale()}
                 value={pickerConfig.value}
                 mode={pickerConfig.mode}
                 display={pickerConfig.mode === 'time' ? 'spinner' : 'inline'}
@@ -1110,6 +1149,7 @@ export default function CreateEventScreen({ route, navigation }) {
 
       {pickerConfig && Platform.OS === 'android' && (
         <DateTimePicker
+          locale={getCurrentLocale()}
           value={pickerConfig.value}
           mode={pickerConfig.mode}
           display="default"

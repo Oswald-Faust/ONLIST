@@ -21,7 +21,7 @@ router.post('/register', async (req, res) => {
     const { name, email, phone, password, type, instagram, tiktok, followersCount,
       city, country, nationality, gender, dateOfBirth, photos,
       businessName, businessType, businessAddress, businessCity, businessDescription,
-      businessLogo, businessBannerPhoto } = req.body;
+      businessLogo, businessBannerPhoto, preferredLanguage } = req.body;
 
     const orConditions = [];
     if (email) orConditions.push({ email });
@@ -38,6 +38,7 @@ router.post('/register', async (req, res) => {
       photos: Array.isArray(photos) ? photos : [],
       businessName, businessType, businessAddress, businessCity, businessDescription,
       businessLogo, businessBannerPhoto,
+      preferredLanguage: preferredLanguage === 'en' ? 'en' : 'fr',
       subscriptionPlan: type === 'business' ? 'starter' : undefined,
       subscriptionStatus: type === 'business' ? 'inactive' : undefined,
       status: 'pending',
@@ -82,6 +83,7 @@ router.post('/register', async (req, res) => {
         subscriptionStore: user.subscriptionStore,
         subscriptionExpiresAt: user.subscriptionExpiresAt,
         revenueCatCustomerId: user.revenueCatCustomerId,
+        preferredLanguage: user.preferredLanguage,
       },
     });
   } catch (err) {
@@ -151,6 +153,7 @@ router.post('/login', async (req, res) => {
         revenueCatCustomerId: user.revenueCatCustomerId,
         plasma: user.plasma,
         expoPushToken: user.expoPushToken,
+        preferredLanguage: user.preferredLanguage,
       },
     });
   } catch (err) {
@@ -168,7 +171,7 @@ router.get('/me', protect, async (req, res) => {
 // POST /auth/google — échange un access token Google contre un JWT ONLIST
 router.post('/google', async (req, res) => {
   try {
-    const { accessToken } = req.body;
+    const { accessToken, preferredLanguage } = req.body;
     if (!accessToken) return res.status(400).json({ message: 'accessToken requis' });
 
     // Vérifie le token et récupère les infos utilisateur via Google
@@ -187,6 +190,7 @@ router.post('/google', async (req, res) => {
       user = await User.create({
         name, email, googleId: id, avatarUrl: picture,
         type: 'influencer', status: 'pending', authProvider: 'google',
+        preferredLanguage: preferredLanguage === 'en' ? 'en' : 'fr',
       });
     }
 
@@ -194,7 +198,7 @@ router.post('/google', async (req, res) => {
 
     res.json({
       token: signToken(user._id),
-      user: { _id: user._id, name: user.name, email: user.email, type: user.type, status: user.status, avatarUrl: user.avatarUrl },
+      user: { _id: user._id, name: user.name, email: user.email, type: user.type, status: user.status, avatarUrl: user.avatarUrl, preferredLanguage: user.preferredLanguage },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -204,7 +208,7 @@ router.post('/google', async (req, res) => {
 // POST /auth/apple — échange un identityToken Apple contre un JWT ONLIST
 router.post('/apple', async (req, res) => {
   try {
-    const { identityToken, fullName, email: appleEmail } = req.body;
+    const { identityToken, fullName, email: appleEmail, preferredLanguage } = req.body;
     if (!identityToken) return res.status(400).json({ message: 'identityToken requis' });
 
     // Décode le JWT Apple sans vérifier la signature (pour le MVP)
@@ -226,6 +230,7 @@ router.post('/apple', async (req, res) => {
         : (email ? email.split('@')[0] : 'Utilisateur');
       user = await User.create({
         name, email, appleId, type: 'influencer', status: 'pending', authProvider: 'apple',
+        preferredLanguage: preferredLanguage === 'en' ? 'en' : 'fr',
       });
     }
 
@@ -233,7 +238,7 @@ router.post('/apple', async (req, res) => {
 
     res.json({
       token: signToken(user._id),
-      user: { _id: user._id, name: user.name, email: user.email, type: user.type, status: user.status },
+      user: { _id: user._id, name: user.name, email: user.email, type: user.type, status: user.status, preferredLanguage: user.preferredLanguage },
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

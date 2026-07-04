@@ -1,21 +1,23 @@
+import { Text } from '../i18n/LocalizedReactNative';
 import React, { useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated,
+  View, TouchableOpacity, StyleSheet, Animated
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS } from '../constants/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 const TABS = [
-  { name: 'Dashboard',  label: 'Accueil', icon: 'home',      iconOutline: 'home-outline' },
-  { name: 'Lieux',      label: 'Lieux',   icon: 'business',  iconOutline: 'business-outline' },
-  { name: 'Events',     label: 'Events',  icon: 'calendar',  iconOutline: 'calendar-outline' },
-  { name: 'BizProfile', label: 'Profil',  icon: 'person',    iconOutline: 'person-outline' },
+  { name: 'Dashboard',  labelKey: 'tabs.home',    icon: 'home',      iconOutline: 'home-outline' },
+  { name: 'Lieux',      labelKey: 'tabs.places',  icon: 'business',  iconOutline: 'business-outline' },
+  { name: 'Events',     labelKey: 'tabs.events',  icon: 'calendar',  iconOutline: 'calendar-outline' },
+  { name: 'BizProfile', labelKey: 'tabs.profile', icon: 'person',    iconOutline: 'person-outline' },
 ];
 
-function TabItem({ tab, isFocused, onPress, onLongPress }) {
+function TabItem({ tab, label, isFocused, onPress, onLongPress }) {
   const scale  = useRef(new Animated.Value(1)).current;
   const pillOp = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
@@ -54,7 +56,7 @@ function TabItem({ tab, isFocused, onPress, onLongPress }) {
           ]}
           numberOfLines={1}
         >
-          {tab.label}
+          {label}
         </Text>
       </Animated.View>
     </TouchableOpacity>
@@ -63,6 +65,7 @@ function TabItem({ tab, isFocused, onPress, onLongPress }) {
 
 export default function BusinessTabBar({ state, descriptors, navigation }) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
 
   return (
     <View style={[styles.container, { bottom: Math.max(insets.bottom, 8) + 8 }]}>
@@ -93,7 +96,14 @@ export default function BusinessTabBar({ state, descriptors, navigation }) {
             };
             const onLongPress = () => navigation.emit({ type: 'tabLongPress', target: route.key });
             return (
-              <TabItem key={route.key} tab={tab} isFocused={isFocused} onPress={onPress} onLongPress={onLongPress} />
+              <TabItem
+                key={route.key}
+                tab={tab}
+                label={t(tab.labelKey)}
+                isFocused={isFocused}
+                onPress={onPress}
+                onLongPress={onLongPress}
+              />
             );
           })}
         </View>

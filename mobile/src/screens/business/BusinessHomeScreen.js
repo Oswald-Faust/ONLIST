@@ -1,7 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text, Alert } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, RefreshControl, ActivityIndicator, Alert,
+  View, StyleSheet, ScrollView, TouchableOpacity, StatusBar, RefreshControl, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,14 +15,14 @@ import { useAuth } from '../../context/AuthContext';
 
 function EventItem({ event, onPress, onManage }) {
   const date = event.date ? new Date(event.date) : null;
-  const dateStr = date?.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+  const dateStr = date?.toLocaleDateString(getCurrentLocale(), { day: '2-digit', month: 'short' });
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.eventItem} activeOpacity={0.9}>
       <View style={styles.eventItemLeft}>
         <View style={styles.dateBox}>
           <Text style={styles.dateBoxDay}>{date?.getDate() || '?'}</Text>
-          <Text style={styles.dateBoxMonth}>{date?.toLocaleDateString('fr-FR', { month: 'short' }) || '—'}</Text>
+          <Text style={styles.dateBoxMonth}>{date?.toLocaleDateString(getCurrentLocale(), { month: 'short' }) || '—'}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.eventItemTitle} numberOfLines={1}>{event.title}</Text>
@@ -41,6 +43,7 @@ function EventItem({ event, onPress, onManage }) {
 }
 
 export default function BusinessHomeScreen({ navigation }) {
+  useLanguage();
   const { user, logout } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);

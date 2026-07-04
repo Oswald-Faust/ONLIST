@@ -1,6 +1,7 @@
+import { Text, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, ActivityIndicator, TextInput,
+  View, StyleSheet, TouchableOpacity, StatusBar, Image, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';

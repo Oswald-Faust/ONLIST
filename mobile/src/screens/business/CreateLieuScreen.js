@@ -1,7 +1,7 @@
+import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  StatusBar, Alert, TextInput, Modal, FlatList, Image, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Modal, FlatList, Image, ActivityIndicator
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -13,6 +13,7 @@ import { useFonts,
   Poppins_800ExtraBold,
 } from '@expo-google-fonts/poppins';
 import { AuthProvider } from './src/context/AuthContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import RootNavigator from './src/navigation';
 import { COLORS } from './src/constants/theme';
 
@@ -46,10 +47,12 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <RootNavigator />
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <StatusBar style="light" />
+          <RootNavigator />
+        </AuthProvider>
+      </LanguageProvider>
     </SafeAreaProvider>
   );
 }

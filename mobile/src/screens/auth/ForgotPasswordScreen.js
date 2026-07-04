@@ -1,7 +1,7 @@
+import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Alert, StatusBar,
-  Image, TextInput, Modal, FlatList,
+  View, StyleSheet, TouchableOpacity, StatusBar, Image, Modal, FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';

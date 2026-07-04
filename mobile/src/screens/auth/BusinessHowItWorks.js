@@ -1,6 +1,7 @@
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar,
+  View, StyleSheet, TouchableOpacity, StatusBar
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';

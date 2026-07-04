@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "i18n:audit": "node scripts/generate-literal-translations.js --extract && node scripts/audit-localization.js"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",

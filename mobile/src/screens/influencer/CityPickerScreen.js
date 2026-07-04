@@ -1,7 +1,7 @@
+import { Text, TextInput } from '../../i18n/LocalizedReactNative';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  FlatList, Modal, ActivityIndicator, Dimensions,
+  View, StyleSheet, TouchableOpacity, FlatList, Modal, ActivityIndicator, Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';

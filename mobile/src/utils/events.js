@@ -24,6 +24,11 @@ function parseEventTime(timeValue) {
 export function getEventCutoffDate(event) {
   if (!event?.date) return null;
 
+  if (event.endDate) {
+    const explicitEnd = new Date(event.endDate);
+    if (!Number.isNaN(explicitEnd.getTime())) return explicitEnd;
+  }
+
   const baseDate = new Date(event.date);
   if (Number.isNaN(baseDate.getTime())) return null;
 

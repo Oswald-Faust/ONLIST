@@ -101,6 +101,8 @@ function sanitizeInfluencerForBusiness(influencer, businessUser) {
     delete raw.city;
   }
 
+  raw.locked = !isInfluencerVisibleToBusiness(influencer, businessUser);
+
   return raw;
 }
 

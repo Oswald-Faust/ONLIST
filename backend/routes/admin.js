@@ -539,7 +539,7 @@ router.post('/events', protect, requireAdmin, async (req, res) => {
 // PUT /admin/events/:id — modifier un événement
 router.put('/events/:id', protect, requireAdmin, async (req, res) => {
   try {
-    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!event) return res.status(404).json({ message: 'Événement introuvable' });
     res.json({ event });
   } catch (err) {

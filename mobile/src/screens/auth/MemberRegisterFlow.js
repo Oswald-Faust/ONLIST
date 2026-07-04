@@ -1,9 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { Text, TextInput, Alert } from '../../i18n/LocalizedReactNative';
+import { getCurrentLocale } from '../../i18n/runtime';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  KeyboardAvoidingView, Platform, StatusBar, Alert, Image,
-  Keyboard, TouchableWithoutFeedback,
-  Dimensions, Modal, FlatList, ActivityIndicator, ScrollView,
+  View, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, StatusBar, Image, Keyboard, TouchableWithoutFeedback, Dimensions, Modal, FlatList, ActivityIndicator, ScrollView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -932,6 +932,7 @@ function StepPassword({ form, update, onOpenTerms, onOpenPrivacy }) {
 // ─── Composant principal ───────────────────────────────────────────────────────
 
 export default function MemberRegisterFlow({ navigation }) {
+  useLanguage();
   const { register, updateUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [currentStep, setCurrentStep] = useState(0);
@@ -1238,6 +1239,7 @@ export default function MemberRegisterFlow({ navigation }) {
                     </TouchableOpacity>
                   </View>
                   <DateTimePicker
+                    locale={getCurrentLocale()}
                     value={draftBirthDate}
                     mode="date"
                     display="spinner"
@@ -1304,6 +1306,7 @@ export default function MemberRegisterFlow({ navigation }) {
 
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker
+          locale={getCurrentLocale()}
           value={selectedBirthDate}
           mode="date"
           display="default"

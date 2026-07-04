@@ -4,7 +4,7 @@
     "slug": "onlist",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/onlist/ONLIST Logo_Favicon A.png",
+    "icon": "./assets/onlist/Onlist-mobile.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -22,7 +22,7 @@
     "android": {
       "package": "club.onlist.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/onlist/ONLIST Logo_Favicon A.png",
+        "foregroundImage": "./assets/onlist/Onlist-mobile.png",
         "backgroundColor": "#020202"
       },
       "edgeToEdgeEnabled": true,

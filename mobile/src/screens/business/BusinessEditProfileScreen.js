@@ -1,7 +1,7 @@
+import { Text, Alert } from '../../i18n/LocalizedReactNative';
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Image, Alert,
-  StatusBar, ActivityIndicator,
+  View, StyleSheet, TouchableOpacity, Image, StatusBar, ActivityIndicator
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';

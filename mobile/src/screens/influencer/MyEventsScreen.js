@@ -1,8 +1,9 @@
+import { useLanguage } from '../../context/LanguageContext';
+import { getCurrentLocale } from '../../i18n/runtime';
+import { Text } from '../../i18n/LocalizedReactNative';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, Image, RefreshControl, ActivityIndicator,
-  ScrollView,
+  View, StyleSheet, FlatList, TouchableOpacity, StatusBar, Image, RefreshControl, ActivityIndicator, ScrollView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -93,13 +94,23 @@ function EventCard({ item, onPress }) {
 
   const date = ev?.date ? new Date(ev.date) : null;
   const dateStr = date
-    ? date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    ? date.toLocaleDateString(getCurrentLocale(), { day: 'numeric', month: 'short' })
     : null;
 
   // Durée entre startTime et endTime
-  const getDuration = (start, end) => {
+  const getDuration = (start, end, startDate, endDate) => {
     if (!start || !end) return null;
     try {
+      if (startDate && endDate) {
+        const startAt = new Date(`${startDate.slice(0, 10)}T${start}:00`);
+        const endAt = new Date(`${endDate.slice(0, 10)}T${end}:00`);
+        const dateDiff = Math.round((endAt.getTime() - startAt.getTime()) / 60000);
+        if (dateDiff > 0) {
+          const hrs = Math.floor(dateDiff / 60);
+          const min = dateDiff % 60;
+          return min > 0 ? `${hrs}h${String(min).padStart(2, '0')}` : `${hrs}h`;
+        }
+      }
       const parse = t => {
         const [time, period] = t.split(' ');
         let [h, m = 0] = time.split(':').map(Number);
@@ -115,7 +126,7 @@ function EventCard({ item, onPress }) {
     } catch { return null; }
   };
 
-  const duration = getDuration(ev?.startTime, ev?.endTime);
+  const duration = getDuration(ev?.startTime, ev?.endTime, ev?.date, ev?.endDate);
 
   return (
     <TouchableOpacity style={S.card} onPress={onPress} activeOpacity={0.88}>
@@ -353,7 +364,7 @@ function CalendarView({ applications, onPressEvent }) {
               )}
               {app.event?.date && (
                 <Text style={S.calEventDate}>
-                  {new Date(app.event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  {new Date(app.event.date).toLocaleDateString(getCurrentLocale(), { day: 'numeric', month: 'short' })}
                 </Text>
               )}
             </View>
@@ -374,6 +385,7 @@ function CalendarView({ applications, onPressEvent }) {
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
 export default function MyEventsScreen({ navigation }) {
+  useLanguage();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [viewMode,     setViewMode]     = useState('list');
