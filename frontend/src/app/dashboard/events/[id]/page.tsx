@@ -631,7 +631,7 @@ function EventDetailContent() {
               <div className="space-y-6">
                 <Section title="Livrables">
                   <div className="space-y-2">
-                    {event.deliverables.map((d, i) => (
+                    {event.deliverables?.map((d, i) => (
                       <div key={i} className="flex items-center gap-3 rounded-2xl px-3 py-3"
                         style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(201,169,97,0.1)' }}>
                         <CheckCircle2 size={15} style={{ color: 'var(--primary-light)', flexShrink: 0 }} />
