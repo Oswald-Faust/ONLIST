@@ -8,7 +8,6 @@ const {
   sendWelcomeInfluencerEmail,
   sendBusinessPendingValidationEmail,
 } = require('../utils/mailer');
-const { sendIncompleteProfileNotification } = require('../utils/profileCompletion');
 
 const router = express.Router();
 
@@ -58,8 +57,6 @@ router.post('/register', async (req, res) => {
         }).catch((err) => console.error('Welcome email failed:', err.message));
       }
     }
-
-    await sendIncompleteProfileNotification(user);
 
     res.status(201).json({
       token: signToken(user._id),
@@ -115,8 +112,6 @@ router.post('/login', async (req, res) => {
     const valid = await user.comparePassword(normalizedPassword);
     if (!valid) return res.status(401).json({ message: 'Identifiants incorrects' });
 
-    await sendIncompleteProfileNotification(user);
-
     res.json({
       token: signToken(user._id),
       user: {
@@ -164,7 +159,6 @@ router.post('/login', async (req, res) => {
 
 // GET /auth/me
 router.get('/me', protect, async (req, res) => {
-  await sendIncompleteProfileNotification(req.user);
   res.json({ user: req.user });
 });
 
@@ -193,8 +187,6 @@ router.post('/google', async (req, res) => {
         preferredLanguage: preferredLanguage === 'en' ? 'en' : 'fr',
       });
     }
-
-    await sendIncompleteProfileNotification(user);
 
     res.json({
       token: signToken(user._id),
@@ -233,8 +225,6 @@ router.post('/apple', async (req, res) => {
         preferredLanguage: preferredLanguage === 'en' ? 'en' : 'fr',
       });
     }
-
-    await sendIncompleteProfileNotification(user);
 
     res.json({
       token: signToken(user._id),

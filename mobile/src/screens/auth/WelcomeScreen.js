@@ -36,7 +36,7 @@ const SLIDE_VIDEOS = [
   },
   {
     id: '3',
-    video: { uri: 'https://assets.mixkit.co/videos/4344/4344-1080.mp4' },
+    video: { uri: 'https://videos.pexels.com/video-files/6327631/6327631-hd_720_1280_25fps.mp4' },
   },
 ];
 
