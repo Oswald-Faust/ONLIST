@@ -31,6 +31,7 @@ interface Event {
 const CAT_COLORS: Record<string, string> = {
   gastronomie: '#D4AF77',
   restaurant: '#C9A961', bar: '#A78BFA', club: '#F472B6', spa: '#34D399',
+  beach_club: '#D8A95D',
   lounge: '#B98956',
   bien_etre_spa: '#34D399',
   fitness: '#60A5FA',
@@ -46,6 +47,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   lounge: 'Lounge',
   bar: 'Bar',
   club: 'Club',
+  beach_club: 'Beach-Club',
   bien_etre_spa: 'Bien-être & Spa',
   fitness: 'Fitness',
   staycation: 'Staycation',
