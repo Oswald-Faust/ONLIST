@@ -54,7 +54,9 @@ export default function LaunchAnimation({ onFinish, canDismiss = true }) {
   }, [videoDone, canDismiss, dismiss]);
 
   return (
-    <Animated.View style={[styles.container, { opacity }]} pointerEvents="none">
+    // L'overlay capte les touches : l'app est montée dessous pendant
+    // l'animation et ne doit pas recevoir de tap à l'aveugle.
+    <Animated.View style={[styles.container, { opacity }]} pointerEvents="auto">
       <VideoView
         player={player}
         style={StyleSheet.absoluteFill}
