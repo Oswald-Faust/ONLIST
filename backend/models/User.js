@@ -88,7 +88,7 @@ const userSchema = new mongoose.Schema({
   businessType: {
     type: String,
     enum: [
-      'gastronomie', 'restaurant', 'lounge', 'bar', 'club', 'bien_etre_spa', 'fitness', 'staycation', 'experiences', 'vip',
+      'gastronomie', 'restaurant', 'lounge', 'bar', 'club', 'beach_club', 'bien_etre_spa', 'fitness', 'staycation', 'experiences', 'vip',
       'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other',
     ],
   },

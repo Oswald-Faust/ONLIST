@@ -35,7 +35,7 @@ Le Créateur s’engage à produire les contenus convenus (stories, reels, avis 
 
 Article 4 – Profils Établissements
 
-Les Établissements accèdent à l’Application via un abonnement payant souscrit sur le site onlist.club. En tant qu’Établissement, vous pouvez :
+Les Établissements accèdent à l’Application via un compte professionnel validé par ONLIST. En tant qu’Établissement, vous pouvez :
 
 Publier des événements avec les avantages proposés et le nombre de Créateurs souhaités ;
 Consulter les candidatures des Créateurs et sélectionner les profils adaptés à votre image ;

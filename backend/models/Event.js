@@ -20,7 +20,7 @@ const eventSchema = new mongoose.Schema({
   category: {
     type: String,
     enum: [
-      'gastronomie', 'restaurant', 'lounge', 'bar', 'club', 'bien_etre_spa', 'fitness', 'staycation', 'experiences', 'vip',
+      'gastronomie', 'restaurant', 'lounge', 'bar', 'club', 'beach_club', 'bien_etre_spa', 'fitness', 'staycation', 'experiences', 'vip',
       'spa', 'sport', 'wellness', 'hotel', 'cafe', 'beauty', 'shop', 'premium', 'other',
     ],
     default: 'other',
@@ -28,7 +28,10 @@ const eventSchema = new mongoose.Schema({
 
   moment: {
     type: String,
-    enum: ['morning', 'afternoon', 'evening', 'night'],
+    enum: [
+      'morning', 'afternoon', 'evening', 'night',
+      'petit-dejeuner', 'brunch', 'dejeuner', 'gouter', 'afterwork', 'diner', 'soir', 'nuit', 'journee',
+    ],
     default: 'evening',
   },
 

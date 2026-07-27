@@ -8,9 +8,9 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/onlist/ONLIST Logo_Main Logo B.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#080810"
+      "image": "./assets/onlist/splash-black.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": false,
@@ -55,7 +55,8 @@
         {
           "cameraPermission": "ONLIST a besoin de la caméra pour scanner les QR codes d'accès aux événements."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "eas": {

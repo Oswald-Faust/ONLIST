@@ -1,5 +1,5 @@
 import { Text, Alert, TextInput } from '../../i18n/LocalizedReactNative';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Image, StatusBar, Platform, Modal, FlatList
 } from 'react-native';
@@ -127,6 +127,15 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    AppleAuthentication.isAvailableAsync()
+      .then(setAppleAuthAvailable)
+      .catch(() => setAppleAuthAvailable(false));
+  }, []);
 
   const handleAppleLogin = async () => {
     setAppleLoading(true);
@@ -188,7 +197,7 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.title}>Connectez-vous{'\n'}à votre compte</Text>
 
           {/* Bouton Apple (iOS uniquement) */}
-          {Platform.OS === 'ios' && (
+          {appleAuthAvailable && (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
@@ -198,7 +207,7 @@ export default function LoginScreen({ navigation }) {
             />
           )}
 
-          {Platform.OS === 'ios' && <Divider />}
+          {appleAuthAvailable && <Divider />}
 
           {/* Onglets email / téléphone */}
           <View style={styles.tabRow}>

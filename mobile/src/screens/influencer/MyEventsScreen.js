@@ -184,8 +184,8 @@ function EventCard({ item, onPress }) {
         <View style={S.cardActions}>
           {item.status === 'pending' && (
             <View style={S.btnPending}>
-              <Ionicons name="time-outline" size={15} color={COLORS.primaryLight} />
-              <Text style={S.btnPendingTxt}>
+              <Ionicons name="time-outline" size={13} color={COLORS.primaryLight} />
+              <Text style={S.btnPendingTxt} numberOfLines={2}>
                 {item.isInvitation ? 'Invitation à accepter' : 'En attente de confirmation'}
               </Text>
             </View>
@@ -815,19 +815,25 @@ const S = StyleSheet.create({
   btnPending: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    height: 38,
+    gap: 5,
+    // Libellé long ("En attente de confirmation") : le pill doit pouvoir
+    // rétrécir dans la colonne de droite au lieu de dépasser la carte.
+    paddingHorizontal: 12,
+    minHeight: 34,
+    paddingVertical: 6,
     borderRadius: RADIUS.full,
     backgroundColor: 'rgba(201,169,97,0.08)',
     borderWidth: 1.5,
     borderColor: 'rgba(201,169,97,0.22)',
     alignSelf: 'flex-start',
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   btnPendingTxt: {
     color: COLORS.primaryLight,
-    fontSize: FONTS.sizes.sm,
+    fontSize: FONTS.sizes.xs,
     fontFamily: FONTS.semiBold,
+    flexShrink: 1,
   },
   btnRefuse: {
     flex: 1,

@@ -28,7 +28,9 @@ Compléter ensuite `.env` avec les vraies valeurs de production:
 
 - `MONGO_URI`
 - `JWT_SECRET`
-- `ALLOWED_ORIGINS=https://admin.onlist.club,https://api.onlist.club`
+- `ALLOWED_ORIGINS=https://onlist.club,https://www.onlist.club,https://admin.onlist.club,https://api.onlist.club`
+  (le site vitrine doit y figurer : le formulaire d'inscription établissement
+  `onlist.club/inscription-etablissement.html` appelle `/auth/register` et `/upload/public`)
 - `PORT=4000`
 - `NODE_ENV=production`
 

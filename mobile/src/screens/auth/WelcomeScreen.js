@@ -5,10 +5,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import GradientButton from '../../components/GradientButton';
 import { useLanguage } from '../../context/LanguageContext';
+import { BUSINESS_SIGNUP_ENABLED } from '../../constants/platformPolicy';
 
 const { width, height } = Dimensions.get('window');
 const AUTO_SCROLL_INTERVAL = 6000;
@@ -42,28 +43,26 @@ const SLIDE_VIDEOS = [
 
 // ─── Composant slide vidéo ─────────────────────────────────────────────────────
 function VideoSlide({ item, isActive }) {
-  const videoRef = useRef(null);
+  const player = useVideoPlayer(item.video, (videoPlayer) => {
+    videoPlayer.loop = true;
+    videoPlayer.muted = true;
+  });
 
   useEffect(() => {
-    if (!videoRef.current) return;
     if (isActive) {
-      videoRef.current.playAsync().catch(() => null);
+      player.play();
     } else {
-      videoRef.current.pauseAsync().catch(() => null);
+      player.pause();
     }
-  }, [isActive]);
+  }, [isActive, player]);
 
   return (
     <View style={styles.slide}>
-      <Video
-        ref={videoRef}
-        source={item.video}
+      <VideoView
+        player={player}
         style={StyleSheet.absoluteFill}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay={isActive}
-        isLooping
-        isMuted
-        useNativeControls={false}
+        contentFit="cover"
+        nativeControls={false}
       />
       {/* Dégradé : transparent en haut, sombre en bas pour lisibilité du texte */}
       <LinearGradient
@@ -76,6 +75,14 @@ function VideoSlide({ item, isActive }) {
         locations={[0, 0.35, 0.7, 1]}
         style={StyleSheet.absoluteFill}
       />
+      <SafeAreaView style={styles.slideTextOverlay} pointerEvents="none">
+        <View style={styles.textContainer}>
+          <View style={styles.tagPill}>
+            <Text style={styles.tagText}>{item.tag}</Text>
+          </View>
+          <Text style={styles.title}>{item.title}</Text>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -137,18 +144,6 @@ export default function WelcomeScreen({ navigation }) {
         maxToRenderPerBatch={1}
       />
 
-      {/* Texte fixe par-dessus */}
-      <View style={styles.overlay} pointerEvents="none">
-        <SafeAreaView style={{ flex: 1 }}>
-          <View style={styles.textContainer}>
-            <View style={styles.tagPill}>
-              <Text style={styles.tagText}>{slides[activeIndex].tag}</Text>
-            </View>
-            <Text style={styles.title}>{slides[activeIndex].title}</Text>
-          </View>
-        </SafeAreaView>
-      </View>
-
       {/* Pagination */}
       <View style={styles.dots}>
         {slides.map((_, i) => (
@@ -159,12 +154,15 @@ export default function WelcomeScreen({ navigation }) {
       {/* Boutons bas */}
       <SafeAreaView edges={['bottom']} style={styles.bottomSafe}>
         <View style={styles.bottom}>
-          <GradientButton
-            variant="dark"
-            title={t('welcome.registerBusiness')}
-            onPress={() => navigation.navigate('RegisterBusiness')}
-            style={styles.btnFull}
-          />
+          {/* Guideline App Store 3.1.1 : pas d'inscription établissement sur iOS. */}
+          {BUSINESS_SIGNUP_ENABLED && (
+            <GradientButton
+              variant="dark"
+              title={t('welcome.registerBusiness')}
+              onPress={() => navigation.navigate('RegisterBusiness')}
+              style={styles.btnFull}
+            />
+          )}
           <GradientButton
             title={t('welcome.registerMember')}
             onPress={() => navigation.navigate('RegisterInfluencer')}
@@ -185,7 +183,7 @@ const styles = StyleSheet.create({
 
   // Slides
   slide: { width, height, position: 'relative' },
-  overlay: { ...StyleSheet.absoluteFillObject },
+  slideTextOverlay: { ...StyleSheet.absoluteFillObject },
 
   // Texte de slide
   textContainer: {

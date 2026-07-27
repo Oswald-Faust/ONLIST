@@ -17,6 +17,7 @@ import { getDeliverableLabel } from '../../constants/businessEventOptions';
 import MiniAreaChart from '../../components/MiniAreaChart';
 import { useAuth } from '../../context/AuthContext';
 import { getBusinessPlan } from '../../constants/businessPlans';
+import { EXTERNAL_PURCHASES_ENABLED } from '../../constants/platformPolicy';
 
 const MOMENT_LABELS = { morning: 'Matin', afternoon: 'Apres-midi', evening: 'Soir', night: 'Nuit' };
 
@@ -395,13 +396,18 @@ function InfluencerActionSheet({ influencer, alreadyLinked, locked, onClose, onV
           {locked ? (
             <View style={s.upsellBox}>
               <Ionicons name="lock-closed" size={16} color={COLORS.primary} />
+              {/* Sur iOS, on informe de la limite sans proposer de changer de pack payant. */}
               <Text style={s.upsellBoxText}>
-                Cet influenceur dépasse la limite d'abonnés de votre pack Pro (50k). Passez au pack Group pour l'inviter.
+                {EXTERNAL_PURCHASES_ENABLED
+                  ? "Cet influenceur dépasse la limite d'abonnés de votre pack Pro (50k). Passez au pack Group pour l'inviter."
+                  : "Cet influenceur dépasse la limite d'abonnés de votre pack actuel. Il peut néanmoins candidater à vos événements."}
               </Text>
-              <TouchableOpacity style={s.sheetActionPrimary} onPress={onUpgrade} activeOpacity={0.9}>
-                <Ionicons name="arrow-up-circle-outline" size={18} color="#0A0A0F" />
-                <Text style={s.sheetActionPrimaryText}>Passer au pack Group</Text>
-              </TouchableOpacity>
+              {EXTERNAL_PURCHASES_ENABLED && (
+                <TouchableOpacity style={s.sheetActionPrimary} onPress={onUpgrade} activeOpacity={0.9}>
+                  <Ionicons name="arrow-up-circle-outline" size={18} color="#0A0A0F" />
+                  <Text style={s.sheetActionPrimaryText}>Passer au pack Group</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : alreadyLinked ? (
             <View style={[s.sheetActionPrimary, s.sheetActionPrimaryDisabled]}>
@@ -499,13 +505,18 @@ function InviteTab({ eventId, applications, onInvited, navigation }) {
           <Ionicons name="lock-closed" size={28} color={COLORS.primary} />
         </View>
         <Text style={s.inviteLockedTitle}>Invitations non disponibles</Text>
+        {/* Sur iOS, aucun appel à l'action vers un changement de pack payant (guideline 3.1.1). */}
         <Text style={s.inviteLockedText}>
-          Le pack {plan.name} ne permet pas d'inviter directement des influenceurs. Passez au pack Pro (jusqu'à 50k abonnés) ou Group (illimité) pour débloquer cette fonctionnalité.
+          {EXTERNAL_PURCHASES_ENABLED
+            ? `Le pack ${plan.name} ne permet pas d'inviter directement des influenceurs. Passez au pack Pro (jusqu'à 50k abonnés) ou Group (illimité) pour débloquer cette fonctionnalité.`
+            : `Le pack ${plan.name} ne permet pas d'inviter directement des influenceurs. Les créateurs peuvent toujours candidater à vos événements.`}
         </Text>
-        <TouchableOpacity style={s.inviteLockedBtn} onPress={goToSubscription} activeOpacity={0.9}>
-          <Ionicons name="arrow-up-circle-outline" size={18} color="#0A0A0F" />
-          <Text style={s.inviteLockedBtnText}>Passer au pack Pro</Text>
-        </TouchableOpacity>
+        {EXTERNAL_PURCHASES_ENABLED && (
+          <TouchableOpacity style={s.inviteLockedBtn} onPress={goToSubscription} activeOpacity={0.9}>
+            <Ionicons name="arrow-up-circle-outline" size={18} color="#0A0A0F" />
+            <Text style={s.inviteLockedBtnText}>Passer au pack Pro</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }

@@ -14,6 +14,7 @@ import { CATEGORY_LABELS } from '../../constants/categories';
 import { BOOST_OPTIONS } from '../../constants/businessEventOptions';
 import { eventsAPI } from '../../services/api';
 import { openBoostCheckout } from '../../services/subscriptions';
+import { EXTERNAL_PURCHASES_ENABLED } from '../../constants/platformPolicy';
 import { isUpcomingEvent } from '../../utils/events';
 
 const MOMENT_LABELS = { morning: 'Matin', afternoon: 'Après-midi', evening: 'Soir', night: 'Nuit' };
@@ -139,12 +140,14 @@ function EventCard({ event, navigation, onBoost }) {
             <Ionicons name="pencil-outline" size={14} color={COLORS.textSecondary} />
             <Text style={styles.actionSecondaryText}>Modifier</Text>
           </TouchableOpacity>
+          {/* Le badge « Boosté » reste visible partout ; seul l'achat du boost
+              (Stripe Checkout) est retiré sur iOS — guideline App Store 3.1.1. */}
           {isPast ? null : boosted ? (
             <View style={[styles.actionSecondary, styles.actionBoosted]}>
               <Ionicons name="flash" size={14} color={COLORS.primary} />
               <Text style={[styles.actionSecondaryText, { color: COLORS.primary }]}>Boosté</Text>
             </View>
-          ) : (
+          ) : EXTERNAL_PURCHASES_ENABLED ? (
             <TouchableOpacity
               style={styles.actionSecondary}
               onPress={() => onBoost(event)}
@@ -152,7 +155,7 @@ function EventCard({ event, navigation, onBoost }) {
               <Ionicons name="flash-outline" size={14} color={COLORS.textSecondary} />
               <Text style={styles.actionSecondaryText}>Booster</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -352,7 +355,7 @@ export default function EvenementsScreen({ navigation }) {
           renderItem={({ item }) => <EventCard event={item} navigation={navigation} onBoost={openBoostSheet} />}
         />
 
-        <Modal visible={boostSheet.visible} transparent animationType="slide" onRequestClose={closeBoostSheet}>
+        <Modal visible={EXTERNAL_PURCHASES_ENABLED && boostSheet.visible} transparent animationType="slide" onRequestClose={closeBoostSheet}>
           <View style={styles.sheetOverlay}>
             <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeBoostSheet} />
             <View style={[styles.sheetCard, { paddingBottom: insets.bottom + SPACING.xl }]}>

@@ -768,53 +768,62 @@ function StepLocation({ form, update }) {
 
 function StepSocials({ form, update }) {
   return (
-    <View style={step.socialWrap}>
-      <View style={step.socialField}>
-        <View style={step.socialIcon}>
-          <Ionicons name="logo-instagram" size={20} color={COLORS.textSecondary} />
-        </View>
-        <TextInput
-          style={step.socialInput}
-          value={form.instagram}
-          onChangeText={v => update('instagram', v)}
-          placeholder="@instagram"
-          placeholderTextColor={COLORS.textMuted}
-          autoCapitalize="none"
-          selectionColor={COLORS.primary}
-          autoFocus
-        />
+    <View style={step.socialSection}>
+      <View style={step.publicProfileNotice}>
+        <Ionicons name="information-circle-outline" size={22} color={COLORS.primary} />
+        <Text style={step.publicProfileNoticeText}>
+          Ton profil Instagram doit être public avant de continuer afin que l'équipe ONLIST puisse le vérifier.
+        </Text>
       </View>
-      <View style={step.socialDivider} />
 
-      <View style={step.socialField}>
-        <View style={step.socialIcon}>
-          <Ionicons name="logo-tiktok" size={20} color={COLORS.textSecondary} />
+      <View style={step.socialWrap}>
+        <View style={step.socialField}>
+          <View style={step.socialIcon}>
+            <Ionicons name="logo-instagram" size={20} color={COLORS.textSecondary} />
+          </View>
+          <TextInput
+            style={step.socialInput}
+            value={form.instagram}
+            onChangeText={v => update('instagram', v)}
+            placeholder="@instagram"
+            placeholderTextColor={COLORS.textMuted}
+            autoCapitalize="none"
+            selectionColor={COLORS.primary}
+            autoFocus
+          />
         </View>
-        <TextInput
-          style={step.socialInput}
-          value={form.tiktok}
-          onChangeText={v => update('tiktok', v)}
-          placeholder="@tiktok"
-          placeholderTextColor={COLORS.textMuted}
-          autoCapitalize="none"
-          selectionColor={COLORS.primary}
-        />
-      </View>
-      <View style={step.socialDivider} />
+        <View style={step.socialDivider} />
 
-      <View style={step.socialField}>
-        <View style={step.socialIcon}>
-          <Ionicons name="people-outline" size={20} color={COLORS.textSecondary} />
+        <View style={step.socialField}>
+          <View style={step.socialIcon}>
+            <Ionicons name="logo-tiktok" size={20} color={COLORS.textSecondary} />
+          </View>
+          <TextInput
+            style={step.socialInput}
+            value={form.tiktok}
+            onChangeText={v => update('tiktok', v)}
+            placeholder="@tiktok"
+            placeholderTextColor={COLORS.textMuted}
+            autoCapitalize="none"
+            selectionColor={COLORS.primary}
+          />
         </View>
-        <TextInput
-          style={step.socialInput}
-          value={form.followersCount}
-          onChangeText={v => update('followersCount', v)}
-          placeholder="Nombre total de followers"
-          placeholderTextColor={COLORS.textMuted}
-          keyboardType="numeric"
-          selectionColor={COLORS.primary}
-        />
+        <View style={step.socialDivider} />
+
+        <View style={step.socialField}>
+          <View style={step.socialIcon}>
+            <Ionicons name="people-outline" size={20} color={COLORS.textSecondary} />
+          </View>
+          <TextInput
+            style={step.socialInput}
+            value={form.followersCount}
+            onChangeText={v => update('followersCount', v)}
+            placeholder="Nombre total de followers"
+            placeholderTextColor={COLORS.textMuted}
+            keyboardType="numeric"
+            selectionColor={COLORS.primary}
+          />
+        </View>
       </View>
     </View>
   );
@@ -1714,6 +1723,24 @@ const step = StyleSheet.create({
   },
 
   // ── Réseaux sociaux ──
+  socialSection: { gap: SPACING.md },
+  publicProfileNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(201,169,97,0.35)',
+    backgroundColor: 'rgba(201,169,97,0.08)',
+  },
+  publicProfileNoticeText: {
+    flex: 1,
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.medium,
+    lineHeight: 21,
+  },
   socialWrap: {
     backgroundColor: COLORS.bgCard,
     borderRadius: RADIUS.lg,

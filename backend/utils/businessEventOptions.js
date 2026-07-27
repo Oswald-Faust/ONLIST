@@ -4,6 +4,7 @@ const OFFER_TAGS_BY_CATEGORY = {
   lounge: ['Cocktails signature', 'Table lounge', 'Accès réservé', 'Service premium'],
   bar: ['Consommations offertes', 'Accès VIP', 'Table réservée', 'Bouteille offerte', 'Entrée gratuite'],
   club: ['Entrée gratuite', 'Table VIP', 'Bouteille offerte', 'Accès backstage'],
+  beach_club: ['Transat réservé', 'Accès plage', 'Table VIP', 'Cocktails offerts', 'Brunch'],
   bien_etre_spa: ['Soin offert', 'Accès espace détente', 'Massage offert', 'Journée découverte'],
   fitness: ['Séance offerte', 'Abonnement découverte', 'Cours privé', 'Accès premium'],
   staycation: ['Nuitée offerte', 'Petit-déjeuner inclus', 'Accès rooftop', 'Surclassement'],

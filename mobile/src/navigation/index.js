@@ -44,6 +44,7 @@ import BusinessEditProfileScreen from '../screens/business/BusinessEditProfileSc
 import BusinessSettingsScreen from '../screens/business/BusinessSettingsScreen';
 import BusinessSubscriptionScreen from '../screens/business/BusinessSubscriptionScreen';
 import BusinessBillingScreen from '../screens/business/BusinessBillingScreen';
+import BusinessAccountInactiveScreen from '../screens/business/BusinessAccountInactiveScreen';
 import CreateLieuScreen from '../screens/business/CreateLieuScreen';
 import BusinessLieuDetailScreen from '../screens/business/BusinessLieuDetailScreen';
 import CreateEventScreen from '../screens/business/CreateEventScreen';
@@ -56,6 +57,7 @@ import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { BUSINESS_SIGNUP_ENABLED, EXTERNAL_PURCHASES_ENABLED } from '../constants/platformPolicy';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -72,8 +74,13 @@ function AuthStack() {
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="RegisterInfluencer" component={MemberRegisterFlow} />
-      <Stack.Screen name="BusinessHowItWorks" component={BusinessHowItWorks} />
-      <Stack.Screen name="RegisterBusiness" component={BusinessRegisterFlow} />
+      {/* Guideline App Store 3.1.1 : l'inscription établissement est absente du binaire iOS. */}
+      {BUSINESS_SIGNUP_ENABLED && (
+        <>
+          <Stack.Screen name="BusinessHowItWorks" component={BusinessHowItWorks} />
+          <Stack.Screen name="RegisterBusiness" component={BusinessRegisterFlow} />
+        </>
+      )}
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetCode" component={ResetCodeScreen} />
       <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
@@ -137,8 +144,13 @@ function BusinessStack() {
       <Stack.Screen name="BusinessNotifications" component={BusinessNotificationsScreen} />
       <Stack.Screen name="BusinessEditProfile" component={BusinessEditProfileScreen} />
       <Stack.Screen name="BusinessSettings" component={BusinessSettingsScreen} />
-      <Stack.Screen name="BusinessSubscription" component={BusinessSubscriptionScreen} />
-      <Stack.Screen name="BusinessBilling" component={BusinessBillingScreen} />
+      {/* Guideline App Store 3.1.1 : ni tarifs ni lien de paiement externe sur iOS. */}
+      {EXTERNAL_PURCHASES_ENABLED && (
+        <>
+          <Stack.Screen name="BusinessSubscription" component={BusinessSubscriptionScreen} />
+          <Stack.Screen name="BusinessBilling" component={BusinessBillingScreen} />
+        </>
+      )}
       <Stack.Screen name="CreateLieu" component={CreateLieuScreen} />
       <Stack.Screen name="BusinessLieuDetail" component={BusinessLieuDetailScreen} />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
@@ -150,14 +162,24 @@ function BusinessStack() {
   );
 }
 
+// Compte établissement sans accès actif.
+// Sur iOS on affiche un écran d'information neutre (sans tarif ni lien de
+// paiement) au lieu du paywall Stripe — guideline App Store 3.1.1.
 function BusinessSubscriptionGate() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen
-        name="BusinessSubscriptionRequired"
-        component={BusinessSubscriptionScreen}
-        initialParams={{ mandatory: true }}
-      />
+      {EXTERNAL_PURCHASES_ENABLED ? (
+        <Stack.Screen
+          name="BusinessSubscriptionRequired"
+          component={BusinessSubscriptionScreen}
+          initialParams={{ mandatory: true }}
+        />
+      ) : (
+        <Stack.Screen
+          name="BusinessAccountInactive"
+          component={BusinessAccountInactiveScreen}
+        />
+      )}
     </Stack.Navigator>
   );
 }

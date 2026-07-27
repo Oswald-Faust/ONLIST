@@ -1,0 +1,87 @@
+<style>
+  body{background:#0A0A0F;color:#fff;font-family:-apple-system,system-ui,sans-serif;padding:20px;margin:0}
+  h2{font-size:14px;color:#9A8E7E;font-weight:500;margin:22px 0 8px}
+  .screen{background:#0A0A0F;border:1px dashed #3a3a44;overflow:hidden}
+  .list{padding:0 24px}
+  /* card */
+  .card{display:flex;flex-direction:row;background:#141419;border-radius:22px;border:1px solid #23232b;
+    min-height:176px;padding:10px;gap:14px;align-items:stretch;box-sizing:border-box}
+  .img{width:132px;height:154px;border-radius:18px;background:#1d1d24;flex:none}
+  .content{flex:1;min-height:154px;padding:4px 4px 4px 0;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .title{font-size:17px;font-weight:700;line-height:1.2;margin:0}
+  .meta{font-size:12px;color:#5A5248;margin:2px 0}
+  .actions{display:flex;flex-direction:row;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-start}
+
+  /* AVANT — height fixe, pas de maxWidth ni flexShrink */
+  .pending-before{display:flex;flex-direction:row;align-items:center;gap:6px;padding:0 14px;height:38px;
+    border-radius:999px;background:rgba(201,169,97,.08);border:1.5px solid rgba(201,169,97,.22);
+    align-self:flex-start;flex-shrink:0}
+  .pending-before .t{color:#D4AF77;font-size:13px;font-weight:600;white-space:nowrap}
+
+  /* APRÈS — minHeight, maxWidth 100%, flexShrink */
+  .pending-after{display:flex;flex-direction:row;align-items:center;gap:5px;padding:6px 12px;min-height:34px;
+    border-radius:999px;background:rgba(201,169,97,.08);border:1.5px solid rgba(201,169,97,.22);
+    align-self:flex-start;max-width:100%;flex-shrink:1;box-sizing:border-box}
+  .pending-after .t{color:#D4AF77;font-size:11px;font-weight:600;flex-shrink:1;line-height:1.45}
+  .ico{flex:none;color:#D4AF77;font-size:13px;line-height:1}
+</style>
+
+<h2>iPhone SE / 13 mini — 375pt · AVANT (déborde)</h2>
+<div class="screen" style="width:375px"><div class="list"><div class="card">
+  <div class="img"></div>
+  <div class="content">
+    <div class="title">Chef's Counter — Menu de Saison</div>
+    <div class="meta">Camus Resto · 3 sept. · 20:00</div>
+    <div class="actions">
+      <div class="pending-before"><span class="ico">◷</span><span class="t">En attente de confirmation</span></div>
+    </div>
+  </div>
+</div></div></div>
+
+<h2>iPhone SE / 13 mini — 375pt · APRÈS</h2>
+<div class="screen" style="width:375px"><div class="list"><div class="card">
+  <div class="img"></div>
+  <div class="content">
+    <div class="title">Chef's Counter — Menu de Saison</div>
+    <div class="meta">Camus Resto · 3 sept. · 20:00</div>
+    <div class="actions">
+      <div class="pending-after"><span class="ico">◷</span><span class="t">En attente de confirmation</span></div>
+    </div>
+  </div>
+</div></div></div>
+
+<h2>iPhone 15 — 393pt · APRÈS</h2>
+<div class="screen" style="width:393px"><div class="list"><div class="card">
+  <div class="img"></div>
+  <div class="content">
+    <div class="title">Sunday Table — Brunch Bien-être</div>
+    <div class="meta">Maison Bell — Rive Gauche · 16 août · 11:30</div>
+    <div class="actions">
+      <div class="pending-after"><span class="ico">◷</span><span class="t">En attente de confirmation</span></div>
+    </div>
+  </div>
+</div></div></div>
+
+<h2>iPhone 15 Pro Max — 430pt · APRÈS</h2>
+<div class="screen" style="width:430px"><div class="list"><div class="card">
+  <div class="img"></div>
+  <div class="content">
+    <div class="title">Sunday Table — Brunch Bien-être</div>
+    <div class="meta">Maison Bell — Rive Gauche · 16 août · 11:30</div>
+    <div class="actions">
+      <div class="pending-after"><span class="ico">◷</span><span class="t">En attente de confirmation</span></div>
+    </div>
+  </div>
+</div></div></div>
+
+<h2>Anglais « Pending confirmation » — 375pt · APRÈS</h2>
+<div class="screen" style="width:375px"><div class="list"><div class="card">
+  <div class="img"></div>
+  <div class="content">
+    <div class="title">Chef's Counter — Seasonal Menu</div>
+    <div class="meta">Camus Resto · Sept 3 · 20:00</div>
+    <div class="actions">
+      <div class="pending-after"><span class="ico">◷</span><span class="t">Pending confirmation</span></div>
+    </div>
+  </div>
+</div></div></div>

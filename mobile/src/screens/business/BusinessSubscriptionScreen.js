@@ -42,7 +42,12 @@ const PLAN_FEATURES = {
   ],
 };
 
+const TERMS_URL = 'https://onlist.club/conditions-utilisation.html';
+const PRIVACY_URL = 'https://onlist.club/politique-confidentialite.html';
+
 function PlanCard({ plan, isCurrent, onPress, disabled, priceLabel, loading }) {
+  const monthlyPriceLabel = priceLabel || `${plan.priceMonthly}€/mois`;
+
   return (
     <TouchableOpacity
       activeOpacity={0.9}
@@ -59,7 +64,12 @@ function PlanCard({ plan, isCurrent, onPress, disabled, priceLabel, loading }) {
         ) : null}
       </View>
       <Text style={s.planName}>{plan.name}</Text>
-      <Text style={s.planPrice}>{priceLabel || `${plan.priceMonthly}€/mois`}</Text>
+      <Text style={s.planPrice}>{monthlyPriceLabel}</Text>
+      <View style={s.subscriptionInfo}>
+        <Text style={s.subscriptionInfoText}>Abonnement mensuel auto-renouvelable</Text>
+        <Text style={s.subscriptionInfoText}>Durée : 1 mois</Text>
+        <Text style={s.subscriptionInfoText}>Prix : {monthlyPriceLabel}</Text>
+      </View>
       <View style={s.features}>
         {PLAN_FEATURES[plan.key].map((feature) => (
           <View key={feature} style={s.featureRow}>
@@ -227,6 +237,11 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
     Alert.alert('Contact ONLIST', 'Écris à contact@onlist.club pour finaliser ton abonnement.');
   };
 
+  const openLegalUrl = async (url) => {
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) await Linking.openURL(url);
+  };
+
   const handleLogout = () => {
     Alert.alert(
       'Se déconnecter',
@@ -301,6 +316,21 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
           <TouchableOpacity style={s.contactBtn} onPress={handleContact}>
             <Text style={s.contactBtnText}>{mandatory ? 'Besoin d’aide pour activer votre accès ?' : 'Contacter ONLIST pour l’activation'}</Text>
           </TouchableOpacity>
+
+          <View style={s.legalNotice}>
+            <Text style={s.legalNoticeText}>
+              Les abonnements ONLIST Business sont facturés mensuellement et renouvelés automatiquement jusqu’à résiliation.
+            </Text>
+            <View style={s.legalLinks}>
+              <TouchableOpacity onPress={() => openLegalUrl(TERMS_URL)} activeOpacity={0.8}>
+                <Text style={s.legalLinkText}>Conditions d’utilisation</Text>
+              </TouchableOpacity>
+              <Text style={s.legalSeparator}>•</Text>
+              <TouchableOpacity onPress={() => openLegalUrl(PRIVACY_URL)} activeOpacity={0.8}>
+                <Text style={s.legalLinkText}>Politique de confidentialité</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {mandatory ? (
             <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
@@ -377,6 +407,16 @@ const s = StyleSheet.create({
   currentBadgeText: { color: COLORS.primary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
   planName: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontFamily: FONTS.bold, marginBottom: 4 },
   planPrice: { color: COLORS.primary, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold, marginBottom: SPACING.md },
+  subscriptionInfo: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    padding: SPACING.sm,
+    gap: 4,
+    marginBottom: SPACING.md,
+  },
+  subscriptionInfoText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, lineHeight: 18 },
   features: { gap: 10 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   featureText: { color: COLORS.textPrimary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular, flex: 1 },
@@ -404,6 +444,18 @@ const s = StyleSheet.create({
   secondaryBtnText: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
   contactBtn: { alignItems: 'center', paddingVertical: SPACING.md },
   contactBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  legalNotice: {
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  legalNoticeText: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular, lineHeight: 18, textAlign: 'center' },
+  legalLinks: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  legalLinkText: { color: COLORS.primary, fontSize: FONTS.sizes.xs, fontFamily: FONTS.semiBold },
+  legalSeparator: { color: COLORS.textMuted, fontSize: FONTS.sizes.xs, fontFamily: FONTS.regular },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
