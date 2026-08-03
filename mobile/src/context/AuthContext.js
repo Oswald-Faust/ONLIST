@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI, subscriptionsAPI, usersAPI } from '../services/api';
 import { registerForPushNotificationsAsync } from '../services/pushNotifications';
+import { configurePurchases, resetPurchasesUser } from '../services/purchases';
 import { useLanguage } from './LanguageContext';
 
 const AuthContext = createContext(null);
@@ -25,6 +26,16 @@ export const AuthProvider = ({ children }) => {
     if (!user?._id || !token) return;
     syncSubscriptionStatus();
   }, [user?._id, token]);
+
+  // iOS : on rattache le SDK RevenueCat au compte courant. L'appUserID est
+  // l'ObjectId Mongo, ce qui permet au backend de retrouver l'utilisateur dans
+  // les webhooks. Sans effet sur les autres plateformes.
+  useEffect(() => {
+    if (!user?._id) return;
+    configurePurchases(user._id).catch((err) =>
+      console.log('RevenueCat configure error:', err.message)
+    );
+  }, [user?._id]);
 
   useEffect(() => {
     if (user?.preferredLanguage) setLanguage(user.preferredLanguage);
@@ -82,6 +93,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    // Dissocie l'identifiant RevenueCat : sans ça, un achat fait par le compte
+    // suivant sur le même appareil serait rattaché à l'utilisateur précédent.
+    await resetPurchasesUser();
     await AsyncStorage.multiRemove(['token', 'user']);
     setToken(null);
     setUser(null);

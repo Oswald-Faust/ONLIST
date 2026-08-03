@@ -12,7 +12,7 @@ import { CATEGORY_LABELS } from '../../constants/categories';
 import { eventsAPI, lieuxAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getBusinessPlan } from '../../constants/businessPlans';
-import { EXTERNAL_PURCHASES_ENABLED } from '../../constants/platformPolicy';
+import { EXTERNAL_PURCHASES_ENABLED, SUBSCRIPTION_UI_ENABLED } from '../../constants/platformPolicy';
 
 export default function BusinessProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
@@ -142,11 +142,10 @@ export default function BusinessProfileScreen({ navigation }) {
           <View style={s.menuCard}>
             {[
               { icon: "create-outline", label: "Modifier mon profil", onPress: () => navigation.navigate("BusinessEditProfile") },
-              // L'entrée Abonnement n'apparaît qu'en mode payant (piloté par l'admin)
-              // et jamais sur iOS (guideline App Store 3.1.1 : tarifs + Stripe Checkout).
-              EXTERNAL_PURCHASES_ENABLED && user?.billingEnabled ? { icon: "card-outline", label: "Abonnement", onPress: () => navigation.navigate("BusinessSubscription") } : null,
+              // L'entrée Abonnement n'apparaît qu'en mode payant (piloté par l'admin).
+              SUBSCRIPTION_UI_ENABLED && user?.billingEnabled ? { icon: "card-outline", label: "Abonnement", onPress: () => navigation.navigate("BusinessSubscription") } : null,
               { icon: "settings-outline", label: "Paramètres", onPress: () => navigation.navigate("BusinessSettings") },
-              // Facturation : masquée sur iOS, elle mène au Customer Portal Stripe.
+              // Facturation Stripe : masquée sur iOS, où les reçus appartiennent à Apple.
               EXTERNAL_PURCHASES_ENABLED ? { icon: "receipt-outline", label: "Facturation & factures", onPress: () => navigation.navigate("BusinessBilling") } : null,
               { icon: "business-outline", label: "Mes lieux", onPress: () => navigation.navigate("Lieux") },
               { icon: "calendar-outline", label: "Mes événements", onPress: () => navigation.navigate("Events") },

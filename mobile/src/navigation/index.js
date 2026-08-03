@@ -44,7 +44,6 @@ import BusinessEditProfileScreen from '../screens/business/BusinessEditProfileSc
 import BusinessSettingsScreen from '../screens/business/BusinessSettingsScreen';
 import BusinessSubscriptionScreen from '../screens/business/BusinessSubscriptionScreen';
 import BusinessBillingScreen from '../screens/business/BusinessBillingScreen';
-import BusinessAccountInactiveScreen from '../screens/business/BusinessAccountInactiveScreen';
 import CreateLieuScreen from '../screens/business/CreateLieuScreen';
 import BusinessLieuDetailScreen from '../screens/business/BusinessLieuDetailScreen';
 import CreateEventScreen from '../screens/business/CreateEventScreen';
@@ -74,7 +73,6 @@ function AuthStack() {
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="RegisterInfluencer" component={MemberRegisterFlow} />
-      {/* Guideline App Store 3.1.1 : l'inscription établissement est absente du binaire iOS. */}
       {BUSINESS_SIGNUP_ENABLED && (
         <>
           <Stack.Screen name="BusinessHowItWorks" component={BusinessHowItWorks} />
@@ -144,12 +142,10 @@ function BusinessStack() {
       <Stack.Screen name="BusinessNotifications" component={BusinessNotificationsScreen} />
       <Stack.Screen name="BusinessEditProfile" component={BusinessEditProfileScreen} />
       <Stack.Screen name="BusinessSettings" component={BusinessSettingsScreen} />
-      {/* Guideline App Store 3.1.1 : ni tarifs ni lien de paiement externe sur iOS. */}
+      <Stack.Screen name="BusinessSubscription" component={BusinessSubscriptionScreen} />
+      {/* Facturation Stripe : hors iOS, où l'historique d'achat appartient à Apple. */}
       {EXTERNAL_PURCHASES_ENABLED && (
-        <>
-          <Stack.Screen name="BusinessSubscription" component={BusinessSubscriptionScreen} />
-          <Stack.Screen name="BusinessBilling" component={BusinessBillingScreen} />
-        </>
+        <Stack.Screen name="BusinessBilling" component={BusinessBillingScreen} />
       )}
       <Stack.Screen name="CreateLieu" component={CreateLieuScreen} />
       <Stack.Screen name="BusinessLieuDetail" component={BusinessLieuDetailScreen} />
@@ -162,24 +158,17 @@ function BusinessStack() {
   );
 }
 
-// Compte établissement sans accès actif.
-// Sur iOS on affiche un écran d'information neutre (sans tarif ni lien de
-// paiement) au lieu du paywall Stripe — guideline App Store 3.1.1.
+// Compte établissement sans accès actif : le paywall est présenté sur toutes
+// les plateformes. Seul le moyen de paiement diffère — achat in-app sur iOS,
+// Stripe Checkout ailleurs (voir constants/platformPolicy.js).
 function BusinessSubscriptionGate() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      {EXTERNAL_PURCHASES_ENABLED ? (
-        <Stack.Screen
-          name="BusinessSubscriptionRequired"
-          component={BusinessSubscriptionScreen}
-          initialParams={{ mandatory: true }}
-        />
-      ) : (
-        <Stack.Screen
-          name="BusinessAccountInactive"
-          component={BusinessAccountInactiveScreen}
-        />
-      )}
+      <Stack.Screen
+        name="BusinessSubscriptionRequired"
+        component={BusinessSubscriptionScreen}
+        initialParams={{ mandatory: true }}
+      />
     </Stack.Navigator>
   );
 }

@@ -10,7 +10,7 @@ import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { usersAPI, eventsAPI, applicationsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getBusinessPlan } from '../../constants/businessPlans';
-import { EXTERNAL_PURCHASES_ENABLED } from '../../constants/platformPolicy';
+import { SUBSCRIPTION_UI_ENABLED } from '../../constants/platformPolicy';
 import { filterUpcomingEvents } from '../../utils/events';
 
 function InfluencerCard({ influencer, myEvents, onInvite, plan }) {
@@ -182,8 +182,8 @@ export default function InfluencerListScreen({ navigation }) {
               {plan.canDirectInvite ? ' · invitation directe active' : ' · invitation directe verrouillée'}
             </Text>
           </View>
-          {/* Pas de CTA d'upgrade sur iOS : il mène au Checkout Stripe (guideline 3.1.1). */}
-          {EXTERNAL_PURCHASES_ENABLED && user?.billingEnabled ? (
+          {/* Achat via StoreKit sur iOS, Stripe ailleurs. */}
+          {SUBSCRIPTION_UI_ENABLED && user?.billingEnabled ? (
             <TouchableOpacity style={styles.planBannerBtn} onPress={() => navigation.navigate('BusinessSubscription')}>
               <Text style={styles.planBannerBtnText}>Upgrade</Text>
             </TouchableOpacity>

@@ -12,7 +12,8 @@
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_FWVPLEtNqAtDaOPXYLNxHovTaTb",
         "EXPO_PUBLIC_RC_STARTER_PRODUCT_ID": "onlist_business_starter_monthly",
         "EXPO_PUBLIC_RC_PRO_PRODUCT_ID": "onlist_business_pro_monthly",
-        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly"
+        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly",
+        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "business_access"
       }
     },
     "preview": {
@@ -22,7 +23,8 @@
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_FWVPLEtNqAtDaOPXYLNxHovTaTb",
         "EXPO_PUBLIC_RC_STARTER_PRODUCT_ID": "onlist_business_starter_monthly",
         "EXPO_PUBLIC_RC_PRO_PRODUCT_ID": "onlist_business_pro_monthly",
-        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly"
+        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly",
+        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "business_access"
       }
     },
     "production": {
@@ -32,7 +34,8 @@
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "appl_FWVPLEtNqAtDaOPXYLNxHovTaTb",
         "EXPO_PUBLIC_RC_STARTER_PRODUCT_ID": "onlist_business_starter_monthly",
         "EXPO_PUBLIC_RC_PRO_PRODUCT_ID": "onlist_business_pro_monthly",
-        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly"
+        "EXPO_PUBLIC_RC_GROUP_PRODUCT_ID": "onlist_business_group_monthly",
+        "EXPO_PUBLIC_RC_ENTITLEMENT_ID": "business_access"
       }
     }
   },

@@ -7,8 +7,13 @@ const {
   getAppUrls,
 } = require('../utils/stripe');
 const { getOrCreateStripeCustomer } = require('../utils/stripeSubscription');
+const {
+  getRevenueCatConfig,
+  syncUserSubscriptionFromRevenueCat,
+} = require('../utils/revenueCat');
 const { BUSINESS_PLAN_KEYS } = require('../utils/businessPlans');
 const SystemSettings = require('../models/SystemSettings');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -141,6 +146,38 @@ router.get('/billing-history', protect, async (req, res) => {
     res.json({ invoices: normalized, stripeConfigured: true });
   } catch (err) {
     console.error('Stripe billing history error:', err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ─── Achats in-app iOS (RevenueCat) ───────────────────────────────────────────
+// Appelé par l'app juste après un achat ou une restauration StoreKit. Le serveur
+// réinterroge RevenueCat (source de vérité) plutôt que de faire confiance au
+// client, et met à jour le compte sans attendre le webhook.
+router.post('/revenuecat/sync', protect, async (req, res) => {
+  try {
+    const { secretApiKey } = getRevenueCatConfig();
+    if (!secretApiKey) {
+      return res.status(503).json({ message: 'RevenueCat non configuré sur le serveur.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+
+    await syncUserSubscriptionFromRevenueCat(user, {
+      appUserId: String(user._id),
+      note: 'Synchronisation demandée par l’app après achat',
+    });
+
+    res.json({
+      subscriptionPlan: user.subscriptionPlan,
+      subscriptionStatus: user.subscriptionStatus,
+      subscriptionProductId: user.subscriptionProductId || '',
+      subscriptionStore: user.subscriptionStore || '',
+      subscriptionExpiresAt: user.subscriptionExpiresAt || null,
+    });
+  } catch (err) {
+    console.error('RevenueCat sync error:', err.message);
     res.status(500).json({ message: err.message });
   }
 });

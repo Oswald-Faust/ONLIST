@@ -95,6 +95,9 @@ export const subscriptionsAPI = {
   checkout: (plan) => api.post('/subscriptions/checkout', { plan }),
   portal: () => api.post('/subscriptions/portal'),
   billingHistory: () => api.get('/subscriptions/billing-history'),
+  // iOS : après un achat StoreKit, le serveur réinterroge RevenueCat et met à
+  // jour le compte sans attendre le webhook.
+  syncRevenueCat: () => api.post('/subscriptions/revenuecat/sync'),
 };
 
 export const adminAPI = {

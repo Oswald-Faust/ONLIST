@@ -154,7 +154,8 @@ export default function WelcomeScreen({ navigation }) {
       {/* Boutons bas */}
       <SafeAreaView edges={['bottom']} style={styles.bottomSafe}>
         <View style={styles.bottom}>
-          {/* Guideline App Store 3.1.1 : pas d'inscription établissement sur iOS. */}
+          {/* Disponible sur toutes les plateformes : l'abonnement business est
+              vendu en achat in-app sur iOS et via Stripe ailleurs. */}
           {BUSINESS_SIGNUP_ENABLED && (
             <GradientButton
               variant="dark"

@@ -43,6 +43,9 @@ app.use('/api/meta', require('./routes/meta'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/lieux', require('./routes/lieux'));
+// Webhook RevenueCat (achats in-app iOS) : monté avant le routeur d'abonnements
+// dont toutes les routes exigent un token utilisateur.
+app.use('/api/subscriptions/revenuecat-webhook', require('./routes/revenueCatWebhook'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/deliverables', require('./routes/deliverables'));
 

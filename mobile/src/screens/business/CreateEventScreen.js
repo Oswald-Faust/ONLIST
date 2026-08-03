@@ -14,7 +14,7 @@ import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import { CATEGORY_OPTIONS } from '../../constants/categories';
 import { eventsAPI, lieuxAPI, uploadAPI } from '../../services/api';
 import { openBoostCheckout } from '../../services/subscriptions';
-import { EXTERNAL_PURCHASES_ENABLED } from '../../constants/platformPolicy';
+import { BOOST_PURCHASE_ENABLED } from '../../constants/platformPolicy';
 import LocationAutocompleteFields from '../../components/LocationAutocompleteFields';
 import { useAuth } from '../../context/AuthContext';
 import { getBusinessPlan } from '../../constants/businessPlans';
@@ -992,7 +992,7 @@ export default function CreateEventScreen({ route, navigation }) {
             </View>
 
             {/* Boost payant (Stripe) : retiré du binaire iOS — guideline App Store 3.1.1. */}
-            {EXTERNAL_PURCHASES_ENABLED && (
+            {BOOST_PURCHASE_ENABLED && (
               <TouchableOpacity style={s.boostPreviewCard} onPress={() => setBoostInfoVisible(true)} activeOpacity={0.9}>
                 <View style={s.boostPreviewIcon}>
                   <Ionicons name="star-outline" size={18} color={COLORS.primary} />
@@ -1209,7 +1209,7 @@ export default function CreateEventScreen({ route, navigation }) {
               </View>
             </View>
 
-            {EXTERNAL_PURCHASES_ENABLED && successModal.mode === 'create' && lastCreatedEventId ? (
+            {BOOST_PURCHASE_ENABLED && successModal.mode === 'create' && lastCreatedEventId ? (
               <View style={s.successActions}>
                 <TouchableOpacity activeOpacity={0.88} onPress={openPostCreateBoostModal} style={s.successGhostBtn}>
                   <Ionicons name="flash-outline" size={16} color={COLORS.primary} />
@@ -1246,7 +1246,7 @@ export default function CreateEventScreen({ route, navigation }) {
         </View>
       </Modal>
 
-      <Modal visible={EXTERNAL_PURCHASES_ENABLED && boostInfoVisible} transparent animationType="slide" onRequestClose={() => setBoostInfoVisible(false)}>
+      <Modal visible={BOOST_PURCHASE_ENABLED && boostInfoVisible} transparent animationType="slide" onRequestClose={() => setBoostInfoVisible(false)}>
         <View style={s.topSheetOverlay}>
           <TouchableOpacity style={s.topSheetBackdrop} activeOpacity={1} onPress={() => setBoostInfoVisible(false)} />
           <View style={[s.topSheet, { paddingBottom: insets.bottom + SPACING.xl }]}>
@@ -1286,7 +1286,7 @@ export default function CreateEventScreen({ route, navigation }) {
         </View>
       </Modal>
 
-      <Modal visible={EXTERNAL_PURCHASES_ENABLED && postCreateBoostModal.visible} transparent animationType="slide" onRequestClose={closePostCreateBoostModal}>
+      <Modal visible={BOOST_PURCHASE_ENABLED && postCreateBoostModal.visible} transparent animationType="slide" onRequestClose={closePostCreateBoostModal}>
         <View style={s.topSheetOverlay}>
           <TouchableOpacity style={s.topSheetBackdrop} activeOpacity={1} onPress={closePostCreateBoostModal} />
           <View style={[s.topSheet, { paddingBottom: insets.bottom + SPACING.xl }]}>

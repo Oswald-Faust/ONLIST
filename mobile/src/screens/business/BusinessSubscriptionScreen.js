@@ -12,6 +12,13 @@ import {
   openSubscriptionCheckout,
   openSubscriptionPortal,
 } from '../../services/subscriptions';
+import {
+  areInAppPurchasesAvailable,
+  getBusinessOfferings,
+  purchaseBusinessPlan,
+  restoreBusinessPurchases,
+} from '../../services/purchases';
+import { USE_IN_APP_PURCHASES } from '../../constants/platformPolicy';
 import { useAuth } from '../../context/AuthContext';
 import { subscriptionsAPI } from '../../services/api';
 
@@ -44,6 +51,10 @@ const PLAN_FEATURES = {
 
 const TERMS_URL = 'https://onlist.club/conditions-utilisation.html';
 const PRIVACY_URL = 'https://onlist.club/politique-confidentialite.html';
+
+// Sur iOS, la gestion et la résiliation d'un abonnement se font dans les
+// réglages du compte Apple — Apple refuse tout autre canal de gestion.
+const APPLE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
 function PlanCard({ plan, isCurrent, onPress, disabled, priceLabel, loading }) {
   const monthlyPriceLabel = priceLabel || `${plan.priceMonthly}€/mois`;
@@ -91,7 +102,7 @@ function PlanCard({ plan, isCurrent, onPress, disabled, priceLabel, loading }) {
   );
 }
 
-function SubscriptionSuccessModal({ visible, planKey, onContinue }) {
+function SubscriptionSuccessModal({ visible, planKey, priceLabel, onContinue }) {
   const plan = planKey ? BUSINESS_PLANS[planKey] : null;
   const pop = useRef(new Animated.Value(0)).current;
 
@@ -128,7 +139,7 @@ function SubscriptionSuccessModal({ visible, planKey, onContinue }) {
           <View style={s.successPlanPill}>
             <Ionicons name="star" size={14} color={COLORS.primary} />
             <Text style={s.successPlanName}>{plan.name}</Text>
-            <Text style={s.successPlanPrice}>{plan.priceMonthly}€/mois</Text>
+            <Text style={s.successPlanPrice}>{priceLabel || `${plan.priceMonthly}€/mois`}</Text>
           </View>
 
           <View style={s.successFeatures}>
@@ -159,6 +170,25 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
   const [purchasingPlan, setPurchasingPlan] = useState('');
   const [managingSubscription, setManagingSubscription] = useState(false);
   const [successPlanKey, setSuccessPlanKey] = useState(null);
+  // iOS : prix réels renvoyés par StoreKit, indexés par clé de pack.
+  const [offerings, setOfferings] = useState({});
+  const [loadingOfferings, setLoadingOfferings] = useState(USE_IN_APP_PURCHASES);
+  const [restoring, setRestoring] = useState(false);
+
+  // Apple exige que le paywall affiche le prix renvoyé par StoreKit (devise et
+  // montant locaux), jamais un tarif codé en dur dans l'app.
+  useEffect(() => {
+    if (!areInAppPurchasesAvailable()) {
+      setLoadingOfferings(false);
+      return;
+    }
+    let cancelled = false;
+    getBusinessOfferings()
+      .then((result) => { if (!cancelled) setOfferings(result); })
+      .catch(() => { if (!cancelled) setOfferings({}); })
+      .finally(() => { if (!cancelled) setLoadingOfferings(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -180,6 +210,35 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
 
     try {
       setPurchasingPlan(planKey);
+
+      // iOS : achat StoreKit. Ailleurs : Stripe Checkout dans le navigateur.
+      if (USE_IN_APP_PURCHASES) {
+        const offering = offerings[planKey];
+        if (!offering) {
+          Alert.alert(
+            'Pack indisponible',
+            "Ce pack n'est pas proposé à l'achat pour le moment. Réessayez dans quelques instants."
+          );
+          return;
+        }
+        const result = await purchaseBusinessPlan(offering);
+        if (result.cancelled) return;
+        if (result.active) {
+          setSuccessPlanKey(planKey);
+        } else {
+          // L'achat est passé mais l'entitlement n'est pas encore propagé.
+          const status = await pollUntilActive();
+          if (status) setSuccessPlanKey(planKey);
+          else {
+            Alert.alert(
+              'Achat en cours de validation',
+              'Votre achat a été enregistré. L’accès s’activera dans quelques instants.'
+            );
+          }
+        }
+        return;
+      }
+
       await openSubscriptionCheckout(planKey);
       // Au retour du navigateur, on attend la confirmation du webhook.
       const status = await pollUntilActive();
@@ -199,6 +258,34 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
     }
   };
 
+  // Obligatoire pour Apple : un utilisateur qui réinstalle l'app ou change
+  // d'appareil doit pouvoir retrouver son abonnement sans repayer.
+  const handleRestorePurchases = async () => {
+    try {
+      setRestoring(true);
+      const { active } = await restoreBusinessPurchases();
+      if (active) {
+        const status = await subscriptionsAPI.status().catch(() => null);
+        if (status) {
+          await updateUser({
+            subscriptionPlan: status.subscriptionPlan,
+            subscriptionStatus: status.subscriptionStatus,
+          });
+        }
+        Alert.alert('Achats restaurés', 'Votre abonnement a bien été retrouvé.');
+      } else {
+        Alert.alert(
+          'Aucun achat à restaurer',
+          "Aucun abonnement actif n'est associé à cet identifiant Apple."
+        );
+      }
+    } catch (error) {
+      Alert.alert('Restauration impossible', error.message);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   // Validé depuis l'écran de félicitations : on met à jour le user, ce qui
   // débloque automatiquement le dashboard établissement via la navigation.
   const handleSuccessContinue = async () => {
@@ -210,6 +297,13 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
   };
 
   const handleManageSubscription = async () => {
+    // iOS : Apple impose que la gestion et la résiliation passent par les
+    // réglages du compte Apple. Le Customer Portal Stripe y est interdit.
+    if (USE_IN_APP_PURCHASES) {
+      await openLegalUrl(APPLE_SUBSCRIPTIONS_URL);
+      return;
+    }
+
     try {
       setManagingSubscription(true);
       await openSubscriptionPortal();
@@ -288,17 +382,36 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
             </Text>
           </View>
 
-          {Object.values(BUSINESS_PLANS).map((plan) => (
-            <PlanCard
-              key={plan.key}
-              plan={plan}
-              isCurrent={plan.key === activePlanKey}
-              onPress={handleChoosePlan}
-              disabled={purchasingPlan.length > 0 || managingSubscription}
-              loading={purchasingPlan === plan.key}
-              priceLabel={`${plan.priceMonthly}€/mois`}
-            />
-          ))}
+          {loadingOfferings ? (
+            <View style={s.offeringsLoader}>
+              <ActivityIndicator color={COLORS.primaryLight} />
+              <Text style={s.offeringsLoaderText}>Chargement des tarifs…</Text>
+            </View>
+          ) : (
+            Object.values(BUSINESS_PLANS).map((plan) => {
+              // Sur iOS le prix vient de StoreKit (devise et montant locaux) ;
+              // ailleurs, du tarif Stripe défini dans l'app.
+              const offering = offerings[plan.key];
+              const priceLabel = USE_IN_APP_PURCHASES
+                ? (offering ? `${offering.priceString}/mois` : 'Indisponible')
+                : `${plan.priceMonthly}€/mois`;
+              return (
+                <PlanCard
+                  key={plan.key}
+                  plan={plan}
+                  isCurrent={plan.key === activePlanKey}
+                  onPress={handleChoosePlan}
+                  disabled={
+                    purchasingPlan.length > 0 ||
+                    managingSubscription ||
+                    (USE_IN_APP_PURCHASES && !offering)
+                  }
+                  loading={purchasingPlan === plan.key}
+                  priceLabel={priceLabel}
+                />
+              );
+            })
+          )}
 
           {hasActiveSubscription ? (
             <TouchableOpacity style={s.secondaryBtn} onPress={handleManageSubscription} disabled={managingSubscription}>
@@ -313,13 +426,36 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
             </TouchableOpacity>
           ) : null}
 
+          {/* Restauration des achats : exigée par Apple sur tout paywall IAP. */}
+          {USE_IN_APP_PURCHASES ? (
+            <TouchableOpacity
+              style={s.restoreBtn}
+              onPress={handleRestorePurchases}
+              disabled={restoring}
+              activeOpacity={0.85}
+            >
+              {restoring ? (
+                <ActivityIndicator size="small" color={COLORS.white} />
+              ) : (
+                <>
+                  <Ionicons name="refresh-outline" size={17} color={COLORS.white} />
+                  <Text style={s.restoreBtnText}>Restaurer mes achats</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : null}
+
           <TouchableOpacity style={s.contactBtn} onPress={handleContact}>
             <Text style={s.contactBtnText}>{mandatory ? 'Besoin d’aide pour activer votre accès ?' : 'Contacter ONLIST pour l’activation'}</Text>
           </TouchableOpacity>
 
           <View style={s.legalNotice}>
+            {/* Mentions imposées par la guideline 3.1.2 pour un abonnement
+                auto-renouvelable : durée, reconduction, modalités d'annulation. */}
             <Text style={s.legalNoticeText}>
-              Les abonnements ONLIST Business sont facturés mensuellement et renouvelés automatiquement jusqu’à résiliation.
+              {USE_IN_APP_PURCHASES
+                ? 'Abonnement mensuel reconduit automatiquement. Le paiement est débité sur votre compte Apple à la confirmation de l’achat. Le renouvellement est facturé dans les 24 heures précédant la fin de la période en cours, sauf désactivation au moins 24 heures avant. Vous pouvez gérer ou résilier votre abonnement à tout moment dans les réglages de votre compte Apple.'
+                : 'Les abonnements ONLIST Business sont facturés mensuellement et renouvelés automatiquement jusqu’à résiliation.'}
             </Text>
             <View style={s.legalLinks}>
               <TouchableOpacity onPress={() => openLegalUrl(TERMS_URL)} activeOpacity={0.8}>
@@ -346,6 +482,11 @@ export default function BusinessSubscriptionScreen({ navigation, route }) {
       <SubscriptionSuccessModal
         visible={Boolean(successPlanKey)}
         planKey={successPlanKey}
+        priceLabel={
+          USE_IN_APP_PURCHASES && successPlanKey && offerings[successPlanKey]
+            ? `${offerings[successPlanKey].priceString}/mois`
+            : null
+        }
         onContinue={handleSuccessContinue}
       />
     </View>
@@ -442,6 +583,26 @@ const s = StyleSheet.create({
     marginTop: SPACING.sm,
   },
   secondaryBtnText: { color: COLORS.white, fontSize: FONTS.sizes.base, fontFamily: FONTS.semiBold },
+  restoreBtn: {
+    height: 50,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 9,
+    marginTop: SPACING.sm,
+  },
+  restoreBtnText: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
+  offeringsLoader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.xxl,
+  },
+  offeringsLoaderText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.regular },
   contactBtn: { alignItems: 'center', paddingVertical: SPACING.md },
   contactBtnText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontFamily: FONTS.semiBold },
   legalNotice: {
